@@ -1,0 +1,11 @@
+package org.vinod.sha.auth.outbox;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface OutboxEventRepository extends JpaRepository<OutboxEvent, Long> {
+    List<OutboxEvent> findTop100ByStatusOrderByCreatedAtAsc(OutboxStatus status);
+    List<OutboxEvent> findTop100ByStatusInOrderByCreatedAtAsc(List<OutboxStatus> statuses);
+}
+

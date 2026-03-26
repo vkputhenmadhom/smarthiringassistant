@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package org.vinod.smarthiringassistant.grpc;
+
+option java_multiple_files = true;
+option java_package = "org.vinod.smarthiringassistant.grpc.matcher";
+option java_outer_classname = "CandidateMatcherProto";
+
+/**
+ * Candidate Matcher gRPC Service Definitions
+ */
+message MatchCandidateRequest {
+    string candidate_id = 1;
+    string job_id = 2;
+    repeated string candidate_skills = 3;
+    repeated string job_requirements = 4;
+    float experience_years = 5;
+}
+
+message MatchCandidateResponse {
+    string candidate_id = 1;
+    string job_id = 2;
+    float match_score = 3;
+    string match_status = 4;
+    string message = 5;
+    MatchDetails match_details = 6;
+}
+
+message MatchDetails {
+    repeated SkillMatch skill_matches = 1;
+    float experience_match = 2;
+    repeated string missing_skills = 3;
+    repeated string matching_keywords = 4;
+    string recommendation = 5;
+}
+
+message SkillMatch {
+    string skill = 1;
+    bool matched = 2;
+    float match_score = 3;
+}
+
+service CandidateMatcherService {
+    rpc MatchCandidate(MatchCandidateRequest) returns (MatchCandidateResponse);
+    rpc RankCandidates(RankCandidatesRequest) returns (RankCandidatesResponse);
+}
+
+message RankCandidatesRequest {
+    string job_id = 1;
+    repeated CandidateProfile candidates = 2;
+}
+
+message CandidateProfile {
+    string candidate_id = 1;
+    repeated string skills = 2;
+    float experience_years = 3;
+}
+
+message RankCandidatesResponse {
+    string job_id = 1;
+    repeated RankedCandidate ranked_candidates = 2;
+}
+
+message RankedCandidate {
+    string candidate_id = 1;
+    int32 rank = 2;
+    float score = 3;
+}
+

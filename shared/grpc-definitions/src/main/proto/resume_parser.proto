@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package org.vinod.smarthiringassistant.grpc;
+
+option java_multiple_files = true;
+option java_package = "org.vinod.smarthiringassistant.grpc.resume";
+option java_outer_classname = "ResumeParserProto";
+
+/**
+ * Resume Parser gRPC Service Definitions
+ */
+message ParseResumeRequest {
+    string resume_id = 1;
+    string file_name = 2;
+    bytes file_content = 3;
+    string file_type = 4;
+}
+
+message ParseResumeResponse {
+    string resume_id = 1;
+    bool success = 2;
+    string message = 3;
+    ParsedResume parsed_resume = 4;
+}
+
+message ParsedResume {
+    string full_name = 1;
+    string email = 2;
+    string phone = 3;
+    string location = 4;
+    string summary = 5;
+    repeated Experience experiences = 6;
+    repeated Education educations = 7;
+    repeated string skills = 8;
+    repeated string certifications = 9;
+    repeated string projects = 10;
+}
+
+message Experience {
+    string company = 1;
+    string job_title = 2;
+    string start_date = 3;
+    string end_date = 4;
+    string description = 5;
+    repeated string responsibilities = 6;
+}
+
+message Education {
+    string institution = 1;
+    string degree = 2;
+    string field = 3;
+    string graduation_date = 4;
+    float gpa = 5;
+}
+
+service ResumeParserService {
+    rpc ParseResume(ParseResumeRequest) returns (ParseResumeResponse);
+    rpc ValidateResume(ParseResumeRequest) returns (ParseResumeResponse);
+}
+

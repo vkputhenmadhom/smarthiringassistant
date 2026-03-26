@@ -1,0 +1,18 @@
+rootProject.name = 'SmartHiringAssistant'
+
+// Shared modules
+include 'shared:shared-commons'
+include 'shared:grpc-definitions'
+include 'shared:shared-events'
+
+// Microservices
+include 'services:api-gateway'
+include 'services:auth-service'
+include 'services:resume-parser-service'
+include 'services:candidate-matcher-service'
+include 'services:interview-prep-service'
+include 'services:job-analyzer-service'
+include 'services:screening-bot-service'
+include 'services:ai-integration-service'
+include 'services:notification-service'
+

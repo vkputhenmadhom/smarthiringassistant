@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/smart_hiring_db
+    username: hiring_user
+    password: hiring_password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8001
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: hiring_user
+    password: hiring_password
+    virtual-host: /
+
+server:
+  port: 8001
+  servlet:
+    context-path: /api/auth
+
+jwt:
+  secret: VpytNml18b0NoLrGL+S4kPnyhNNj4CMHpEUas44IZ6Jgsr91FVA8qPwznevpKVJ+
+  expiration: 3600000 # 1 hour in milliseconds
+  refresh-expiration: 604800000 # 7 days in milliseconds
+
+events:
+  outbox:
+    enabled: true
+    relay-interval-ms: 3000
+  replay:
+    enabled: true
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

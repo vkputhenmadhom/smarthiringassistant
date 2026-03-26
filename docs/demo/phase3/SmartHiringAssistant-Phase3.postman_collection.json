@@ -1,0 +1,103 @@
+{
+  "info": {
+    "name": "Smart Hiring Assistant - Phase 3",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Demo collection for Job Analyzer and Screening Bot services."
+  },
+  "item": [
+    {
+      "name": "Job Analyzer - Analyze JD",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{jobBase}}/analyze",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jobId\": \"job-101\",\n  \"jobTitle\": \"Senior Java Engineer\",\n  \"companyName\": \"Acme Corp\",\n  \"location\": \"New York\",\n  \"employmentType\": \"FULL_TIME\",\n  \"jobDescription\": \"Need 5+ years Java, Spring Boot, Docker, AWS, PostgreSQL, Microservices\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Job Analyzer - Extract Skills",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{jobBase}}/extract-skills",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Looking for Java, Spring Boot, Kubernetes, AWS and GraphQL\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Job Analyzer - Estimate Salary",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{jobBase}}/estimate-salary",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jobTitle\": \"Senior Java Engineer\",\n  \"location\": \"New York\",\n  \"experienceYears\": 6,\n  \"requiredSkills\": [\"Java\",\"Spring Boot\",\"Docker\",\"AWS\"]\n}"
+        }
+      }
+    },
+    {
+      "name": "Screening - Create Session",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{screenBase}}/sessions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"candidateId\": 99,\n  \"jobId\": \"job-101\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Screening - Submit Response",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{screenBase}}/sessions/{{sessionId}}/responses",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"stage\": \"initial\",\n  \"response\": \"Example: I improved reliability by 30% and reduced latency significantly.\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Screening - Advance",
+      "request": {
+        "method": "POST",
+        "url": "{{screenBase}}/sessions/{{sessionId}}/advance"
+      }
+    },
+    {
+      "name": "Screening - Decision",
+      "request": {
+        "method": "GET",
+        "url": "{{screenBase}}/sessions/{{sessionId}}/decision"
+      }
+    },
+    {
+      "name": "Metrics - Job Analyzer Prometheus",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:8005/actuator/prometheus"
+      }
+    },
+    {
+      "name": "Metrics - Screening Bot Prometheus",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:8006/actuator/prometheus"
+      }
+    }
+  ],
+  "variable": [
+    { "key": "jobBase", "value": "http://localhost:8005/api/jobs" },
+    { "key": "screenBase", "value": "http://localhost:8006/api/screening" },
+    { "key": "sessionId", "value": "replace-after-create" }
+  ]
+}
+

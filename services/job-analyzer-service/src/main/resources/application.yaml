@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: job-analyzer-service
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: hiring_user
+    password: hiring_password
+    virtual-host: /
+  mongodb:
+    uri: mongodb://hiring_user:hiring_password@localhost:27017/smart_hiring_db?authSource=admin
+
+server:
+  port: 8005
+  servlet:
+    context-path: /api/jobs
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY:sk-your-key-here}
+  model: gpt-4-turbo-preview
+
+job:
+  analyzer:
+    extract-salary: true
+    extract-skills: true
+    predict-market-salary: true
+
+logging:
+  level:
+    root: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      service: job-analyzer-service
+

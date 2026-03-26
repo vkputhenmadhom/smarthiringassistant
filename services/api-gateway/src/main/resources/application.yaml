@@ -1,0 +1,81 @@
+spring:
+  application:
+    name: smart-hiring-assistant
+  cloud:
+    gateway:
+      routes:
+        # Auth Service
+        - id: auth-service
+          uri: http://localhost:8001
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - RewritePath=/api/auth(?<segment>/?.*), $\{segment}
+        
+        # Resume Parser Service
+        - id: resume-parser-service
+          uri: http://localhost:8002
+          predicates:
+            - Path=/api/resumes/**
+          filters:
+            - RewritePath=/api/resumes(?<segment>/?.*), $\{segment}
+        
+        # Candidate Matcher Service
+        - id: candidate-matcher-service
+          uri: http://localhost:8003
+          predicates:
+            - Path=/api/matches/**
+          filters:
+            - RewritePath=/api/matches(?<segment>/?.*), $\{segment}
+        
+        # Interview Prep Service
+        - id: interview-prep-service
+          uri: http://localhost:8004
+          predicates:
+            - Path=/api/interviews/**
+          filters:
+            - RewritePath=/api/interviews(?<segment>/?.*), $\{segment}
+        
+        # Job Analyzer Service
+        - id: job-analyzer-service
+          uri: http://localhost:8005
+          predicates:
+            - Path=/api/jobs/**
+          filters:
+            - RewritePath=/api/jobs(?<segment>/?.*), $\{segment}
+        
+        # Screening Bot Service
+        - id: screening-bot-service
+          uri: http://localhost:8006
+          predicates:
+            - Path=/api/screening/**
+          filters:
+            - RewritePath=/api/screening(?<segment>/?.*), $\{segment}
+        
+        # Notification Service
+        - id: notification-service
+          uri: http://localhost:8007
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - RewritePath=/api/notifications(?<segment>/?.*), $\{segment}
+      
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+        - AddResponseHeader=X-Response-Source, API-Gateway
+  jackson:
+    default-property-inclusion: non_null
+    #serialization:
+      #WRITE_DATES_AS_TIMESTAMPS: false
+
+server:
+  port: 8000
+  servlet:
+    context-path: /
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

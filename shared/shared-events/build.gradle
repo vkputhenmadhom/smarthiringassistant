@@ -1,0 +1,36 @@
+buildscript {
+    ext{
+        lombokVersion = '1.18.44'
+    }
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.springframework.boot:spring-boot-gradle-plugin:4.0.5'
+    }
+}
+
+plugins {
+    id 'java'
+    id 'io.spring.dependency-management'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':shared:shared-commons')
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation "org.projectlombok:lombok:${lombokVersion}"
+    
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

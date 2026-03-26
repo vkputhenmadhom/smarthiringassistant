@@ -1,0 +1,48 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+dependencies {
+    implementation project(':shared:shared-commons')
+    implementation project(':shared:shared-events')
+    
+    // Spring Boot Starters
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    
+    // Database
+    runtimeOnly 'org.postgresql:postgresql'
+    
+    // JWT
+    implementation 'com.auth0:java-jwt:4.4.0'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+    
+    // Messaging
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
+    // Event outbox serialization
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    
+    // Observability
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    
+    // Utilities
+    implementation 'org.projectlombok:lombok'
+    
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    
+    annotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+

@@ -1,0 +1,36 @@
+plugins {
+    id 'java'
+    id 'com.google.protobuf'
+    id 'io.spring.dependency-management'
+}
+
+dependencies {
+    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
+    implementation "io.grpc:grpc-stub:${grpcVersion}"
+    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+    implementation "javax.annotation:javax.annotation-api:${javaxAnnotationVersion}"
+    
+    testImplementation "org.springframework.boot:spring-boot-starter-test:${springBootVersion}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+

@@ -1,0 +1,42 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+dependencies {
+    implementation project(':shared:shared-commons')
+    implementation project(':shared:shared-events')
+    
+    // Spring Boot Starters
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    
+    // Database
+    runtimeOnly 'org.postgresql:postgresql'
+    
+    // Messaging
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+    
+    // Email
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    
+    // SMS (Twilio)
+    implementation 'com.twilio.sdk:twilio:9.0.0'
+    
+    // Templating
+    implementation 'org.springframework.boot:spring-boot-starter-freemarker'
+    
+    // Utilities
+    implementation 'org.projectlombok:lombok'
+    
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    
+    annotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+

@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: ai-integration-service
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: hiring_password
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: hiring_user
+    password: hiring_password
+    virtual-host: /
+
+server:
+  port: 8008
+  servlet:
+    context-path: /api/ai
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY:sk-your-key-here}
+  
+ai:
+  provider: openai
+  cache:
+    enabled: true
+    ttl-minutes: 60
+  rate-limit:
+    enabled: true
+    requests-per-minute: 60
+
+logging:
+  level:
+    root: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+

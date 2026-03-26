@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: candidate-matcher-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/smart_hiring_db
+    username: hiring_user
+    password: hiring_password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000 # 1 hour
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: hiring_user
+    password: hiring_password
+    virtual-host: /
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: hiring_password
+      timeout: 2000ms
+
+server:
+  port: 8003
+  servlet:
+    context-path: /api/matches
+
+grpc:
+  server:
+    port: 9003
+
+matching:
+  algorithm:
+    skill-weight: 0.5
+    experience-weight: 0.3
+    education-weight: 0.2
+
+events:
+  outbox:
+    enabled: true
+    relay-interval-ms: 3000
+  inbox:
+    enabled: true
+  replay:
+    enabled: true
+
+logging:
+  level:
+    root: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+

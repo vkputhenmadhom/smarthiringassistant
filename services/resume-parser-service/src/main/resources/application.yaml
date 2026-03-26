@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: resume-parser-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/smart_hiring_db
+    username: hiring_user
+    password: hiring_password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: hiring_user
+    password: hiring_password
+    virtual-host: /
+
+server:
+  port: 8002
+  servlet:
+    context-path: /api/resumes
+
+grpc:
+  server:
+    port: 9091
+
+file:
+  upload:
+    path: /tmp/resumes
+    max-size: 10485760 # 10MB
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY:sk-your-key-here}
+
+events:
+  outbox:
+    enabled: true
+    relay-interval-ms: 3000
+  replay:
+    enabled: true
+
+logging:
+  level:
+    root: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+

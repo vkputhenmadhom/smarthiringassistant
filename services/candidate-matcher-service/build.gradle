@@ -1,0 +1,51 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+dependencies {
+    implementation project(':shared:shared-commons')
+    implementation project(':shared:shared-events')
+    implementation project(':shared:grpc-definitions')
+    
+    // Spring Boot Starters
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    
+    // Database
+    runtimeOnly 'org.postgresql:postgresql'
+    
+    // gRPC
+    implementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
+    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
+    implementation "io.grpc:grpc-stub:${grpcVersion}"
+    
+    // Messaging
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
+    // Event outbox serialization
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    
+    // Redis
+    implementation 'redis.clients:jedis'
+    
+    // Machine Learning / Matching Algorithms
+    implementation 'org.apache.commons:commons-text:1.10.0'
+    implementation 'info.debatty:java-string-similarity:2.0.0'
+    
+    // Utilities
+    implementation 'org.projectlombok:lombok'
+    
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    
+    annotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
