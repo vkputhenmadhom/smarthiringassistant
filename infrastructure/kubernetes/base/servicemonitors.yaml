@@ -1,0 +1,114 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api-gateway
+  namespace: smart-hiring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - smart-hiring
+  selector:
+    matchLabels:
+      app: api-gateway
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: resume-parser-service
+  namespace: smart-hiring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - smart-hiring
+  selector:
+    matchLabels:
+      app: resume-parser-service
+  endpoints:
+    - port: http
+      path: /api/resumes/actuator/prometheus
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: screening-bot-service
+  namespace: smart-hiring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - smart-hiring
+  selector:
+    matchLabels:
+      app: screening-bot-service
+  endpoints:
+    - port: http
+      path: /api/screening/actuator/prometheus
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: candidate-matcher-service
+  namespace: smart-hiring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - smart-hiring
+  selector:
+    matchLabels:
+      app: candidate-matcher-service
+  endpoints:
+    - port: http
+      path: /api/matches/actuator/prometheus
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: interview-prep-service
+  namespace: smart-hiring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - smart-hiring
+  selector:
+    matchLabels:
+      app: interview-prep-service
+  endpoints:
+    - port: http
+      path: /api/interviews/actuator/prometheus
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: notification-service
+  namespace: smart-hiring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - smart-hiring
+  selector:
+    matchLabels:
+      app: notification-service
+  endpoints:
+    - port: http
+      path: /api/notifications/actuator/prometheus
+      interval: 30s
+

@@ -11,6 +11,7 @@ dependencies {
     // Spring Boot Starters
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     
     // Messaging
     implementation 'org.springframework.boot:spring-boot-starter-amqp'

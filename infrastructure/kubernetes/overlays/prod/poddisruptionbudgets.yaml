@@ -1,0 +1,66 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: smart-hiring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: resume-parser-service-pdb
+  namespace: smart-hiring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: resume-parser-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: screening-bot-service-pdb
+  namespace: smart-hiring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: screening-bot-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: candidate-matcher-service-pdb
+  namespace: smart-hiring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: candidate-matcher-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: interview-prep-service-pdb
+  namespace: smart-hiring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: interview-prep-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: notification-service-pdb
+  namespace: smart-hiring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: notification-service
+

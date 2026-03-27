@@ -331,6 +331,7 @@ Backend CI/CD is configured in `.github/workflows/backend-services.yml` with:
 This is the single authoritative backend workflow.
 
 See `docs/deployment/aws-cicd.md` for setup details, required secrets, and AWS deployment prerequisites.
+For initial container orchestration with health checks and scaling, see `docs/deployment/docker-compose-scaling.md`.
 
 ## 🚢 Deployment
 
@@ -345,12 +346,14 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ### Kubernetes Deployment
 ```bash
-# Apply manifests
-kubectl apply -f infrastructure/kubernetes/
+# Apply staging overlay (or use overlays/prod)
+kubectl apply -k infrastructure/kubernetes/overlays/staging
 
 # Check status
-kubectl get pods -n hiring
+kubectl -n smart-hiring get deploy,svc,hpa,pdb,ingress,networkpolicy
 ```
+
+See `docs/deployment/kubernetes-autoscaling.md` for probe paths, per-service config maps, External Secrets setup, AWS ALB ingress, and scaling details.
 
 ### Environment Variables
 

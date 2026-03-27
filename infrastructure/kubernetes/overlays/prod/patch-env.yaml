@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: smart-hiring
+spec:
+  template:
+    spec:
+      containers:
+        - name: api-gateway
+          envFrom:
+            - configMapRef:
+                name: api-gateway-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resume-parser-service
+  namespace: smart-hiring
+spec:
+  template:
+    spec:
+      containers:
+        - name: resume-parser-service
+          envFrom:
+            - configMapRef:
+                name: resume-parser-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: screening-bot-service
+  namespace: smart-hiring
+spec:
+  template:
+    spec:
+      containers:
+        - name: screening-bot-service
+          envFrom:
+            - configMapRef:
+                name: screening-bot-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: candidate-matcher-service
+  namespace: smart-hiring
+spec:
+  template:
+    spec:
+      containers:
+        - name: candidate-matcher-service
+          envFrom:
+            - configMapRef:
+                name: candidate-matcher-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: interview-prep-service
+  namespace: smart-hiring
+spec:
+  template:
+    spec:
+      containers:
+        - name: interview-prep-service
+          envFrom:
+            - configMapRef:
+                name: interview-prep-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: smart-hiring
+spec:
+  template:
+    spec:
+      containers:
+        - name: notification-service
+          envFrom:
+            - configMapRef:
+                name: notification-config
+

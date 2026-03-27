@@ -1,0 +1,68 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: smart-hiring
+resources:
+  - ../../base
+  - external-secrets.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: api-gateway-config
+    literals:
+      - SPRING_PROFILES_ACTIVE=staging
+      - APP_ENV=staging
+      - APP_CORS_ALLOWED_ORIGINS=https://staging-hr.smarthiringassistant.com,https://staging-candidate.smarthiringassistant.com
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_URI=http://auth-service:8001
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_URI=http://resume-parser-service:8002
+      - SPRING_CLOUD_GATEWAY_ROUTES_2_URI=http://candidate-matcher-service:8003
+      - SPRING_CLOUD_GATEWAY_ROUTES_3_URI=http://interview-prep-service:8004
+      - SPRING_CLOUD_GATEWAY_ROUTES_4_URI=http://job-analyzer-service:8005
+      - SPRING_CLOUD_GATEWAY_ROUTES_5_URI=http://screening-bot-service:8006
+      - SPRING_CLOUD_GATEWAY_ROUTES_6_URI=http://notification-service:8007
+  - name: resume-parser-config
+    literals:
+      - SPRING_PROFILES_ACTIVE=staging
+      - APP_ENV=staging
+  - name: screening-bot-config
+    literals:
+      - SPRING_PROFILES_ACTIVE=staging
+      - APP_ENV=staging
+      - SCREENING_BOT_TIMEOUT_SECONDS=300
+  - name: candidate-matcher-config
+    literals:
+      - SPRING_PROFILES_ACTIVE=staging
+      - APP_ENV=staging
+      - MATCHING_ALGORITHM_SKILL_WEIGHT=0.5
+      - MATCHING_ALGORITHM_EXPERIENCE_WEIGHT=0.3
+      - MATCHING_ALGORITHM_EDUCATION_WEIGHT=0.2
+  - name: interview-prep-config
+    literals:
+      - SPRING_PROFILES_ACTIVE=staging
+      - APP_ENV=staging
+      - OPENAI_MODEL=gpt-4-turbo-preview
+  - name: notification-config
+    literals:
+      - SPRING_PROFILES_ACTIVE=staging
+      - APP_ENV=staging
+      - MAIL_HOST=smtp.gmail.com
+      - MAIL_PORT=587
+
+images:
+  - name: ghcr.io/your-org/smart-hiring/api-gateway
+    newTag: staging-__GIT_SHA__
+  - name: ghcr.io/your-org/smart-hiring/resume-parser-service
+    newTag: staging-__GIT_SHA__
+  - name: ghcr.io/your-org/smart-hiring/screening-bot-service
+    newTag: staging-__GIT_SHA__
+  - name: ghcr.io/your-org/smart-hiring/candidate-matcher-service
+    newTag: staging-__GIT_SHA__
+  - name: ghcr.io/your-org/smart-hiring/interview-prep-service
+    newTag: staging-__GIT_SHA__
+  - name: ghcr.io/your-org/smart-hiring/notification-service
+    newTag: staging-__GIT_SHA__
+
+patchesStrategicMerge:
+  - patch-env.yaml
+

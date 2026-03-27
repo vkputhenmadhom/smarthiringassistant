@@ -5,6 +5,14 @@ name: backend-services
 on:
   workflow_dispatch:
     inputs:
+      deploy_mode:
+        description: 'Deployment mode'
+        required: true
+        default: kubernetes
+        type: choice
+        options:
+          - kubernetes
+          - codedeploy
       deploy_service:
         description: 'Service to deploy using CodeDeploy'
         required: true
@@ -20,12 +28,13 @@ on:
           - ai-integration-service
           - notification-service
       deploy_environment:
-        description: 'Deployment environment'
+        description: 'Deployment environment (kubernetes: staging|prod, codedeploy: staging|production)'
         required: true
         default: staging
         type: choice
         options:
           - staging
+          - prod
           - production
   pull_request:
     paths:
@@ -53,6 +62,39 @@ permissions:
   contents: read
 
 jobs:
+  validate-dispatch-inputs:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate deploy mode and environment combination
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODE="${{ github.event.inputs.deploy_mode }}"
+          ENVIRONMENT="${{ github.event.inputs.deploy_environment }}"
+
+          case "${MODE}" in
+            kubernetes)
+              if [[ "${ENVIRONMENT}" != "staging" && "${ENVIRONMENT}" != "prod" && "${ENVIRONMENT}" != "production" ]]; then
+                echo "Invalid deploy_environment '${ENVIRONMENT}' for deploy_mode '${MODE}'. Use staging, prod, or production." >&2
+                exit 1
+              fi
+              ;;
+            codedeploy)
+              if [[ "${ENVIRONMENT}" != "staging" && "${ENVIRONMENT}" != "production" ]]; then
+                echo "Invalid deploy_environment '${ENVIRONMENT}' for deploy_mode '${MODE}'. Use staging or production." >&2
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Unsupported deploy_mode '${MODE}'." >&2
+              exit 1
+              ;;
+          esac
+
+          echo "workflow_dispatch inputs validated: mode=${MODE}, environment=${ENVIRONMENT}"
+
   detect-changed-services:
     runs-on: ubuntu-latest
     outputs:
@@ -213,8 +255,10 @@ jobs:
         run: echo "SONAR_TOKEN or SONAR_HOST_URL is missing. SonarQube checks were skipped."
 
   deploy-service-codedeploy:
-    if: github.event_name == 'workflow_dispatch' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN != '' && secrets.CODEDEPLOY_ARTIFACT_BUCKET != ''
-    needs: detect-changed-services
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'codedeploy' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN != '' && secrets.CODEDEPLOY_ARTIFACT_BUCKET != ''
+    needs:
+      - validate-dispatch-inputs
+      - detect-changed-services
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.deploy_environment }}
     permissions:
@@ -284,9 +328,69 @@ jobs:
             --description "Deploy ${{ matrix.service }} from commit ${{ github.sha }}"
 
   deploy-skipped-notice:
-    if: github.event_name == 'workflow_dispatch' && (secrets.AWS_GITHUB_ACTIONS_ROLE_ARN == '' || secrets.CODEDEPLOY_ARTIFACT_BUCKET == '')
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'codedeploy' && (secrets.AWS_GITHUB_ACTIONS_ROLE_ARN == '' || secrets.CODEDEPLOY_ARTIFACT_BUCKET == '')
     runs-on: ubuntu-latest
     steps:
       - name: Missing deployment secrets
         run: echo "Skipping deploy. Configure AWS_GITHUB_ACTIONS_ROLE_ARN and CODEDEPLOY_ARTIFACT_BUCKET secrets to enable CodeDeploy."
+
+  deploy-kubernetes-eks:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'kubernetes' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN != ''
+    needs:
+      - validate-dispatch-inputs
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.deploy_environment == 'production' && 'prod' || github.event.inputs.deploy_environment }}
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure kubectl context for EKS
+        run: |
+          if [[ -z "${EKS_CLUSTER_NAME}" ]]; then
+            echo "EKS_CLUSTER_NAME repository variable is required for kubernetes deploy mode." >&2
+            exit 1
+          fi
+          aws eks update-kubeconfig --name "${EKS_CLUSTER_NAME}" --region "${AWS_REGION}"
+
+      - name: Resolve overlay target
+        id: overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ github.event.inputs.deploy_environment }}" in
+            staging) OVERLAY=staging ;;
+            prod|production) OVERLAY=prod ;;
+            *) echo "Unsupported deploy_environment: ${{ github.event.inputs.deploy_environment }}" >&2; exit 1 ;;
+          esac
+          echo "overlay=${OVERLAY}" >> "$GITHUB_OUTPUT"
+
+      - name: Replace immutable tag token in overlay
+        run: |
+          OVERLAY_PATH="infrastructure/kubernetes/overlays/${{ steps.overlay.outputs.overlay }}/kustomization.yaml"
+          sed -i.bak "s/__GIT_SHA__/${GITHUB_SHA}/g" "${OVERLAY_PATH}"
+          rm -f "${OVERLAY_PATH}.bak"
+
+      - name: Apply Kubernetes overlay
+        run: |
+          kubectl apply -k infrastructure/kubernetes/overlays/${{ steps.overlay.outputs.overlay }}
+          kubectl -n smart-hiring rollout status deploy/api-gateway --timeout=180s
+
+  deploy-kubernetes-skipped-notice:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'kubernetes' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN == ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Missing Kubernetes deployment secret
+        run: echo "Skipping kubernetes deploy. Configure AWS_GITHUB_ACTIONS_ROLE_ARN and EKS_CLUSTER_NAME to enable EKS apply."
 

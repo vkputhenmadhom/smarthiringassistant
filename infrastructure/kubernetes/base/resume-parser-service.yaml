@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resume-parser-service
+  namespace: smart-hiring
+  labels:
+    app: resume-parser-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: resume-parser-service
+  template:
+    metadata:
+      labels:
+        app: resume-parser-service
+    spec:
+      containers:
+        - name: resume-parser-service
+          image: ghcr.io/your-org/smart-hiring/resume-parser-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8002
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/smart_hiring_db
+            - name: SPRING_DATASOURCE_USERNAME
+              value: hiring_user
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: postgres-password
+            - name: SPRING_RABBITMQ_HOST
+              value: rabbitmq
+            - name: SPRING_RABBITMQ_PORT
+              value: "5672"
+            - name: SPRING_RABBITMQ_USERNAME
+              value: hiring_user
+            - name: SPRING_RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: rabbitmq-password
+          readinessProbe:
+            httpGet:
+              path: /api/resumes/actuator/health/readiness
+              port: 8002
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/resumes/actuator/health/liveness
+              port: 8002
+            initialDelaySeconds: 75
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: resume-parser-service
+  namespace: smart-hiring
+spec:
+  selector:
+    app: resume-parser-service
+  ports:
+    - name: http
+      port: 8002
+      targetPort: 8002
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: resume-parser-service-hpa
+  namespace: smart-hiring
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: resume-parser-service
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
