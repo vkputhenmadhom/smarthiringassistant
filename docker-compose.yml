@@ -204,6 +204,32 @@ services:
     networks:
       - smart-hiring-network
 
+  # ── Angular HR Admin Dashboard ────────────────────────────────────────────
+  hr-admin-dashboard:
+    build:
+      context: ./frontend/hr-admin-dashboard
+      dockerfile: Dockerfile
+    container_name: smart-hiring-hr-dashboard
+    ports:
+      - "4200:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - smart-hiring-network
+
+  # ── React Candidate Portal ─────────────────────────────────────────────────
+  candidate-portal:
+    build:
+      context: ./frontend/candidate-portal
+      dockerfile: Dockerfile
+    container_name: smart-hiring-candidate-portal
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - smart-hiring-network
+
 volumes:
   postgres_data:
   mongodb_data:

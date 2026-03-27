@@ -1,0 +1,55 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "packages": {
+    "contracts": {
+      "component": "contracts",
+      "release-type": "simple"
+    },
+    "services/api-gateway": {
+      "component": "api-gateway",
+      "release-type": "simple"
+    },
+    "services/auth-service": {
+      "component": "auth-service",
+      "release-type": "simple"
+    },
+    "services/resume-parser-service": {
+      "component": "resume-parser-service",
+      "release-type": "simple"
+    },
+    "services/candidate-matcher-service": {
+      "component": "candidate-matcher-service",
+      "release-type": "simple"
+    },
+    "services/interview-prep-service": {
+      "component": "interview-prep-service",
+      "release-type": "simple"
+    },
+    "services/job-analyzer-service": {
+      "component": "job-analyzer-service",
+      "release-type": "simple"
+    },
+    "services/screening-bot-service": {
+      "component": "screening-bot-service",
+      "release-type": "simple"
+    },
+    "services/ai-integration-service": {
+      "component": "ai-integration-service",
+      "release-type": "simple"
+    },
+    "services/notification-service": {
+      "component": "notification-service",
+      "release-type": "simple"
+    },
+    "frontend/candidate-portal": {
+      "component": "candidate-portal",
+      "release-type": "simple"
+    },
+    "frontend/hr-admin-dashboard": {
+      "component": "hr-admin-dashboard",
+      "release-type": "simple"
+    }
+  }
+}
+

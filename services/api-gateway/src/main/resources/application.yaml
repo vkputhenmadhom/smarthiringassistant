@@ -65,8 +65,13 @@ spring:
         - AddResponseHeader=X-Response-Source, API-Gateway
   jackson:
     default-property-inclusion: non_null
-    #serialization:
-      #WRITE_DATES_AS_TIMESTAMPS: false
+  graphql:
+    graphiql:
+      enabled: true
+      path: /graphiql
+    path: /graphql
+    websocket:
+      path: /graphql-ws
 
 server:
   port: 8000
@@ -79,3 +84,4 @@ logging:
     org.springframework.cloud.gateway: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+

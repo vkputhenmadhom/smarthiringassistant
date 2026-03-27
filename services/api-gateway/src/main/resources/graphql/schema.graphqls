@@ -1,0 +1,345 @@
+"""
+Smart Hiring Assistant – GraphQL Schema
+Aggregates data from all microservices via the API Gateway BFF layer.
+"""
+
+# ──────────────────────────────────────────────
+# Scalars
+# ──────────────────────────────────────────────
+scalar DateTime
+scalar Upload
+
+# ──────────────────────────────────────────────
+# Auth
+# ──────────────────────────────────────────────
+type AuthPayload {
+    token: String!
+    refreshToken: String!
+    expiresIn: Int!
+    user: User!
+}
+
+type User {
+    id: ID!
+    username: String!
+    email: String!
+    role: Role!
+    createdAt: DateTime
+}
+
+enum Role {
+    CANDIDATE
+    HR_ADMIN
+    RECRUITER
+    SUPER_ADMIN
+}
+
+# ──────────────────────────────────────────────
+# Job
+# ──────────────────────────────────────────────
+type Job {
+    id: ID!
+    title: String!
+    description: String!
+    department: String
+    location: String
+    type: JobType!
+    status: JobStatus!
+    skills: [String!]!
+    salaryMin: Float
+    salaryMax: Float
+    salaryCurrency: String
+    salaryConfidence: Float
+    postedAt: DateTime
+    closingDate: DateTime
+    applicantCount: Int
+    matchedCandidates: [CandidateMatch!]
+}
+
+enum JobType {
+    FULL_TIME
+    PART_TIME
+    CONTRACT
+    INTERNSHIP
+    REMOTE
+}
+
+enum JobStatus {
+    DRAFT
+    OPEN
+    CLOSED
+    ARCHIVED
+}
+
+input CreateJobInput {
+    title: String!
+    description: String!
+    department: String
+    location: String
+    type: JobType!
+    skills: [String!]!
+    salaryMin: Float
+    salaryMax: Float
+    salaryCurrency: String
+    closingDate: DateTime
+}
+
+input UpdateJobInput {
+    title: String
+    description: String
+    department: String
+    location: String
+    type: JobType
+    status: JobStatus
+    skills: [String!]
+    salaryMin: Float
+    salaryMax: Float
+    closingDate: DateTime
+}
+
+type JobPage {
+    content: [Job!]!
+    totalElements: Int!
+    totalPages: Int!
+    page: Int!
+    size: Int!
+}
+
+# ──────────────────────────────────────────────
+# Candidate & Resume
+# ──────────────────────────────────────────────
+type Candidate {
+    id: ID!
+    userId: ID!
+    name: String!
+    email: String!
+    phone: String
+    linkedInUrl: String
+    githubUrl: String
+    skills: [String!]!
+    experience: [Experience!]!
+    education: [Education!]!
+    resumeUrl: String
+    parseStatus: ParseStatus!
+    screeningStatus: ScreeningStatus
+    matchScore: Float
+    createdAt: DateTime
+    updatedAt: DateTime
+}
+
+type Experience {
+    company: String!
+    title: String!
+    startDate: String
+    endDate: String
+    description: String
+    technologies: [String!]
+}
+
+type Education {
+    institution: String!
+    degree: String!
+    field: String
+    graduationYear: Int
+}
+
+enum ParseStatus {
+    PENDING
+    PROCESSING
+    COMPLETED
+    FAILED
+}
+
+enum ScreeningStatus {
+    NOT_STARTED
+    IN_PROGRESS
+    PASSED
+    FAILED
+}
+
+type CandidatePage {
+    content: [Candidate!]!
+    totalElements: Int!
+    totalPages: Int!
+    page: Int!
+    size: Int!
+}
+
+# ──────────────────────────────────────────────
+# Matching
+# ──────────────────────────────────────────────
+type CandidateMatch {
+    id: ID!
+    candidateId: ID!
+    jobId: ID!
+    score: Float!
+    status: MatchStatus!
+    skillMatches: [String!]!
+    skillGaps: [String!]!
+    candidate: Candidate
+    job: Job
+    matchedAt: DateTime
+}
+
+enum MatchStatus {
+    PENDING
+    MATCHED
+    REJECTED
+    SHORTLISTED
+    HIRED
+}
+
+type MatchPage {
+    content: [CandidateMatch!]!
+    totalElements: Int!
+    totalPages: Int!
+    page: Int!
+    size: Int!
+}
+
+# ──────────────────────────────────────────────
+# Screening
+# ──────────────────────────────────────────────
+type ScreeningSession {
+    id: ID!
+    candidateId: ID!
+    jobId: ID!
+    currentStage: String!
+    status: String!
+    decision: String!
+    finalScore: Float
+    stageResults: [StageResult!]!
+    failureReasons: [String!]!
+    createdAt: DateTime
+    completedAt: DateTime
+}
+
+type StageResult {
+    stage: String!
+    passed: Boolean!
+    score: Float!
+    response: String
+    reasons: [String!]!
+    evaluatedAt: DateTime
+}
+
+# ──────────────────────────────────────────────
+# Analytics
+# ──────────────────────────────────────────────
+type DashboardMetrics {
+    totalJobs: Int!
+    openJobs: Int!
+    totalCandidates: Int!
+    activeCandidates: Int!
+    pendingScreenings: Int!
+    completedScreenings: Int!
+    averageMatchScore: Float!
+    hireRate: Float!
+    stagePassRates: [StagePassRate!]!
+    topSkillsInDemand: [SkillDemand!]!
+    recentActivity: [ActivityItem!]!
+}
+
+type StagePassRate {
+    stage: String!
+    passRate: Float!
+    totalCount: Int!
+}
+
+type SkillDemand {
+    skill: String!
+    count: Int!
+}
+
+type ActivityItem {
+    type: String!
+    description: String!
+    timestamp: DateTime!
+}
+
+# ──────────────────────────────────────────────
+# Notification
+# ──────────────────────────────────────────────
+type Notification {
+    id: ID!
+    userId: ID!
+    type: String!
+    title: String!
+    message: String!
+    read: Boolean!
+    createdAt: DateTime
+}
+
+# ──────────────────────────────────────────────
+# Query Root
+# ──────────────────────────────────────────────
+type Query {
+    # Auth
+    me: User!
+
+    # Jobs
+    jobs(page: Int, size: Int, status: JobStatus, search: String): JobPage!
+    job(id: ID!): Job!
+
+    # Candidates
+    candidates(page: Int, size: Int, status: ScreeningStatus, search: String): CandidatePage!
+    candidate(id: ID!): Candidate!
+    myProfile: Candidate!
+
+    # Matches
+    matchesForJob(jobId: ID!, page: Int, size: Int): MatchPage!
+    matchesForCandidate(candidateId: ID!, page: Int, size: Int): MatchPage!
+
+    # Screening
+    screeningSession(id: ID!): ScreeningSession!
+    myScreeningSessions: [ScreeningSession!]!
+
+    # Analytics (HR/Admin only)
+    dashboardMetrics: DashboardMetrics!
+
+    # Notifications
+    myNotifications(unreadOnly: Boolean): [Notification!]!
+}
+
+# ──────────────────────────────────────────────
+# Mutation Root
+# ──────────────────────────────────────────────
+type Mutation {
+    # Auth
+    register(username: String!, email: String!, password: String!, role: Role!): AuthPayload!
+    login(username: String!, password: String!): AuthPayload!
+    refreshToken(refreshToken: String!): AuthPayload!
+
+    # Jobs (HR/Admin only)
+    createJob(input: CreateJobInput!): Job!
+    updateJob(id: ID!, input: UpdateJobInput!): Job!
+    deleteJob(id: ID!): Boolean!
+    publishJob(id: ID!): Job!
+    closeJob(id: ID!): Job!
+
+    # Resume
+    uploadResume(candidateId: ID!, file: Upload!): Candidate!
+
+    # Matching
+    triggerMatching(candidateId: ID!, jobId: ID!): CandidateMatch!
+    updateMatchStatus(matchId: ID!, status: MatchStatus!): CandidateMatch!
+
+    # Screening
+    startScreening(candidateId: ID!, jobId: ID!): ScreeningSession!
+    submitScreeningResponse(sessionId: ID!, stage: String!, response: String!): ScreeningSession!
+    advanceScreening(sessionId: ID!): ScreeningSession!
+
+    # Notifications
+    markNotificationRead(id: ID!): Notification!
+    markAllNotificationsRead: Boolean!
+}
+
+# ──────────────────────────────────────────────
+# Subscription Root
+# ──────────────────────────────────────────────
+type Subscription {
+    screeningUpdated(sessionId: ID!): ScreeningSession!
+    newMatchForJob(jobId: ID!): CandidateMatch!
+    newNotification(userId: ID!): Notification!
+}
+

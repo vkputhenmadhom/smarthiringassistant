@@ -1,0 +1,15 @@
+{
+  "contracts": "0.1.0",
+  "services/api-gateway": "0.1.0",
+  "services/auth-service": "0.1.0",
+  "services/resume-parser-service": "0.1.0",
+  "services/candidate-matcher-service": "0.1.0",
+  "services/interview-prep-service": "0.1.0",
+  "services/job-analyzer-service": "0.1.0",
+  "services/screening-bot-service": "0.1.0",
+  "services/ai-integration-service": "0.1.0",
+  "services/notification-service": "0.1.0",
+  "frontend/candidate-portal": "0.1.0",
+  "frontend/hr-admin-dashboard": "0.1.0"
+}
+

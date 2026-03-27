@@ -1,0 +1,57 @@
+asyncapi: 2.6.0
+info:
+  title: Smart Hiring Assistant Event Contracts
+  version: 0.1.0
+  description: Canonical asynchronous contract definitions for messaging integrations.
+
+servers:
+  rabbitmq:
+    url: localhost:5672
+    protocol: amqp
+    description: Local RabbitMQ broker
+
+channels:
+  auth.user.registered:
+    description: User registration lifecycle event
+    publish:
+      message:
+        name: UserRegisteredEvent
+        payload:
+          type: object
+          required: [userId, username, email, role, timestamp]
+          properties:
+            userId: { type: string }
+            username: { type: string }
+            email: { type: string }
+            role: { type: string }
+            timestamp: { type: string, format: date-time }
+
+  resume.parsed:
+    description: Resume parsing completion event
+    publish:
+      message:
+        name: ResumeParseEvent
+        payload:
+          type: object
+          required: [resumeId, candidateId, status, timestamp]
+          properties:
+            resumeId: { type: string }
+            candidateId: { type: string }
+            status: { type: string }
+            timestamp: { type: string, format: date-time }
+
+  matcher.candidate.matched:
+    description: Candidate matched to job event
+    publish:
+      message:
+        name: CandidateMatchedEvent
+        payload:
+          type: object
+          required: [matchId, candidateId, jobId, score, timestamp]
+          properties:
+            matchId: { type: string }
+            candidateId: { type: string }
+            jobId: { type: string }
+            score: { type: number }
+            timestamp: { type: string, format: date-time }
+

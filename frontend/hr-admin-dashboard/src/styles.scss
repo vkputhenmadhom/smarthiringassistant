@@ -1,0 +1,105 @@
+/* Global styles */
+@import '@angular/material/theming';
+
+:root {
+  --primary: #3f51b5;
+  --accent:  #ff4081;
+  --warn:    #f44336;
+  --bg:      #f5f6fa;
+  --surface: #ffffff;
+  --text:    #1a1a2e;
+  --border:  #e0e0e0;
+  --sidebar-width: 240px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* Material overrides */
+.mat-toolbar { font-family: 'Inter', sans-serif !important; }
+.mat-card   { border-radius: 12px !important; }
+
+/* Utility */
+.flex         { display: flex; }
+.flex-col     { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-4        { gap: 1rem; }
+.p-4          { padding: 1rem; }
+.mt-4         { margin-top: 1rem; }
+.w-full       { width: 100%; }
+.text-center  { text-align: center; }
+
+/* Stat card */
+.stat-card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  .stat-icon { font-size: 2.4rem; color: var(--primary); }
+  .stat-value { font-size: 2rem; font-weight: 700; }
+  .stat-label { font-size: .85rem; color: #666; }
+}
+
+/* Chips */
+.chip {
+  display: inline-block;
+  padding: .25rem .7rem;
+  border-radius: 999px;
+  font-size: .8rem;
+  font-weight: 500;
+  &.chip-green  { background: #e8f5e9; color: #2e7d32; }
+  &.chip-red    { background: #ffebee; color: #c62828; }
+  &.chip-blue   { background: #e3f2fd; color: #1565c0; }
+  &.chip-orange { background: #fff3e0; color: #e65100; }
+  &.chip-grey   { background: #f5f5f5; color: #424242; }
+}
+
+/* Page header */
+.page-header {
+  margin-bottom: 1.5rem;
+  h1 { font-size: 1.6rem; font-weight: 700; }
+  p  { color: #666; font-size: .9rem; margin-top: .25rem; }
+}
+
+/* Table */
+.sha-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  th, td { padding: .9rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+  th     { background: #fafafa; font-weight: 600; font-size: .85rem; color: #555; }
+  tr:hover td { background: #f9faff; }
+}
+
+@media (max-width: 1024px) {
+  .page-header h1 { font-size: 1.35rem; }
+  .page-header p { font-size: .82rem; }
+}
+
+@media (max-width: 768px) {
+  .sha-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .stat-card {
+    padding: 1rem;
+    gap: .75rem;
+    .stat-value { font-size: 1.45rem; }
+  }
+}
+

@@ -1,0 +1,55 @@
+name: contracts
+
+on:
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - 'scripts/sync-contracts.sh'
+      - 'services/api-gateway/src/main/resources/graphql/schema.graphqls'
+  push:
+    branches: [ main ]
+    paths:
+      - 'contracts/**'
+      - 'scripts/sync-contracts.sh'
+      - 'services/api-gateway/src/main/resources/graphql/schema.graphqls'
+
+jobs:
+  contract-sync-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify GraphQL contract sync
+        run: |
+          bash scripts/sync-contracts.sh --check
+
+  graphql-breaking-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Compare GraphQL schema for breaking changes
+        run: |
+          set -euo pipefail
+          SCHEMA_PATH="contracts/graphql/gateway/schema.graphqls"
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+
+          if git cat-file -e "$BASE_SHA:$SCHEMA_PATH" 2>/dev/null; then
+            git show "$BASE_SHA:$SCHEMA_PATH" > /tmp/base-schema.graphqls
+          else
+            # New contract file on branch; no historical baseline to diff.
+            cp "$SCHEMA_PATH" /tmp/base-schema.graphqls
+          fi
+
+          npx --yes @graphql-inspector/cli diff /tmp/base-schema.graphqls "$SCHEMA_PATH" --fail-on-breaking
+
