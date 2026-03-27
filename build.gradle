@@ -2,6 +2,7 @@ plugins {
     id 'org.springframework.boot' version '4.0.5' apply false
     id 'io.spring.dependency-management' version '1.1.7' apply false
     id 'com.google.protobuf' version '0.9.4' apply false
+    id 'org.sonarqube' version '5.1.0.4882'
 }
 
 group = 'org.vinod'
@@ -22,6 +23,7 @@ ext {
 subprojects {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'jacoco'
 
     group = 'org.vinod'
     version = '0.0.1-SNAPSHOT'
@@ -46,6 +48,29 @@ subprojects {
         compileOnly {
             extendsFrom annotationProcessor
         }
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+        finalizedBy(tasks.named('jacocoTestReport'))
+    }
+
+    tasks.named('jacocoTestReport') {
+        dependsOn(tasks.named('test'))
+        reports {
+            xml.required = true
+            html.required = true
+        }
+    }
+}
+
+sonar {
+    properties {
+        property 'sonar.projectName', 'SmartHiringAssistant'
+        property 'sonar.projectKey', 'SmartHiringAssistant'
+        property 'sonar.sourceEncoding', 'UTF-8'
+        property 'sonar.junit.reportPaths', '**/build/test-results/test'
+        property 'sonar.coverage.jacoco.xmlReportPaths', '**/build/reports/jacoco/test/jacocoTestReport.xml'
     }
 }
 

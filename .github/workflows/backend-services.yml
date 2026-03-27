@@ -1,12 +1,39 @@
 name: backend-services
+# Canonical backend CI/CD workflow for build, quality gates, and AWS CodeDeploy.
+# Keep backend pipeline ownership here to avoid duplicate or drifting workflows.
 
 on:
+  workflow_dispatch:
+    inputs:
+      deploy_service:
+        description: 'Service to deploy using CodeDeploy'
+        required: true
+        type: choice
+        options:
+          - api-gateway
+          - auth-service
+          - resume-parser-service
+          - candidate-matcher-service
+          - interview-prep-service
+          - job-analyzer-service
+          - screening-bot-service
+          - ai-integration-service
+          - notification-service
+      deploy_environment:
+        description: 'Deployment environment'
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
   pull_request:
     paths:
       - 'services/**'
       - 'shared/**'
       - 'build.gradle'
       - 'settings.gradle'
+      - 'sonar-project.properties'
       - 'gradle/**'
       - 'gradlew'
       - 'gradlew.bat'
@@ -17,9 +44,13 @@ on:
       - 'shared/**'
       - 'build.gradle'
       - 'settings.gradle'
+      - 'sonar-project.properties'
       - 'gradle/**'
       - 'gradlew'
       - 'gradlew.bat'
+
+permissions:
+  contents: read
 
 jobs:
   detect-changed-services:
@@ -51,34 +82,38 @@ jobs:
             notification-service
           )
 
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SELECTED=("${{ github.event.inputs.deploy_service }}")
           else
-            BASE_SHA="${{ github.event.before }}"
-            HEAD_SHA="${{ github.sha }}"
-          fi
-
-          if [[ -z "$BASE_SHA" || "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
-            SELECTED=("${SERVICES[@]}")
-          else
-            CHANGED_FILES="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
-            echo "$CHANGED_FILES"
-
-            FULL_REBUILD=false
-            if echo "$CHANGED_FILES" | grep -Eq '^(shared/|build.gradle$|settings.gradle$|gradle/|gradlew$|gradlew.bat$)'; then
-              FULL_REBUILD=true
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              BASE_SHA="${{ github.event.pull_request.base.sha }}"
+              HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            else
+              BASE_SHA="${{ github.event.before }}"
+              HEAD_SHA="${{ github.sha }}"
             fi
 
-            if [[ "$FULL_REBUILD" == "true" ]]; then
+            if [[ -z "$BASE_SHA" || "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
               SELECTED=("${SERVICES[@]}")
             else
-              SELECTED=()
-              for svc in "${SERVICES[@]}"; do
-                if echo "$CHANGED_FILES" | grep -Eq "^services/${svc}/"; then
-                  SELECTED+=("$svc")
-                fi
-              done
+              CHANGED_FILES="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+              echo "$CHANGED_FILES"
+
+              FULL_REBUILD=false
+              if echo "$CHANGED_FILES" | grep -Eq '^(shared/|build.gradle$|settings.gradle$|gradle/|gradlew$|gradlew.bat$)'; then
+                FULL_REBUILD=true
+              fi
+
+              if [[ "$FULL_REBUILD" == "true" ]]; then
+                SELECTED=("${SERVICES[@]}")
+              else
+                SELECTED=()
+                for svc in "${SERVICES[@]}"; do
+                  if echo "$CHANGED_FILES" | grep -Eq "^services/${svc}/"; then
+                    SELECTED+=("$svc")
+                  fi
+                done
+              fi
             fi
           fi
 
@@ -94,7 +129,7 @@ jobs:
 
   build-services:
     needs: detect-changed-services
-    if: needs.detect-changed-services.outputs.count != '0'
+    if: needs.detect-changed-services.outputs.count != '0' && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -112,7 +147,7 @@ jobs:
 
       - name: Build service
         run: |
-          ./gradlew :services:${{ matrix.service }}:build -x test
+          ./gradlew :services:${{ matrix.service }}:build -x test --no-daemon --console=plain
 
       - name: Prepare publish metadata
         run: |
@@ -130,4 +165,128 @@ jobs:
         with:
           name: backend-publish-${{ matrix.service }}
           path: out/${{ matrix.service }}.json
+
+  quality-gate:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Build and test all backend modules
+        run: |
+          ./gradlew clean test jacocoTestReport --no-daemon --console=plain
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: |
+            **/build/test-results/test/*.xml
+            **/build/reports/tests/test/**
+
+      - name: SonarQube analysis with quality gate
+        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          ./gradlew sonarqube \
+            -Dsonar.host.url=${SONAR_HOST_URL} \
+            -Dsonar.token=${SONAR_TOKEN} \
+            -Dsonar.qualitygate.wait=true \
+            --no-daemon \
+            --console=plain
+
+      - name: SonarQube skipped notice
+        if: ${{ secrets.SONAR_TOKEN == '' || secrets.SONAR_HOST_URL == '' }}
+        run: echo "SONAR_TOKEN or SONAR_HOST_URL is missing. SonarQube checks were skipped."
+
+  deploy-service-codedeploy:
+    if: github.event_name == 'workflow_dispatch' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN != '' && secrets.CODEDEPLOY_ARTIFACT_BUCKET != ''
+    needs: detect-changed-services
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.deploy_environment }}
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      CODEDEPLOY_APP_NAME: ${{ vars.CODEDEPLOY_APP_NAME || 'smart-hiring-assistant' }}
+      CODEDEPLOY_GROUP_PREFIX: ${{ vars.CODEDEPLOY_GROUP_PREFIX || 'sha' }}
+    strategy:
+      matrix: ${{ fromJson(needs.detect-changed-services.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build deployable bootJar
+        run: |
+          ./gradlew :services:${{ matrix.service }}:bootJar --no-daemon --console=plain
+
+      - name: Package CodeDeploy revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE="${{ matrix.service }}"
+          SHA="${{ github.sha }}"
+          BUNDLE_DIR="bundle-${SERVICE}"
+
+          JAR_PATH="$(find "services/${SERVICE}/build/libs" -maxdepth 1 -type f -name '*.jar' | head -n1)"
+          if [[ -z "$JAR_PATH" ]]; then
+            echo "No jar found for ${SERVICE}" >&2
+            exit 1
+          fi
+
+          mkdir -p "${BUNDLE_DIR}/scripts"
+          cp deploy/codedeploy/appspec.yml "${BUNDLE_DIR}/appspec.yml"
+          cp deploy/codedeploy/scripts/*.sh "${BUNDLE_DIR}/scripts/"
+          cp "$JAR_PATH" "${BUNDLE_DIR}/service.jar"
+          chmod +x "${BUNDLE_DIR}/scripts/"*.sh
+          zip -r "${SERVICE}-${SHA}.zip" "${BUNDLE_DIR}"
+
+      - name: Upload revision to S3
+        run: |
+          aws s3 cp "${{ matrix.service }}-${{ github.sha }}.zip" \
+            "s3://${{ secrets.CODEDEPLOY_ARTIFACT_BUCKET }}/codedeploy/${{ matrix.service }}/${{ github.sha }}.zip"
+
+      - name: Create CodeDeploy deployment
+        run: |
+          DEPLOYMENT_GROUP="${CODEDEPLOY_GROUP_PREFIX}-${{ matrix.service }}-${{ github.event.inputs.deploy_environment }}"
+          aws deploy create-deployment \
+            --application-name "${CODEDEPLOY_APP_NAME}" \
+            --deployment-group-name "${DEPLOYMENT_GROUP}" \
+            --revision "revisionType=S3,s3Location={bucket=${{ secrets.CODEDEPLOY_ARTIFACT_BUCKET }},bundleType=zip,key=codedeploy/${{ matrix.service }}/${{ github.sha }}.zip}" \
+            --description "Deploy ${{ matrix.service }} from commit ${{ github.sha }}"
+
+  deploy-skipped-notice:
+    if: github.event_name == 'workflow_dispatch' && (secrets.AWS_GITHUB_ACTIONS_ROLE_ARN == '' || secrets.CODEDEPLOY_ARTIFACT_BUCKET == '')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Missing deployment secrets
+        run: echo "Skipping deploy. Configure AWS_GITHUB_ACTIONS_ROLE_ARN and CODEDEPLOY_ARTIFACT_BUCKET secrets to enable CodeDeploy."
 

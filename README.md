@@ -322,15 +322,15 @@ npm start
 
 ## 🔄 CI/CD Pipeline
 
-Configure GitHub Actions for:
-- Build automation
-- Unit test execution
-- Integration tests
-- Code quality scanning (SonarQube)
-- Container image building
-- Kubernetes deployment
+Backend CI/CD is configured in `.github/workflows/backend-services.yml` with:
+- Changed-service backend build matrix
+- Full backend tests + JaCoCo coverage reports
+- SonarQube analysis with quality gate enforcement
+- Manual AWS CodeDeploy deployment (`workflow_dispatch`)
 
-See `.github/workflows/` for pipeline definitions.
+This is the single authoritative backend workflow.
+
+See `docs/deployment/aws-cicd.md` for setup details, required secrets, and AWS deployment prerequisites.
 
 ## 🚢 Deployment
 
