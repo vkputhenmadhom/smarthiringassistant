@@ -55,6 +55,22 @@ import { selectAuthLoading, selectAuthError } from '../../../store/auth/auth.sel
               <mat-spinner diameter="20" *ngIf="loading$ | async" class="inline-spinner"></mat-spinner>
               <span *ngIf="!(loading$ | async)">Sign In</span>
             </button>
+
+            <p class="oauth-separator">or continue with</p>
+
+            <button mat-stroked-button class="w-full oauth-btn" type="button" (click)="continueWithProvider('google')">
+              <span class="oauth-content">
+                <span class="provider-icon provider-google">G</span>
+                <span>Continue with Google</span>
+              </span>
+            </button>
+
+            <button mat-stroked-button class="w-full oauth-btn" type="button" (click)="continueWithProvider('linkedin')">
+              <span class="oauth-content">
+                <span class="provider-icon provider-linkedin">in</span>
+                <span>Continue with LinkedIn</span>
+              </span>
+            </button>
           </form>
         </mat-card-content>
 
@@ -73,6 +89,31 @@ import { selectAuthLoading, selectAuthError } from '../../../store/auth/auth.sel
     .error-msg { color:#c62828; font-size:.85rem; margin-bottom:.5rem; }
     .register-link { text-align:center; font-size:.85rem; }
     .inline-spinner{ display:inline-block; }
+    .oauth-separator { text-align:center; color:#777; font-size:.8rem; margin:1rem 0 .6rem; }
+    .oauth-btn { margin-top:.45rem; }
+    .oauth-content { display:inline-flex; align-items:center; gap:.5rem; }
+    .provider-icon {
+      width:18px;
+      height:18px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-size:.62rem;
+      font-weight:700;
+      line-height:1;
+    }
+    .provider-google {
+      border-radius:999px;
+      border:1px solid #dadce0;
+      color:#4285F4;
+      background:#fff;
+    }
+    .provider-linkedin {
+      border-radius:3px;
+      color:#fff;
+      background:#0A66C2;
+      text-transform:lowercase;
+    }
     mat-form-field { display:block; margin-bottom:.5rem; }
   `],
 })
@@ -83,6 +124,7 @@ export class LoginComponent {
   loading$ = this.store.select(selectAuthLoading);
   error$   = this.store.select(selectAuthError);
   hide     = true;
+  private oauthBase = 'http://localhost:8001/api/auth/oauth2/authorization';
 
   form = this.fb.group({
     username: ['', Validators.required],
@@ -94,6 +136,10 @@ export class LoginComponent {
       const { username, password } = this.form.value;
       this.store.dispatch(login({ username: username!, password: password! }));
     }
+  }
+
+  continueWithProvider(provider: 'google' | 'linkedin'): void {
+    window.location.href = `${this.oauthBase}/${provider}`;
   }
 }
 

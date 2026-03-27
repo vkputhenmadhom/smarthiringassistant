@@ -2,6 +2,7 @@ package org.vinod.sha.resumeparser.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.vinod.sha.resumeparser.security.EncryptedStringConverter;
 
 import java.util.List;
 
@@ -18,18 +19,23 @@ public class ParsedResumeData {
     private Long id;
 
     @Column
+    @Convert(converter = EncryptedStringConverter.class)
     private String fullName;
 
     @Column
+    @Convert(converter = EncryptedStringConverter.class)
     private String email;
 
     @Column
+    @Convert(converter = EncryptedStringConverter.class)
     private String phone;
 
     @Column
+    @Convert(converter = EncryptedStringConverter.class)
     private String location;
 
     @Column(columnDefinition = "TEXT")
+    @Convert(converter = EncryptedStringConverter.class)
     private String summary;
 
     @ElementCollection(fetch = FetchType.EAGER)

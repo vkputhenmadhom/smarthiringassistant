@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,8 @@ import org.vinod.sha.auth.repository.UserRepository;
 import org.vinod.sha.auth.security.JwtTokenProvider;
 
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -97,6 +100,30 @@ public class AuthService {
         return buildAuthResponse(user, accessToken, refreshToken);
     }
 
+    public AuthResponse handleOAuth2Login(OAuth2User oauth2User, String registrationId) {
+        String email = extractEmail(oauth2User);
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Unable to retrieve email from " + registrationId + " profile");
+        }
+
+        boolean isNewUser = !userRepository.existsByEmail(email);
+        User user = userRepository.findByEmail(email)
+                .map(existing -> updateUserFromOAuth2(existing, oauth2User))
+                .orElseGet(() -> createUserFromOAuth2(oauth2User, registrationId, email));
+
+        user.setLastLogin(LocalDateTime.now());
+        User savedUser = userRepository.save(user);
+
+        if (isNewUser) {
+            eventPublisher.publishUserRegisteredEvent(savedUser);
+        }
+        eventPublisher.publishUserAuthenticatedEvent(savedUser);
+
+        String accessToken = tokenProvider.generateToken(savedUser);
+        String refreshToken = tokenProvider.generateRefreshToken(savedUser);
+        return buildAuthResponse(savedUser, accessToken, refreshToken);
+    }
+
     public AuthResponse refreshToken(String refreshToken) {
         if (!tokenProvider.validateToken(refreshToken)) {
             throw new IllegalArgumentException("Invalid or expired refresh token");
@@ -142,6 +169,89 @@ public class AuthService {
                         .role(user.getRole().name())
                         .build())
                 .build();
+    }
+
+    private User createUserFromOAuth2(OAuth2User oauth2User, String registrationId, String email) {
+        String firstName = extractFirstName(oauth2User);
+        String lastName = extractLastName(oauth2User);
+        String username = generateUniqueUsername(email, registrationId);
+
+        User user = User.builder()
+                .username(username)
+                .email(email)
+                // Random password keeps entity constraints satisfied for external identities.
+                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .firstName(firstName)
+                .lastName(lastName)
+                .role(UserRole.JOB_SEEKER)
+                .enabled(true)
+                .accountNonExpired(true)
+                .accountNonLocked(true)
+                .credentialsNonExpired(true)
+                .build();
+        return user;
+    }
+
+    private User updateUserFromOAuth2(User existing, OAuth2User oauth2User) {
+        String firstName = extractFirstName(oauth2User);
+        String lastName = extractLastName(oauth2User);
+
+        if (firstName != null && !firstName.isBlank()) {
+            existing.setFirstName(firstName);
+        }
+        if (lastName != null && !lastName.isBlank()) {
+            existing.setLastName(lastName);
+        }
+
+        return existing;
+    }
+
+    private String extractEmail(OAuth2User user) {
+        Object email = user.getAttributes().get("email");
+        if (email instanceof String value && !value.isBlank()) {
+            return value;
+        }
+        return null;
+    }
+
+    private String extractFirstName(OAuth2User user) {
+        Map<String, Object> attrs = user.getAttributes();
+        Object first = attrs.get("given_name");
+        if (first instanceof String value && !value.isBlank()) {
+            return value;
+        }
+        Object name = attrs.get("name");
+        if (name instanceof String value && !value.isBlank()) {
+            String[] parts = value.trim().split("\\s+", 2);
+            return parts[0];
+        }
+        return "OAuth";
+    }
+
+    private String extractLastName(OAuth2User user) {
+        Map<String, Object> attrs = user.getAttributes();
+        Object last = attrs.get("family_name");
+        if (last instanceof String value && !value.isBlank()) {
+            return value;
+        }
+        Object name = attrs.get("name");
+        if (name instanceof String value && !value.isBlank()) {
+            String[] parts = value.trim().split("\\s+", 2);
+            return parts.length > 1 ? parts[1] : "User";
+        }
+        return "User";
+    }
+
+    private String generateUniqueUsername(String email, String registrationId) {
+        String localPart = email.split("@")[0].replaceAll("[^a-zA-Z0-9._-]", "");
+        String base = (localPart + "_" + registrationId).toLowerCase();
+        String candidate = base;
+        int suffix = 1;
+        while (userRepository.existsByUsername(candidate)) {
+            candidate = base + suffix;
+            suffix++;
+        }
+        return candidate;
     }
 }
 

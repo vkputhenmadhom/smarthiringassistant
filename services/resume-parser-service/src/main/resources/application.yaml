@@ -50,3 +50,7 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
+security:
+  encryption:
+    key: ${RESUME_ENCRYPTION_KEY:change-me-with-32-plus-char-secret}
+

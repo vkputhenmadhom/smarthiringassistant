@@ -114,9 +114,52 @@ RABBITMQ_VHOST=/
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=hiring_password
+APP_CORS_ALLOWED_ORIGINS=https://candidate.your-domain.com,https://hr.your-domain.com
 LOGGING_LEVEL=INFO
+RESUME_ENCRYPTION_KEY=change-this-to-a-32-plus-char-random-secret
+GOOGLE_CLIENT_ID=replace-with-google-client-id
+GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
+LINKEDIN_CLIENT_ID=replace-with-linkedin-client-id
+LINKEDIN_CLIENT_SECRET=replace-with-linkedin-client-secret
+OAUTH2_SUCCESS_REDIRECT_URI=http://localhost:5173/auth/callback
+OAUTH2_FAILURE_REDIRECT_URI=http://localhost:5173/login
 EOF
 ```
+
+API gateway security defaults now include CORS allowlists and Redis-backed request rate limiting.
+Make sure Redis settings are configured in your environment:
+
+- `REDIS_HOST`
+- `REDIS_PORT`
+
+For production, set strict CORS origins via:
+
+- `APP_CORS_ALLOWED_ORIGINS`
+
+Example:
+
+`APP_CORS_ALLOWED_ORIGINS=https://candidate.your-domain.com,https://hr.your-domain.com`
+
+### OAuth2/OIDC Provider Setup (Google + LinkedIn)
+
+Configure these redirect URLs in both Google and LinkedIn developer consoles:
+
+- `http://localhost:8001/api/auth/login/oauth2/code/google`
+- `http://localhost:8001/api/auth/login/oauth2/code/linkedin`
+
+Local provider login endpoints:
+
+- `http://localhost:8001/api/auth/oauth2/authorization/google`
+- `http://localhost:8001/api/auth/oauth2/authorization/linkedin`
+
+After successful external login, auth-service redirects the browser to:
+
+- `OAUTH2_SUCCESS_REDIRECT_URI` with query params: `accessToken`, `refreshToken`, `expiresIn`, `provider`
+
+Frontend callback routes now available:
+
+- Candidate portal: `http://localhost:5173/auth/callback`
+- HR admin dashboard (if configured as OAuth success URI): `http://localhost:4200/auth/callback`
 
 ### Step 2: Update .gitignore
 ```bash

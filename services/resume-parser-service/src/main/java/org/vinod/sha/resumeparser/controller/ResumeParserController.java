@@ -34,6 +34,15 @@ public class ResumeParserController {
         }
 
         try {
+            if (file == null || file.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ResumeParseResponse.builder().message("Resume file is required").build());
+            }
+            if (file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ResumeParseResponse.builder().message("File name is required").build());
+            }
+
             log.info("Received resume parse request for file: {}", file.getOriginalFilename());
 
             // Extract user ID from authentication

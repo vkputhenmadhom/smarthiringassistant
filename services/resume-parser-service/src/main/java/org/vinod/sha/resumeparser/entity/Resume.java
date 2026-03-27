@@ -2,6 +2,7 @@ package org.vinod.sha.resumeparser.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.vinod.sha.resumeparser.security.EncryptedByteArrayConverter;
 
 import java.time.LocalDateTime;
 
@@ -28,6 +29,7 @@ public class Resume {
 
     @Lob
     @Column(nullable = false)
+    @Convert(converter = EncryptedByteArrayConverter.class)
     private byte[] fileContent;
 
     @Column(nullable = false)
