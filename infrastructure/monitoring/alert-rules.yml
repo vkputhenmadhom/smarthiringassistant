@@ -1,0 +1,113 @@
+groups:
+  - name: smart-hiring-prod-thresholds
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment=~"prod|production"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          environment: prod
+        annotations:
+          summary: "Service down: {{ $labels.job }}"
+          description: "Prometheus cannot scrape {{ $labels.job }} for at least 2 minutes."
+
+      - alert: HighErrorRateProd
+        expr: |
+          (
+            sum by (job) (rate(http_server_requests_seconds_count{job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment=~"prod|production",status=~"5.."}[5m]))
+            /
+            clamp_min(sum by (job) (rate(http_server_requests_seconds_count{job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment=~"prod|production"}[5m])), 0.001)
+          ) > 0.03
+        for: 5m
+        labels:
+          severity: warning
+          environment: prod
+        annotations:
+          summary: "High 5xx error rate: {{ $labels.job }}"
+          description: "Prod 5xx ratio is above 3% for {{ $labels.job }} over the last 5 minutes."
+
+      - alert: HighLatencyP95Prod
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (job, le) (rate(http_server_requests_seconds_bucket{job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment=~"prod|production"}[5m]))
+          ) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+          environment: prod
+        annotations:
+          summary: "High p95 latency: {{ $labels.job }}"
+          description: "Prod p95 latency is above 1.0s for {{ $labels.job }} over the last 10 minutes."
+
+      - alert: JVMHeapPressureProd
+        expr: |
+          (
+            sum by (job) (jvm_memory_used_bytes{area="heap",job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment=~"prod|production"})
+            /
+            clamp_min(sum by (job) (jvm_memory_max_bytes{area="heap",job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment=~"prod|production"}), 1)
+          ) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          environment: prod
+        annotations:
+          summary: "High JVM heap usage: {{ $labels.job }}"
+          description: "Prod heap usage is above 85% for {{ $labels.job }} for at least 10 minutes."
+
+  - name: smart-hiring-staging-thresholds
+    rules:
+      - alert: ServiceDownStaging
+        expr: up{job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment="staging"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          environment: staging
+        annotations:
+          summary: "Service down (staging): {{ $labels.job }}"
+          description: "Prometheus cannot scrape staging target {{ $labels.job }} for at least 5 minutes."
+
+      - alert: HighErrorRateStaging
+        expr: |
+          (
+            sum by (job) (rate(http_server_requests_seconds_count{job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment="staging",status=~"5.."}[5m]))
+            /
+            clamp_min(sum by (job) (rate(http_server_requests_seconds_count{job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment="staging"}[5m])), 0.001)
+          ) > 0.08
+        for: 10m
+        labels:
+          severity: warning
+          environment: staging
+        annotations:
+          summary: "High 5xx error rate (staging): {{ $labels.job }}"
+          description: "Staging 5xx ratio is above 8% for {{ $labels.job }} over the last 10 minutes."
+
+      - alert: HighLatencyP95Staging
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (job, le) (rate(http_server_requests_seconds_bucket{job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment="staging"}[5m]))
+          ) > 2.0
+        for: 15m
+        labels:
+          severity: warning
+          environment: staging
+        annotations:
+          summary: "High p95 latency (staging): {{ $labels.job }}"
+          description: "Staging p95 latency is above 2.0s for {{ $labels.job }} over the last 15 minutes."
+
+      - alert: JVMHeapPressureStaging
+        expr: |
+          (
+            sum by (job) (jvm_memory_used_bytes{area="heap",job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment="staging"})
+            /
+            clamp_min(sum by (job) (jvm_memory_max_bytes{area="heap",job=~"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service",environment="staging"}), 1)
+          ) > 0.90
+        for: 15m
+        labels:
+          severity: warning
+          environment: staging
+        annotations:
+          summary: "High JVM heap usage (staging): {{ $labels.job }}"
+          description: "Staging heap usage is above 90% for {{ $labels.job }} for at least 15 minutes."
+

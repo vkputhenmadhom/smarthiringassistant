@@ -20,40 +20,40 @@ scrape_configs:
     static_configs:
       - targets: ['api-gateway:8000']
         labels:
-          environment: prod
+          environment: staging
 
   - job_name: 'resume-parser-service'
     metrics_path: '/api/resumes/actuator/prometheus'
     static_configs:
       - targets: ['resume-parser-service:8002']
         labels:
-          environment: prod
+          environment: staging
 
   - job_name: 'candidate-matcher-service'
     metrics_path: '/api/matches/actuator/prometheus'
     static_configs:
       - targets: ['candidate-matcher-service:8003']
         labels:
-          environment: prod
+          environment: staging
 
   - job_name: 'interview-prep-service'
     metrics_path: '/api/interviews/actuator/prometheus'
     static_configs:
       - targets: ['interview-prep-service:8004']
         labels:
-          environment: prod
+          environment: staging
 
   - job_name: 'screening-bot-service'
     metrics_path: '/api/screening/actuator/prometheus'
     static_configs:
       - targets: ['screening-bot-service:8006']
         labels:
-          environment: prod
+          environment: staging
 
   - job_name: 'notification-service'
     metrics_path: '/api/notifications/actuator/prometheus'
     static_configs:
       - targets: ['notification-service:8007']
         labels:
-          environment: prod
+          environment: staging
 

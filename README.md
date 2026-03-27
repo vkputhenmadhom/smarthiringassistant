@@ -243,6 +243,10 @@ Sends email notification to candidate
 - **Prometheus** - Metrics collection
 - **Grafana** - Metrics visualization
 - **Custom Dashboards** - Service-specific metrics
+- **Prometheus Alerts + Alertmanager** - Service health and SLO-like alerting
+
+See `docs/deployment/monitoring-alerting.md` for setup, scrape targets, alert rules, and dashboard provisioning.
+Use `docker-compose.monitoring-staging.yml` when you want staging-specific alert thresholds locally.
 
 ### Tracing
 - **Jaeger** - Distributed tracing

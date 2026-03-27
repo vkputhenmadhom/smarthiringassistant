@@ -1,0 +1,148 @@
+{
+  "id": null,
+  "uid": "sha-platform-overview",
+  "title": "Smart Hiring - Platform Overview",
+  "tags": ["smart-hiring", "platform"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(up{job=~\"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service\"}, job)",
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Healthy Targets",
+      "id": 1,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(up{job=~\"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service\",job=~\"$job\"})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Firing Alerts",
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(ALERTS{alertstate=\"firing\"})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Request Rate (req/s)",
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "targets": [
+        {
+          "expr": "sum by(job) (rate(http_server_requests_seconds_count{job=~\"$job\"}[5m]))",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "5xx Error Rate (%)",
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "targets": [
+        {
+          "expr": "100 * sum by(job) (rate(http_server_requests_seconds_count{job=~\"$job\",status=~\"5..\"}[5m])) / clamp_min(sum by(job) (rate(http_server_requests_seconds_count{job=~\"$job\"}[5m])), 0.001)",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 Latency (s)",
+      "id": 5,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by(job,le) (rate(http_server_requests_seconds_bucket{job=~\"$job\"}[5m])))",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "JVM Heap Usage (%)",
+      "id": 6,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
+      "targets": [
+        {
+          "expr": "100 * sum by(job) (jvm_memory_used_bytes{area=\"heap\",job=~\"$job\"}) / clamp_min(sum by(job) (jvm_memory_max_bytes{area=\"heap\",job=~\"$job\"}), 1)",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
+

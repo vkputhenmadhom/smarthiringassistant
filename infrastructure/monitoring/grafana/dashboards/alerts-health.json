@@ -1,0 +1,61 @@
+{
+  "id": null,
+  "uid": "sha-alerts-health",
+  "title": "Smart Hiring - Alerts & Health",
+  "tags": ["smart-hiring", "alerts"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": {
+    "from": "now-2h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "table",
+      "title": "Active Alerts",
+      "id": 1,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Endpoint Up Status",
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 10},
+      "targets": [
+        {
+          "expr": "up{job=~\"api-gateway|resume-parser-service|candidate-matcher-service|interview-prep-service|screening-bot-service|notification-service\"}",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1
+        }
+      }
+    }
+  ]
+}
+

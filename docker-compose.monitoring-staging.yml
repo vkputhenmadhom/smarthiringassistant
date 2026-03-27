@@ -1,0 +1,13 @@
+version: '3.9'
+
+# Monitoring override for staging alert thresholds.
+# Use with docker-compose.yml + docker-compose.apps.yml.
+services:
+  prometheus:
+    volumes:
+      - ./infrastructure/monitoring/prometheus.staging.yml:/etc/prometheus/prometheus.staging.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.staging.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+

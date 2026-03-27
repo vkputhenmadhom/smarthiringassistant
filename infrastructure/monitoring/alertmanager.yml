@@ -1,0 +1,63 @@
+global:
+  resolve_timeout: 5m
+  # Replace placeholders with real integration endpoints/keys before production use.
+  slack_api_url: 'https://hooks.slack.com/services/REPLACE/ME'
+
+route:
+  group_by: ["alertname", "job", "environment"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+  receiver: default-receiver
+  routes:
+    - matchers:
+        - environment="prod"
+        - severity="critical"
+      receiver: prod-pagerduty
+      continue: true
+
+    - matchers:
+        - environment="prod"
+      receiver: prod-slack
+
+    - matchers:
+        - environment="staging"
+      receiver: staging-slack
+
+receivers:
+  - name: default-receiver
+    # Intentionally empty fallback receiver.
+
+  - name: prod-slack
+    slack_configs:
+      - channel: '#smart-hiring-prod-alerts'
+        title: '[PROD][{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+          *Job:* {{ .Labels.job }}\n
+          *Severity:* {{ .Labels.severity }}\n
+          *Summary:* {{ .Annotations.summary }}\n
+          *Description:* {{ .Annotations.description }}\n
+          {{ end }}
+        send_resolved: true
+
+  - name: staging-slack
+    slack_configs:
+      - channel: '#smart-hiring-staging-alerts'
+        title: '[STAGING][{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+          *Job:* {{ .Labels.job }}\n
+          *Severity:* {{ .Labels.severity }}\n
+          *Summary:* {{ .Annotations.summary }}\n
+          *Description:* {{ .Annotations.description }}\n
+          {{ end }}
+        send_resolved: true
+
+  - name: prod-pagerduty
+    pagerduty_configs:
+      - routing_key: 'REPLACE_WITH_PAGERDUTY_INTEGRATION_KEY'
+        severity: '{{ .CommonLabels.severity }}'
+        description: '{{ .CommonAnnotations.summary }}'
+        send_resolved: true
+
