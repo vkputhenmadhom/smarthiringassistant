@@ -33,12 +33,19 @@ channels:
         name: ResumeParseEvent
         payload:
           type: object
-          required: [resumeId, candidateId, status, timestamp]
+          required: [resume_id, user_id, status, parsed_at]
           properties:
-            resumeId: { type: string }
-            candidateId: { type: string }
+            resume_id: { type: string }
+            user_id: { type: integer }
+            file_name: { type: string }
+            skills:
+              type: array
+              items: { type: string }
+            experience_years: { type: number }
+            location: { type: string }
             status: { type: string }
-            timestamp: { type: string, format: date-time }
+            parsed_at: { type: integer }
+            error_message: { type: string }
 
   matcher.candidate.matched:
     description: Candidate matched to job event
@@ -47,11 +54,14 @@ channels:
         name: CandidateMatchedEvent
         payload:
           type: object
-          required: [matchId, candidateId, jobId, score, timestamp]
+          required: [match_id, candidate_id, job_id, match_score, matched_at]
           properties:
-            matchId: { type: string }
-            candidateId: { type: string }
-            jobId: { type: string }
-            score: { type: number }
-            timestamp: { type: string, format: date-time }
+            match_id: { type: string }
+            candidate_id: { type: integer }
+            job_id: { type: string }
+            match_score: { type: number }
+            skill_match_percentage: { type: number }
+            experience_match_percentage: { type: number }
+            matched_at: { type: integer }
+            status: { type: string }
 

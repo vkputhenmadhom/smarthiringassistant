@@ -1,12 +1,17 @@
 package org.vinod.sha.analyzer;
 
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 import org.vinod.sha.analyzer.dto.JobAnalyzeRequest;
 import org.vinod.sha.analyzer.entity.JobAnalysis;
@@ -18,6 +23,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,17 +38,28 @@ class JobAnalyzerIntegrationTest {
     @Mock
     private RestTemplate restTemplate;
 
+    @Mock
+    private MeterRegistry meterRegistry;
+
+    @Mock
+    private Counter counter;
+
+    @Mock
+    private Timer timer;
+
+    @Mock
+    private DistributionSummary salaryConfidenceSummary;
+
+    @InjectMocks
     private JobAnalyzerService service;
 
     @BeforeEach
-    void setUp() throws Exception {
-        service = new JobAnalyzerService(repository, rabbitTemplate, restTemplate, new SimpleMeterRegistry());
-        java.lang.reflect.Field f = JobAnalyzerService.class.getDeclaredField("aiBaseUrl");
-        f.setAccessible(true);
-        f.set(service, "http://localhost:8008/api/ai");
-        java.lang.reflect.Method m = JobAnalyzerService.class.getDeclaredMethod("initMetrics");
-        m.setAccessible(true);
-        m.invoke(service);
+    void setUp() {
+        when(meterRegistry.counter(anyString())).thenReturn(counter);
+        when(meterRegistry.timer(anyString())).thenReturn(timer);
+
+        ReflectionTestUtils.setField(service, "aiBaseUrl", "http://localhost:8008/api/ai");
+        ReflectionTestUtils.setField(service, "salaryConfidenceSummary", salaryConfidenceSummary);
     }
 
     @Test

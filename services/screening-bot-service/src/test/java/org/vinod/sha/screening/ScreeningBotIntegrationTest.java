@@ -1,12 +1,16 @@
 package org.vinod.sha.screening;
 
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.vinod.sha.screening.dto.CreateSessionRequest;
 import org.vinod.sha.screening.dto.SubmitStageResponseRequest;
 import org.vinod.sha.screening.entity.ScreeningSession;
@@ -20,6 +24,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,19 +37,27 @@ class ScreeningBotIntegrationTest {
     private RabbitTemplate rabbitTemplate;
 
     @Mock
+    private MeterRegistry meterRegistry;
+
+    @Mock
+    private Counter counter;
+
+    @Mock
+    private DistributionSummary finalScoreSummary;
+
+    @Mock
     private WorkflowSagaStateRepository sagaStateRepository;
 
+    @InjectMocks
     private ScreeningBotService service;
 
     @BeforeEach
-    void setUp() throws Exception {
-        service = new ScreeningBotService(repository, rabbitTemplate, new SimpleMeterRegistry(), sagaStateRepository);
-        java.lang.reflect.Field f = ScreeningBotService.class.getDeclaredField("stages");
-        f.setAccessible(true);
-        f.set(service, List.of("initial", "technical", "behavioral"));
-        java.lang.reflect.Method m = ScreeningBotService.class.getDeclaredMethod("initMetrics");
-        m.setAccessible(true);
-        m.invoke(service);
+    void setUp() {
+        when(meterRegistry.counter(anyString())).thenReturn(counter);
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
+
+        ReflectionTestUtils.setField(service, "stages", List.of("initial", "technical", "behavioral"));
+        ReflectionTestUtils.setField(service, "finalScoreSummary", finalScoreSummary);
     }
 
     @Test
