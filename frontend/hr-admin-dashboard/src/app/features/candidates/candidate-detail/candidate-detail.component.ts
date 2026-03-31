@@ -44,7 +44,7 @@ import { Candidate } from '../../../shared/models';
           <mat-card-header><mat-card-title>Experience</mat-card-title></mat-card-header>
           <mat-card-content>
             <div *ngFor="let e of c.experience" class="exp-row">
-              <div class="exp-title">{{ e.title }} @ {{ e.company }}</div>
+              <div class="exp-title">{{ e.title }} &#64; {{ e.company }}</div>
               <div class="exp-dates">{{ e.startDate }} – {{ e.endDate ?? 'Present' }}</div>
               <div class="exp-desc" *ngIf="e.description">{{ e.description }}</div>
             </div>

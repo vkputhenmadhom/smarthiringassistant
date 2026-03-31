@@ -3,8 +3,8 @@ package org.vinod.sha.auth.security;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -17,12 +17,16 @@ import org.vinod.sha.auth.service.AuthService;
 
 import java.io.IOException;
 
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(OAuth2AuthenticationSuccessHandler.class);
+
     private final AuthService authService;
+
+    public OAuth2AuthenticationSuccessHandler(AuthService authService) {
+        this.authService = authService;
+    }
 
     @Value("${app.oauth2.success-redirect-uri:http://localhost:5173/auth/callback}")
     private String successRedirectUri;

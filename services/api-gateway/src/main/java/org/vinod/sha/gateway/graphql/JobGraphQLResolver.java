@@ -1,6 +1,5 @@
 package org.vinod.sha.gateway.graphql;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,10 +15,13 @@ import java.util.*;
  */
 @Slf4j
 @Controller
-@RequiredArgsConstructor
 public class JobGraphQLResolver {
 
     private final WebClient.Builder webClientBuilder;
+
+    public JobGraphQLResolver(WebClient.Builder webClientBuilder) {
+        this.webClientBuilder = webClientBuilder;
+    }
 
     // ── Queries ──────────────────────────────────────────────────────────────
 

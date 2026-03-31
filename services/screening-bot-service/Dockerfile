@@ -1,5 +1,6 @@
 # Multi-stage Docker build for Screening Bot Service
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# Builder: Debian-based JDK for reliable TLS handshake with Maven Central
+FROM eclipse-temurin:21-jdk AS builder
 
 WORKDIR /app
 COPY gradlew .
@@ -9,8 +10,9 @@ COPY settings.gradle .
 COPY shared shared
 COPY services/screening-bot-service services/screening-bot-service
 
-RUN ./gradlew :services:screening-bot-service:bootJar -x test
+RUN chmod +x gradlew && ./gradlew :services:screening-bot-service:bootJar -x test --no-daemon
 
+# Runtime: lightweight Alpine image
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app

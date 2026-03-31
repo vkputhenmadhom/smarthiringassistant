@@ -1,6 +1,5 @@
 package org.vinod.sha.resumeparser.controller;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,10 +18,13 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @RequestMapping("/")
-@RequiredArgsConstructor
 public class ResumeParserController {
 
     private final ResumeParserService resumeParserService;
+
+    public ResumeParserController(ResumeParserService resumeParserService) {
+        this.resumeParserService = resumeParserService;
+    }
 
     @PostMapping("parse")
     public ResponseEntity<ResumeParseResponse> parseResume(

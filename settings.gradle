@@ -5,14 +5,23 @@ include 'shared:shared-commons'
 include 'shared:grpc-definitions'
 include 'shared:shared-events'
 
-// Microservices
-include 'services:api-gateway'
-include 'services:auth-service'
-include 'services:resume-parser-service'
-include 'services:candidate-matcher-service'
-include 'services:interview-prep-service'
-include 'services:job-analyzer-service'
-include 'services:screening-bot-service'
-include 'services:ai-integration-service'
-include 'services:notification-service'
+// Microservices (conditionally included to support sparse Docker build contexts)
+def serviceModules = [
+		'services:api-gateway',
+		'services:auth-service',
+		'services:resume-parser-service',
+		'services:candidate-matcher-service',
+		'services:interview-prep-service',
+		'services:job-analyzer-service',
+		'services:screening-bot-service',
+		'services:ai-integration-service',
+		'services:notification-service'
+]
+
+serviceModules.each { modulePath ->
+	def moduleDir = new File(settingsDir, modulePath.replace(':', '/'))
+	if (moduleDir.isDirectory()) {
+		include modulePath
+	}
+}
 

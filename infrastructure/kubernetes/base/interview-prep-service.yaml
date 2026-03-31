@@ -22,7 +22,7 @@ spec:
           ports:
             - containerPort: 8004
           env:
-            - name: SPRING_DATA_MONGODB_URI
+            - name: SPRING_MONGODB_URI
               valueFrom:
                 secretKeyRef:
                   name: smart-hiring-secrets

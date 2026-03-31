@@ -1,7 +1,8 @@
 package org.vinod.sha.gateway.graphql;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -11,10 +12,13 @@ import java.util.*;
 
 @Slf4j
 @Controller
-@RequiredArgsConstructor
 public class ScreeningGraphQLResolver {
 
     private final WebClient.Builder webClientBuilder;
+
+    public ScreeningGraphQLResolver(WebClient.Builder webClientBuilder) {
+        this.webClientBuilder = webClientBuilder;
+    }
 
     // ── Queries ──────────────────────────────────────────────────────────────
 

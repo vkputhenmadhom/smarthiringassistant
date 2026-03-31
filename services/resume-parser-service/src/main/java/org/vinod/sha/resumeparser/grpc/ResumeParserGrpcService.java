@@ -1,7 +1,6 @@
 package org.vinod.sha.resumeparser.grpc;
 
 import io.grpc.stub.StreamObserver;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.vinod.sha.resumeparser.entity.Resume;
@@ -11,10 +10,13 @@ import org.vinod.smarthiringassistant.grpc.resume.*;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ResumeParserGrpcService extends ResumeParserServiceGrpc.ResumeParserServiceImplBase {
 
     private final ResumeParserService resumeParserService;
+
+    public ResumeParserGrpcService(ResumeParserService resumeParserService) {
+        this.resumeParserService = resumeParserService;
+    }
 
     @Override
     public void parseResume(ParseResumeRequest request, StreamObserver<ParseResumeResponse> responseObserver) {

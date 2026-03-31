@@ -1,7 +1,7 @@
 package org.vinod.interview.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -17,13 +17,18 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class InterviewPrepService {
+
+    private static final Logger log = LoggerFactory.getLogger(InterviewPrepService.class);
 
     private final InterviewQuestionRepository repository;
     private final RestTemplate restTemplate;
+
+    public InterviewPrepService(InterviewQuestionRepository repository, RestTemplate restTemplate) {
+        this.repository = repository;
+        this.restTemplate = restTemplate;
+    }
 
     @Value("${interview.question.generation.count:5}")
     private int defaultCount;
@@ -32,6 +37,7 @@ public class InterviewPrepService {
     private String aiBaseUrl;
 
     public List<InterviewQuestion> generateQuestions(GenerateQuestionsRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
         int count = request.getCount() == null || request.getCount() <= 0 ? defaultCount : request.getCount();
         String prompt = buildQuestionPrompt(request, count);
 
@@ -41,18 +47,23 @@ public class InterviewPrepService {
             questions = fallbackQuestions(request, count);
         }
 
+        List<String> skills = Optional.ofNullable(request.getSkills()).orElseGet(List::of);
+        LocalDateTime now = LocalDateTime.now();
+
         List<InterviewQuestion> entities = questions.stream()
-                .map(q -> InterviewQuestion.builder()
-                        .question(q)
-                        .category(defaultIfBlank(request.getCategory(), "TECHNICAL"))
-                        .difficulty(defaultIfBlank(request.getDifficulty(), "MEDIUM"))
-                        .topic(defaultIfBlank(request.getRole(), "General"))
-                        .keyPoints(new ArrayList<>())
-                        .tags(request.getSkills())
-                        .createdBy(defaultIfBlank(request.getUserId(), "system"))
-                        .createdAt(LocalDateTime.now())
-                        .updatedAt(LocalDateTime.now())
-                        .build())
+                .map(q -> new InterviewQuestion(
+                        null,
+                        q,
+                        defaultIfBlank(request.getCategory(), "TECHNICAL"),
+                        defaultIfBlank(request.getDifficulty(), "MEDIUM"),
+                        defaultIfBlank(request.getRole(), "General"),
+                        null,
+                        new ArrayList<>(),
+                        new ArrayList<>(skills),
+                        defaultIfBlank(request.getUserId(), "system"),
+                        now,
+                        now
+                ))
                 .collect(Collectors.toList());
 
         return repository.saveAll(entities);
@@ -87,13 +98,13 @@ public class InterviewPrepService {
 
         // Lightweight parse fallback if AI response is plain text.
         int score = heuristicScore(q.getQuestion(), answer);
-        return AnswerFeedbackResponse.builder()
-                .questionId(questionId)
-                .score(score)
-                .summary(ai == null || ai.isBlank() ? "Answer evaluated using heuristic." : ai)
-                .strengths(List.of("Relevant response", "Covers key points"))
-                .improvements(List.of("Add concrete examples", "Quantify impact"))
-                .build();
+        return new AnswerFeedbackResponse(
+                questionId,
+                score,
+                ai == null || ai.isBlank() ? "Answer evaluated using heuristic." : ai,
+                List.of("Relevant response", "Covers key points"),
+                List.of("Add concrete examples", "Quantify impact")
+        );
     }
 
     private String callAiCompletion(String prompt, String userId) {
@@ -127,7 +138,7 @@ public class InterviewPrepService {
         return "Generate " + count + " interview questions for role " + defaultIfBlank(request.getRole(), "Software Engineer") +
                 ", category " + defaultIfBlank(request.getCategory(), "technical") +
                 ", difficulty " + defaultIfBlank(request.getDifficulty(), "medium") +
-                ". Skills: " + String.join(", ", Optional.ofNullable(request.getSkills()).orElse(List.of())) +
+                ". Skills: " + String.join(", ", Optional.ofNullable(request.getSkills()).orElseGet(List::of)) +
                 ". Return as numbered list only.";
     }
 
@@ -135,7 +146,7 @@ public class InterviewPrepService {
         if (aiText == null || aiText.isBlank()) {
             return List.of();
         }
-        List<String> result = Arrays.stream(aiText.split("\\n"))
+        return Arrays.stream(aiText.split("\\n"))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
                 .map(s -> s.replaceFirst("^\\d+[).]\\s*", ""))
@@ -143,11 +154,10 @@ public class InterviewPrepService {
                 .distinct()
                 .limit(count)
                 .collect(Collectors.toList());
-        return result;
     }
 
     private List<String> fallbackQuestions(GenerateQuestionsRequest request, int count) {
-        List<String> skills = Optional.ofNullable(request.getSkills()).orElse(List.of("Java", "Spring"));
+        List<String> skills = Optional.ofNullable(request.getSkills()).orElseGet(() -> List.of("Java", "Spring"));
         List<String> base = new ArrayList<>();
         for (String skill : skills) {
             base.add("Explain a real project where you used " + skill + " and the impact you delivered?");
@@ -167,12 +177,21 @@ public class InterviewPrepService {
         if (answer == null || answer.isBlank()) {
             return 10;
         }
-        int score = Math.min(70, answer.length() / 8);
-        if (answer.toLowerCase().contains("example")) {
+        String normalizedAnswer = answer.toLowerCase(Locale.ROOT);
+        int score = Math.min(60, answer.length() / 10);
+        if (normalizedAnswer.contains("example")) {
             score += 10;
         }
-        if (answer.toLowerCase().contains("result") || answer.toLowerCase().contains("impact")) {
+        if (normalizedAnswer.contains("result") || normalizedAnswer.contains("impact")) {
             score += 10;
+        }
+        if (question != null && !question.isBlank()) {
+            long overlaps = Arrays.stream(question.toLowerCase(Locale.ROOT).split("\\W+"))
+                    .filter(token -> token.length() > 3)
+                    .distinct()
+                    .filter(normalizedAnswer::contains)
+                    .count();
+            score += (int) Math.min(overlaps * 5, 20);
         }
         return Math.min(score, 100);
     }

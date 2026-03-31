@@ -1,6 +1,5 @@
 package org.vinod.sha.auth.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,10 +10,13 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/internal/events")
-@RequiredArgsConstructor
 public class EventReplayController {
 
     private final OutboxRelay outboxRelay;
+
+    public EventReplayController(OutboxRelay outboxRelay) {
+        this.outboxRelay = outboxRelay;
+    }
 
     @PostMapping("/replay")
     public ResponseEntity<Map<String, Object>> replayFailed() {

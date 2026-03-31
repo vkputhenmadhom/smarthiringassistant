@@ -37,6 +37,19 @@ cd frontend/candidate-portal
 npm run build
 ```
 
+## Frontend Access URLs
+
+Use these URLs after starting each app locally:
+
+- Candidate Portal (Vite dev): `http://localhost:5173`
+- HR Admin Dashboard (Angular dev): `http://localhost:4200`
+
+Useful related local URLs:
+
+- API Gateway (backend entrypoint): `http://localhost:8000`
+- GraphQL via Candidate Portal proxy: `http://localhost:5173/graphql`
+- GraphQL via HR Dashboard proxy: `http://localhost:4200/graphql`
+
 ### 2) HR Admin Dashboard (Angular)
 
 ```bash
@@ -71,6 +84,17 @@ Both frontends now include:
 - Token expiry tracking
 - Silent refresh before expiry (best effort)
 - Candidate role guard for candidate portal protected routes
+
+LinkedIn button visibility in candidate portal login is feature-flagged:
+
+- Hidden by default
+- Set `VITE_LINKEDIN_OAUTH_ENABLED=true` to display it
+
+Example (`frontend/candidate-portal/.env.local`):
+
+```bash
+VITE_LINKEDIN_OAUTH_ENABLED=true
+```
 
 Main auth files:
 
@@ -130,4 +154,8 @@ npm install
 - Verify gateway is running on `localhost:8000`
 - Verify `proxy.conf.json` / `vite.config.ts` target configuration
 - Check browser network tab for `/graphql` and `/api` failures
+
+### Docker nginx note
+
+- Frontend Docker nginx configs use Docker DNS re-resolution (`resolver 127.0.0.11`) so gateway container IP changes do not break `/graphql` and `/api` proxying.
 

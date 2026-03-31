@@ -12,6 +12,11 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: hiring
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-candidate-matcher.sql
   cache:
     type: redis
     redis:
@@ -68,4 +73,3 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
-

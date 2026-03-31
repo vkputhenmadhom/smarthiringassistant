@@ -1,6 +1,7 @@
 package org.vinod.shared.config;
 
 import org.springframework.amqp.core.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -60,14 +61,16 @@ public class RabbitMQConfiguration {
     }
 
     @Bean
-    public Binding userRegisteredBinding(Queue userRegisteredQueue, TopicExchange authExchange) {
+    public Binding userRegisteredBinding(@Qualifier("userRegisteredQueue") Queue userRegisteredQueue,
+                                         @Qualifier("authExchange") TopicExchange authExchange) {
         return BindingBuilder.bind(userRegisteredQueue)
                 .to(authExchange)
                 .with(USER_REGISTERED_ROUTING_KEY);
     }
 
     @Bean
-    public Binding userAuthenticatedBinding(Queue userAuthenticatedQueue, TopicExchange authExchange) {
+    public Binding userAuthenticatedBinding(@Qualifier("userAuthenticatedQueue") Queue userAuthenticatedQueue,
+                                            @Qualifier("authExchange") TopicExchange authExchange) {
         return BindingBuilder.bind(userAuthenticatedQueue)
                 .to(authExchange)
                 .with(USER_AUTHENTICATED_ROUTING_KEY);
@@ -87,7 +90,8 @@ public class RabbitMQConfiguration {
     }
 
     @Bean
-    public Binding resumeParsedBinding(Queue resumeParsedQueue, TopicExchange resumeExchange) {
+    public Binding resumeParsedBinding(@Qualifier("resumeParsedQueue") Queue resumeParsedQueue,
+                                       @Qualifier("resumeExchange") TopicExchange resumeExchange) {
         return BindingBuilder.bind(resumeParsedQueue)
                 .to(resumeExchange)
                 .with(RESUME_PARSED_ROUTING_KEY);
@@ -107,7 +111,8 @@ public class RabbitMQConfiguration {
     }
 
     @Bean
-    public Binding candidateMatchedBinding(Queue candidateMatchedQueue, TopicExchange matcherExchange) {
+    public Binding candidateMatchedBinding(@Qualifier("candidateMatchedQueue") Queue candidateMatchedQueue,
+                                           @Qualifier("matcherExchange") TopicExchange matcherExchange) {
         return BindingBuilder.bind(candidateMatchedQueue)
                 .to(matcherExchange)
                 .with(CANDIDATE_MATCHED_ROUTING_KEY);
@@ -127,7 +132,8 @@ public class RabbitMQConfiguration {
     }
 
     @Bean
-    public Binding jobAnalyzedBinding(Queue jobAnalyzedQueue, TopicExchange jobExchange) {
+    public Binding jobAnalyzedBinding(@Qualifier("jobAnalyzedQueue") Queue jobAnalyzedQueue,
+                                      @Qualifier("jobExchange") TopicExchange jobExchange) {
         return BindingBuilder.bind(jobAnalyzedQueue)
                 .to(jobExchange)
                 .with(JOB_ANALYZED_ROUTING_KEY);
@@ -157,14 +163,16 @@ public class RabbitMQConfiguration {
     }
 
     @Bean
-    public Binding deadLetterBinding(Queue deadLetterQueue, TopicExchange deadLetterExchange) {
+    public Binding deadLetterBinding(@Qualifier("deadLetterQueue") Queue deadLetterQueue,
+                                     @Qualifier("deadLetterExchange") TopicExchange deadLetterExchange) {
         return BindingBuilder.bind(deadLetterQueue)
                 .to(deadLetterExchange)
                 .with("#");
     }
 
     @Bean
-    public Binding screeningCompletedBinding(Queue screeningCompletedQueue, TopicExchange screeningExchange) {
+    public Binding screeningCompletedBinding(@Qualifier("screeningCompletedQueue") Queue screeningCompletedQueue,
+                                             @Qualifier("screeningExchange") TopicExchange screeningExchange) {
         return BindingBuilder.bind(screeningCompletedQueue)
                 .to(screeningExchange)
                 .with(SCREENING_COMPLETED_ROUTING_KEY);
@@ -178,7 +186,8 @@ public class RabbitMQConfiguration {
     }
 
     @Bean
-    public Binding screeningCompensationBinding(Queue screeningCompensationQueue, TopicExchange screeningExchange) {
+    public Binding screeningCompensationBinding(@Qualifier("screeningCompensationQueue") Queue screeningCompensationQueue,
+                                                @Qualifier("screeningExchange") TopicExchange screeningExchange) {
         return BindingBuilder.bind(screeningCompensationQueue)
                 .to(screeningExchange)
                 .with(SCREENING_COMPENSATION_ROUTING_KEY);

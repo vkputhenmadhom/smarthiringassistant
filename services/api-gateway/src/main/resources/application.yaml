@@ -1,4 +1,6 @@
 spring:
+  main:
+    web-application-type: reactive   # force reactive – prevents MVC security autoconfiguration
   application:
     name: smart-hiring-assistant
   data:
@@ -143,8 +145,6 @@ spring:
 
 server:
   port: 8000
-  servlet:
-    context-path: /
 
 app:
   security:

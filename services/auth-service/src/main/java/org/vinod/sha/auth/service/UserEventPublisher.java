@@ -1,19 +1,23 @@
 package org.vinod.sha.auth.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.vinod.sha.auth.outbox.OutboxPublisher;
 import org.vinod.sha.auth.entity.User;
 import org.vinod.shared.events.UserRegisteredEvent;
 import org.vinod.shared.events.UserAuthenticatedEvent;
 
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class UserEventPublisher {
 
+    private static final Logger log = LoggerFactory.getLogger(UserEventPublisher.class);
+
     private final OutboxPublisher outboxPublisher;
+
+    public UserEventPublisher(OutboxPublisher outboxPublisher) {
+        this.outboxPublisher = outboxPublisher;
+    }
 
     private static final String USER_EXCHANGE = "auth.exchange";
     private static final String USER_REGISTERED_ROUTING_KEY = "user.registered";

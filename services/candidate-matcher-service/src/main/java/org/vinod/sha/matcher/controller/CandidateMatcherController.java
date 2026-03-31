@@ -1,6 +1,5 @@
 package org.vinod.sha.matcher.controller;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,10 +17,13 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @RequestMapping("/")
-@RequiredArgsConstructor
 public class CandidateMatcherController {
 
     private final CandidateMatcherService candidateMatcherService;
+
+    public CandidateMatcherController(CandidateMatcherService candidateMatcherService) {
+        this.candidateMatcherService = candidateMatcherService;
+    }
 
     @PostMapping("match")
     public ResponseEntity<List<MatchResponse>> matchCandidate(@RequestBody MatchRequest request) {

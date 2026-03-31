@@ -1,4 +1,3 @@
-version: '3.9'
 
 # Monitoring override for staging alert thresholds.
 # Use with docker-compose.yml + docker-compose.apps.yml.

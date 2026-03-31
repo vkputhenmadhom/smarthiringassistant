@@ -1,6 +1,5 @@
 package org.vinod.sha.matcher.listener;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
@@ -13,11 +12,16 @@ import java.time.LocalDateTime;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ResumeParseEventListener {
 
     private final CandidateMatcherService candidateMatcherService;
     private final ProcessedEventRepository processedEventRepository;
+
+    public ResumeParseEventListener(CandidateMatcherService candidateMatcherService,
+                                    ProcessedEventRepository processedEventRepository) {
+        this.candidateMatcherService = candidateMatcherService;
+        this.processedEventRepository = processedEventRepository;
+    }
 
     @RabbitListener(queues = "resume.parsed.queue")
     public void handleResumeParseEvent(ResumeParseEvent event) {

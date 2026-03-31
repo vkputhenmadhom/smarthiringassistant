@@ -1,6 +1,5 @@
 package org.vinod.sha.screening.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -25,13 +24,22 @@ import java.util.List;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ScreeningBotService {
 
     private final ScreeningSessionRepository repository;
     private final RabbitTemplate rabbitTemplate;
     private final MeterRegistry meterRegistry;
     private final WorkflowSagaStateRepository sagaStateRepository;
+
+    public ScreeningBotService(ScreeningSessionRepository repository,
+                               RabbitTemplate rabbitTemplate,
+                               MeterRegistry meterRegistry,
+                               WorkflowSagaStateRepository sagaStateRepository) {
+        this.repository = repository;
+        this.rabbitTemplate = rabbitTemplate;
+        this.meterRegistry = meterRegistry;
+        this.sagaStateRepository = sagaStateRepository;
+    }
 
     private DistributionSummary finalScoreSummary;
 

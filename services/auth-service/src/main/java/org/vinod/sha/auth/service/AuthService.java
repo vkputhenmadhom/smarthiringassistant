@@ -1,6 +1,5 @@
 package org.vinod.sha.auth.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -22,10 +21,9 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -33,6 +31,18 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
     private final UserEventPublisher eventPublisher;
+
+    public AuthService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder,
+                       AuthenticationManager authenticationManager,
+                       JwtTokenProvider tokenProvider,
+                       UserEventPublisher eventPublisher) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.authenticationManager = authenticationManager;
+        this.tokenProvider = tokenProvider;
+        this.eventPublisher = eventPublisher;
+    }
 
     public AuthResponse register(RegisterRequest request) {
         // Validate input
@@ -159,7 +169,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
-                .expiresIn(3600L) // 1 hour
+                .expiresIn(3600L)
                 .user(UserResponse.builder()
                         .id(user.getId())
                         .username(user.getUsername())
@@ -176,10 +186,9 @@ public class AuthService {
         String lastName = extractLastName(oauth2User);
         String username = generateUniqueUsername(email, registrationId);
 
-        User user = User.builder()
+        return User.builder()
                 .username(username)
                 .email(email)
-                // Random password keeps entity constraints satisfied for external identities.
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .firstName(firstName)
                 .lastName(lastName)
@@ -189,7 +198,6 @@ public class AuthService {
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
                 .build();
-        return user;
     }
 
     private User updateUserFromOAuth2(User existing, OAuth2User oauth2User) {

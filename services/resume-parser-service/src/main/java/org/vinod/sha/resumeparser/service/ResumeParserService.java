@@ -1,6 +1,5 @@
 package org.vinod.sha.resumeparser.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,13 +15,20 @@ import java.util.regex.Pattern;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class ResumeParserService {
 
     private final ResumeRepository resumeRepository;
     private final DocumentProcessor documentProcessor;
     private final OutboxPublisher outboxPublisher;
+
+    public ResumeParserService(ResumeRepository resumeRepository,
+                               DocumentProcessor documentProcessor,
+                               OutboxPublisher outboxPublisher) {
+        this.resumeRepository = resumeRepository;
+        this.documentProcessor = documentProcessor;
+        this.outboxPublisher = outboxPublisher;
+    }
 
     private static final String RESUME_EXCHANGE = "resume.exchange";
     private static final String RESUME_PARSED_ROUTING_KEY = "resume.parsed";

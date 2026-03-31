@@ -1,6 +1,5 @@
 package org.vinod.interview.controller;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,10 +14,13 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/")
-@RequiredArgsConstructor
 public class InterviewPrepController {
 
     private final InterviewPrepService service;
+
+    public InterviewPrepController(InterviewPrepService service) {
+        this.service = service;
+    }
 
     @PostMapping("questions/generate")
     public ResponseEntity<List<InterviewQuestion>> generate(@RequestBody GenerateQuestionsRequest request) {
@@ -42,7 +44,7 @@ public class InterviewPrepController {
     public ResponseEntity<AnswerFeedbackResponse> feedback(
             @PathVariable String id,
             @RequestBody AnswerFeedbackRequest request) {
-        return ResponseEntity.ok(service.evaluateAnswer(id, request.getUserId(), request.getAnswer()));
+        return ResponseEntity.ok(service.evaluateAnswer(id, request.userId(), request.answer()));
     }
 }
 

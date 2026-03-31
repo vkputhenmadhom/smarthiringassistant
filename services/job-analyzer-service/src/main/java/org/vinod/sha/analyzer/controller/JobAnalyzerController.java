@@ -1,6 +1,5 @@
 package org.vinod.sha.analyzer.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.vinod.sha.analyzer.dto.JobAnalyzeRequest;
@@ -13,10 +12,13 @@ import org.vinod.sha.analyzer.service.JobAnalyzerService;
 
 @RestController
 @RequestMapping("/")
-@RequiredArgsConstructor
 public class JobAnalyzerController {
 
     private final JobAnalyzerService service;
+
+    public JobAnalyzerController(JobAnalyzerService service) {
+        this.service = service;
+    }
 
     @PostMapping("analyze")
     public ResponseEntity<JobAnalysis> analyze(@RequestBody JobAnalyzeRequest request) {

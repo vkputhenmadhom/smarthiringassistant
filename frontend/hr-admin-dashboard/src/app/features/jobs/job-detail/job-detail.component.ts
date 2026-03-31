@@ -8,6 +8,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
+import { MatDividerModule } from '@angular/material/divider';
 import { map } from 'rxjs/operators';
 import { JOB_QUERY, MATCHES_FOR_JOB_QUERY, UPDATE_MATCH_STATUS_MUTATION } from '../../../graphql/queries';
 import { Job } from '../../../shared/models';
@@ -16,7 +17,7 @@ import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
 @Component({
   selector: 'sha-job-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatCardModule, MatChipsModule, MatIconModule, MatButtonModule, MatTableModule],
+  imports: [CommonModule, RouterLink, MatCardModule, MatChipsModule, MatIconModule, MatButtonModule, MatTableModule, MatDividerModule],
   template: `
     <ng-container *ngIf="job$ | async as job">
       <div class="page-header flex justify-between items-center">

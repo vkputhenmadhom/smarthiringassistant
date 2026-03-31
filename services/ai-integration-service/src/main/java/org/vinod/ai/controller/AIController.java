@@ -1,6 +1,5 @@
 package org.vinod.ai.controller;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,11 +13,15 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/")
-@RequiredArgsConstructor
 public class AIController {
 
     private final OpenAIService openAIService;
     private final RateLimitService rateLimitService;
+
+    public AIController(OpenAIService openAIService, RateLimitService rateLimitService) {
+        this.openAIService = openAIService;
+        this.rateLimitService = rateLimitService;
+    }
 
     @PostMapping("completion")
     public ResponseEntity<AIResponse> generateCompletion(@RequestBody AIRequest request) {

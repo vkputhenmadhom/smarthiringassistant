@@ -48,7 +48,7 @@ import { selectAllCandidates, selectCandidatesLoading, selectCandidatesTotal } f
 
     <mat-spinner *ngIf="loading$ | async" diameter="40" class="center-spinner"></mat-spinner>
 
-    <table mat-table [dataSource]="candidates$ | async" class="sha-table" *ngIf="!(loading$ | async)">
+    <table mat-table [dataSource]="(candidates$ | async) ?? []" class="sha-table" *ngIf="!(loading$ | async)">
       <ng-container matColumnDef="name">
         <th mat-header-cell *matHeaderCellDef>Name</th>
         <td mat-cell *matCellDef="let c">

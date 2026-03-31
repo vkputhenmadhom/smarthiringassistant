@@ -8,13 +8,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { map } from 'rxjs/operators';
-import { DASHBOARD_METRICS_QUERY } from '../../../graphql/queries';
-import { DashboardMetrics } from '../../../shared/models';
+import { DASHBOARD_METRICS_QUERY } from '../../graphql/queries';
+import { DashboardMetrics } from '../../shared/models';
 
 @Component({
   selector: 'sha-analytics',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatCardModule, MatButtonModule, MatIconModule, MatTableModule, MatProgressBarModule],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatTableModule, MatProgressBarModule],
   template: `
     <div class="page-header"><h1>Analytics</h1><p>Pipeline metrics and hiring insights</p></div>
     <ng-container *ngIf="metrics$ | async as m">

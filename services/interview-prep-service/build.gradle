@@ -22,13 +22,15 @@ dependencies {
     // NLP & Text Processing
     implementation 'edu.stanford.nlp:stanford-corenlp:4.5.4'
     
-    // Utilities
-    implementation 'org.projectlombok:lombok'
+    // Lombok (compile-time only)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
     
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     
-    annotationProcessor 'org.projectlombok:lombok'
 }
 
 tasks.named('test') {

@@ -33,14 +33,16 @@ dependencies {
     // Observability
     implementation 'io.micrometer:micrometer-registry-prometheus'
     
-    // Utilities
-    implementation 'org.projectlombok:lombok'
+    // Lombok (compile-time only)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
     
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     
-    annotationProcessor 'org.projectlombok:lombok'
 }
 
 tasks.named('test') {

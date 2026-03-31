@@ -1,13 +1,11 @@
 package org.vinod.sha.analyzer;
 
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -23,7 +21,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,25 +36,17 @@ class JobAnalyzerIntegrationTest {
     @Mock
     private RestTemplate restTemplate;
 
-    @Mock
     private MeterRegistry meterRegistry;
-
-    @Mock
-    private Counter counter;
-
-    @Mock
-    private Timer timer;
 
     @Mock
     private DistributionSummary salaryConfidenceSummary;
 
-    @InjectMocks
     private JobAnalyzerService service;
 
     @BeforeEach
     void setUp() {
-        when(meterRegistry.counter(anyString())).thenReturn(counter);
-        when(meterRegistry.timer(anyString())).thenReturn(timer);
+        meterRegistry = new SimpleMeterRegistry();
+        service = new JobAnalyzerService(repository, rabbitTemplate, restTemplate, meterRegistry);
 
         ReflectionTestUtils.setField(service, "aiBaseUrl", "http://localhost:8008/api/ai");
         ReflectionTestUtils.setField(service, "salaryConfidenceSummary", salaryConfidenceSummary);
@@ -64,7 +54,7 @@ class JobAnalyzerIntegrationTest {
 
     @Test
     void analyzeJob_happyPath_returnsAnalyzedDocument() {
-        when(restTemplate.postForObject(any(String.class), any(), any(Class.class)))
+        when(restTemplate.postForObject(any(String.class), any(), eq(Map.class)))
                 .thenReturn(Map.of("response", "Java, Spring Boot, Docker"));
         when(repository.save(any(JobAnalysis.class))).thenAnswer(invocation -> {
             JobAnalysis in = invocation.getArgument(0);

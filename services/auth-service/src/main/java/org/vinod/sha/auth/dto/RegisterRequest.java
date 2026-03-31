@@ -39,5 +39,6 @@ public class RegisterRequest {
 
     @Pattern(regexp = "^(ADMIN|RECRUITER|JOB_SEEKER|HIRING_MANAGER)?$", message = "Role must be ADMIN, RECRUITER, JOB_SEEKER, or HIRING_MANAGER")
     private String role; // RECRUITER, JOB_SEEKER, HIRING_MANAGER
+
 }
 

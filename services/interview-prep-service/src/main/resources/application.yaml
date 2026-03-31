@@ -2,7 +2,7 @@ spring:
   application:
     name: interview-prep-service
   mongodb:
-      uri: mongodb://hiring_user:hiring_password@localhost:27017/smart_hiring_db?authSource=admin
+    uri: mongodb://hiring_user:hiring_password@localhost:27017/smart_hiring_db?authSource=admin
   rabbitmq:
     host: localhost
     port: 5672

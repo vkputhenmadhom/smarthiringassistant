@@ -2,7 +2,6 @@ package org.vinod.sha.resumeparser.config;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -13,13 +12,16 @@ import java.io.IOException;
 
 @Slf4j
 @Configuration
-@RequiredArgsConstructor
 public class GrpcServerConfiguration {
 
     @Value("${grpc.server.port:9091}")
     private int grpcServerPort;
 
     private final ResumeParserGrpcService resumeParserGrpcService;
+
+    public GrpcServerConfiguration(ResumeParserGrpcService resumeParserGrpcService) {
+        this.resumeParserGrpcService = resumeParserGrpcService;
+    }
 
     @Bean
     public Server grpcServer() throws IOException {

@@ -2,7 +2,9 @@ package org.vinod.sha.resumeparser.outbox;
 
 public enum OutboxStatus {
     PENDING,
+    PROCESSING,
     SENT,
-    FAILED
+    FAILED,
+    DEAD_LETTER
 }
 

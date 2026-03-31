@@ -1,4 +1,4 @@
-# Multi-stage Docker build for Resume Parser Service
+# Multi-stage Docker build for Auth Service
 # Builder: Debian-based JDK for reliable TLS handshake with Maven Central
 FROM eclipse-temurin:21-jdk AS builder
 
@@ -8,16 +8,16 @@ COPY gradle gradle
 COPY build.gradle .
 COPY settings.gradle .
 COPY shared shared
-COPY services/resume-parser-service services/resume-parser-service
+COPY services/auth-service services/auth-service
 
-RUN chmod +x gradlew && ./gradlew :services:resume-parser-service:bootJar -x test --no-daemon
+RUN chmod +x gradlew && ./gradlew :services:auth-service:bootJar -x test --no-daemon
 
 # Runtime: lightweight Alpine image
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
-COPY --from=builder /app/services/resume-parser-service/build/libs/*.jar app.jar
+COPY --from=builder /app/services/auth-service/build/libs/*.jar app.jar
 
-EXPOSE 8002
+EXPOSE 8001
 ENTRYPOINT ["java", "-jar", "app.jar"]
 

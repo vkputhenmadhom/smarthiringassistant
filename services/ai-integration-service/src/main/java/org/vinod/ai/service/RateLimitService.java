@@ -1,6 +1,5 @@
 package org.vinod.ai.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -13,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class RateLimitService {
 
     private final RedisTemplate<String, Object> redisTemplate;
@@ -22,6 +20,10 @@ public class RateLimitService {
     private int requestsPerMinute;
 
     private final ConcurrentHashMap<String, Deque<Long>> requestWindows = new ConcurrentHashMap<>();
+
+    public RateLimitService(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     public boolean isAllowed(String userId, String operation) {
         String key = "rate_limit:" + userId + ":" + operation;

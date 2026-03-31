@@ -1,7 +1,6 @@
 package org.vinod.sha.auth.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,11 +8,15 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Component
-@RequiredArgsConstructor
 public class OutboxPublisher {
 
     private final OutboxEventRepository repository;
     private final ObjectMapper objectMapper;
+
+    public OutboxPublisher(OutboxEventRepository repository, ObjectMapper objectMapper) {
+        this.repository = repository;
+        this.objectMapper = objectMapper;
+    }
 
     @Transactional
     public void enqueue(String exchange, String routingKey, String eventType, Object payload) {

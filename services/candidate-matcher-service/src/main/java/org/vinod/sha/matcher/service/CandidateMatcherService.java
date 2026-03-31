@@ -1,6 +1,5 @@
 package org.vinod.sha.matcher.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +17,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class CandidateMatcherService {
 
@@ -26,6 +24,16 @@ public class CandidateMatcherService {
     private final JobRequirementRepository jobRequirementRepository;
     private final WeightedScoreMatcher weightedScoreMatcher;
     private final OutboxPublisher outboxPublisher;
+
+    public CandidateMatcherService(CandidateMatchRepository candidateMatchRepository,
+                                   JobRequirementRepository jobRequirementRepository,
+                                   WeightedScoreMatcher weightedScoreMatcher,
+                                   OutboxPublisher outboxPublisher) {
+        this.candidateMatchRepository = candidateMatchRepository;
+        this.jobRequirementRepository = jobRequirementRepository;
+        this.weightedScoreMatcher = weightedScoreMatcher;
+        this.outboxPublisher = outboxPublisher;
+    }
 
     private static final String MATCHER_EXCHANGE = "matcher.exchange";
     private static final String CANDIDATE_MATCHED_ROUTING_KEY = "candidate.matched";

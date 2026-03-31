@@ -5,7 +5,6 @@ import com.theokanning.openai.completion.chat.ChatCompletionResult;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatMessageRole;
 import com.theokanning.openai.service.OpenAiService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -20,7 +19,6 @@ import java.util.Optional;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class OpenAIService {
 
     @Value("${openai.api.key}")
@@ -28,6 +26,11 @@ public class OpenAIService {
 
     private final AICacheRepository cacheRepository;
     private final RateLimitService rateLimitService;
+
+    public OpenAIService(AICacheRepository cacheRepository, RateLimitService rateLimitService) {
+        this.cacheRepository = cacheRepository;
+        this.rateLimitService = rateLimitService;
+    }
 
     public String generateCompletion(String prompt, String userId) {
         return generateCompletion(prompt, userId, "gpt-3.5-turbo", 0.7, 1000);

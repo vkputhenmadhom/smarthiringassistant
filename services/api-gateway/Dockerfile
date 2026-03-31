@@ -1,5 +1,6 @@
 # Multi-stage Docker build for API Gateway
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# Builder: Debian-based JDK for reliable TLS handshake with Maven Central
+FROM eclipse-temurin:21-jdk AS builder
 
 WORKDIR /app
 COPY gradlew .
@@ -9,8 +10,9 @@ COPY settings.gradle .
 COPY shared shared
 COPY services/api-gateway services/api-gateway
 
-RUN ./gradlew :services:api-gateway:bootJar -x test
+RUN chmod +x gradlew && ./gradlew :services:api-gateway:bootJar -x test --no-daemon
 
+# Runtime: lightweight Alpine image
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app

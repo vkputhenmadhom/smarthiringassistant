@@ -53,7 +53,7 @@ import { Job } from '../../../shared/models';
 
     <mat-spinner *ngIf="loading$ | async" diameter="40" class="center-spinner"></mat-spinner>
 
-    <table mat-table [dataSource]="jobs$ | async" class="sha-table" *ngIf="!(loading$ | async)">
+    <table mat-table [dataSource]="(jobs$ | async) ?? []" class="sha-table" *ngIf="!(loading$ | async)">
       <ng-container matColumnDef="title">
         <th mat-header-cell *matHeaderCellDef>Title</th>
         <td mat-cell *matCellDef="let j">

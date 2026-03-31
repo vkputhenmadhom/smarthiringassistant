@@ -1,14 +1,51 @@
-version: '3.9'
 
 # App-layer compose file with health checks and baseline scaling hints.
 # Use together with docker-compose.yml (infra):
 # docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
 services:
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
+      SPRING_DATASOURCE_USERNAME: hiring_user
+      SPRING_DATASOURCE_PASSWORD: hiring_password
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: hiring_user
+      SPRING_RABBITMQ_PASSWORD: hiring_password
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required (set it in .env)}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required (set it in .env)}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8000/api/auth/login/oauth2/code/google}
+      OAUTH2_SUCCESS_REDIRECT_URI: ${OAUTH2_SUCCESS_REDIRECT_URI:-http://localhost:5173/auth/callback}
+      OAUTH2_FAILURE_REDIRECT_URI: ${OAUTH2_FAILURE_REDIRECT_URI:-http://localhost:5173/login}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - smart-hiring-network
+
   api-gateway:
     build:
       context: .
       dockerfile: services/api-gateway/Dockerfile
-    container_name: smart-hiring-api-gateway
     ports:
       - "8000:8000"
     environment:
@@ -23,6 +60,8 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PASSWORD: hiring_password
     depends_on:
+      auth-service:
+        condition: service_started
       postgres:
         condition: service_healthy
       rabbitmq:
@@ -37,7 +76,7 @@ services:
       start_period: 45s
     restart: unless-stopped
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpus: '1.00'
@@ -52,7 +91,6 @@ services:
     build:
       context: .
       dockerfile: services/resume-parser-service/Dockerfile
-    container_name: smart-hiring-resume-parser
     ports:
       - "8002:8002"
     environment:
@@ -77,7 +115,7 @@ services:
       start_period: 60s
     restart: unless-stopped
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpus: '1.00'
@@ -92,7 +130,6 @@ services:
     build:
       context: .
       dockerfile: services/candidate-matcher-service/Dockerfile
-    container_name: smart-hiring-candidate-matcher
     ports:
       - "8003:8003"
     environment:
@@ -121,7 +158,7 @@ services:
       start_period: 60s
     restart: unless-stopped
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpus: '1.00'
@@ -136,7 +173,6 @@ services:
     build:
       context: .
       dockerfile: services/interview-prep-service/Dockerfile
-    container_name: smart-hiring-interview-prep
     ports:
       - "8004:8004"
     environment:
@@ -144,6 +180,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
       SPRING_DATASOURCE_USERNAME: hiring_user
       SPRING_DATASOURCE_PASSWORD: hiring_password
+      SPRING_MONGODB_URI: mongodb://hiring_user:hiring_password@mongodb:27017/smart_hiring_db?authSource=admin
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: hiring_user
@@ -161,7 +198,7 @@ services:
       start_period: 60s
     restart: unless-stopped
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpus: '1.00'
@@ -176,7 +213,6 @@ services:
     build:
       context: .
       dockerfile: services/screening-bot-service/Dockerfile
-    container_name: smart-hiring-screening-bot
     ports:
       - "8006:8006"
     environment:
@@ -203,7 +239,7 @@ services:
       start_period: 60s
     restart: unless-stopped
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpus: '1.00'
@@ -218,7 +254,6 @@ services:
     build:
       context: .
       dockerfile: services/notification-service/Dockerfile
-    container_name: smart-hiring-notification
     ports:
       - "8007:8007"
     environment:
@@ -238,7 +273,7 @@ services:
       start_period: 45s
     restart: unless-stopped
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpus: '1.00'
@@ -246,6 +281,34 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
+    networks:
+      - smart-hiring-network
+
+  # ── Angular HR Admin Dashboard ────────────────────────────────────────────
+  hr-admin-dashboard:
+    build:
+      context: ./frontend/hr-admin-dashboard
+      dockerfile: Dockerfile
+    container_name: smart-hiring-hr-dashboard
+    ports:
+      - "4200:80"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - smart-hiring-network
+
+  # ── React Candidate Portal ─────────────────────────────────────────────────
+  candidate-portal:
+    build:
+      context: ./frontend/candidate-portal
+      dockerfile: Dockerfile
+    container_name: smart-hiring-candidate-portal
+    ports:
+      - "5173:80"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
     networks:
       - smart-hiring-network
 

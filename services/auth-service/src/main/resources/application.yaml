@@ -1,6 +1,9 @@
 spring:
   application:
     name: auth-service
+  sql:
+    init:
+      mode: always
   datasource:
     url: jdbc:postgresql://localhost:5432/smart_hiring_db
     username: hiring_user
@@ -21,6 +24,7 @@ spring:
           google:
             client-id: ${GOOGLE_CLIENT_ID:replace-me}
             client-secret: ${GOOGLE_CLIENT_SECRET:replace-me}
+            redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8000/api/auth/login/oauth2/code/google}
             scope: openid,profile,email
           linkedin:
             client-id: ${LINKEDIN_CLIENT_ID:replace-me}

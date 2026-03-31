@@ -14,6 +14,7 @@ import { COMMA, ENTER } from '@angular/cdk/keycodes';
 import { MatChipInputEvent } from '@angular/material/chips';
 import { createJob, updateJob, loadJob } from '../../../store/jobs/jobs.actions';
 import { selectSelectedJob } from '../../../store/jobs/jobs.selectors';
+import { Job, JobType } from '../../../shared/models';
 import { take } from 'rxjs/operators';
 
 @Component({
@@ -157,7 +158,18 @@ export class JobFormComponent implements OnInit {
   removeSkill(s: string) { this.skills = this.skills.filter(x => x !== s); }
 
   submit() {
-    const input = { ...this.form.value, skills: this.skills };
+    const raw = this.form.getRawValue();
+    const input: Partial<Job> = {
+      title:          raw.title          ?? undefined,
+      description:    raw.description    ?? undefined,
+      department:     raw.department     ?? undefined,
+      location:       raw.location       ?? undefined,
+      type:           (raw.type          ?? undefined) as JobType | undefined,
+      salaryMin:      raw.salaryMin      ?? undefined,
+      salaryMax:      raw.salaryMax      ?? undefined,
+      salaryCurrency: raw.salaryCurrency ?? undefined,
+      skills: this.skills,
+    };
     if (this.isEdit && this.jobId) {
       this.store.dispatch(updateJob({ id: this.jobId, input }));
     } else {

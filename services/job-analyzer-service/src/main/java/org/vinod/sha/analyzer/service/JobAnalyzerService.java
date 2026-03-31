@@ -1,6 +1,5 @@
 package org.vinod.sha.analyzer.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -29,13 +28,22 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class JobAnalyzerService {
 
     private final JobAnalysisRepository repository;
     private final RabbitTemplate rabbitTemplate;
     private final RestTemplate restTemplate;
     private final MeterRegistry meterRegistry;
+
+    public JobAnalyzerService(JobAnalysisRepository repository,
+                              RabbitTemplate rabbitTemplate,
+                              RestTemplate restTemplate,
+                              MeterRegistry meterRegistry) {
+        this.repository = repository;
+        this.rabbitTemplate = rabbitTemplate;
+        this.restTemplate = restTemplate;
+        this.meterRegistry = meterRegistry;
+    }
 
     private DistributionSummary salaryConfidenceSummary;
 

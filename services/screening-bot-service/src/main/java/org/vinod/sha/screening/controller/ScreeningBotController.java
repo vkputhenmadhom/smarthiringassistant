@@ -1,6 +1,5 @@
 package org.vinod.sha.screening.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.vinod.sha.screening.dto.CreateSessionRequest;
@@ -11,10 +10,13 @@ import org.vinod.sha.screening.service.ScreeningBotService;
 
 @RestController
 @RequestMapping("/")
-@RequiredArgsConstructor
 public class ScreeningBotController {
 
     private final ScreeningBotService service;
+
+    public ScreeningBotController(ScreeningBotService service) {
+        this.service = service;
+    }
 
     @PostMapping("sessions")
     public ResponseEntity<ScreeningSession> createSession(@RequestBody CreateSessionRequest request) {
