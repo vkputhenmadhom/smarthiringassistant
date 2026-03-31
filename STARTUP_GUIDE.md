@@ -143,6 +143,18 @@ If you want Docker to rebuild the service image before starting it:
 docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build <service-name>
 ```
 
+### Start Notification Service with MailHog (Local Email Testing)
+
+Use this mode when you want email testing without real SMTP credentials:
+
+```bash
+COMPOSE_PROFILES=mailhog NOTIFICATION_SPRING_PROFILES_ACTIVE=docker,mailhog docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build notification-service mailhog
+```
+
+MailHog Web UI:
+
+- `http://localhost:8025`
+
 ### View Logs for All Services
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.apps.yml logs --follow

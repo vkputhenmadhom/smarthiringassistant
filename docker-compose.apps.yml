@@ -257,12 +257,23 @@ services:
     ports:
       - "8007:8007"
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+      SPRING_PROFILES_ACTIVE: ${NOTIFICATION_SPRING_PROFILES_ACTIVE:-docker}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
+      SPRING_DATASOURCE_USERNAME: hiring_user
+      SPRING_DATASOURCE_PASSWORD: hiring_password
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: hiring_user
       SPRING_RABBITMQ_PASSWORD: hiring_password
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MANAGEMENT_HEALTH_MAIL_ENABLED: ${MANAGEMENT_HEALTH_MAIL_ENABLED:-false}
+      NOTIFICATION_EMAIL_ENABLED: ${NOTIFICATION_EMAIL_ENABLED:-false}
     depends_on:
+      postgres:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     healthcheck:
@@ -281,6 +292,17 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
+    networks:
+      - smart-hiring-network
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    profiles:
+      - mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    restart: unless-stopped
     networks:
       - smart-hiring-network
 
