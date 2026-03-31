@@ -27,8 +27,7 @@ public class Resume {
     @Column(nullable = false)
     private String fileName;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "BYTEA")
     @Convert(converter = EncryptedByteArrayConverter.class)
     private byte[] fileContent;
 
