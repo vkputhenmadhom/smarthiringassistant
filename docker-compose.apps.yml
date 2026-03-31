@@ -217,6 +217,7 @@ services:
       - "8006:8006"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      SPRING_MONGODB_URI: mongodb://hiring_user:hiring_password@mongodb:27017/smart_hiring_db?authSource=admin
       SPRING_DATA_MONGODB_URI: mongodb://hiring_user:hiring_password@mongodb:27017/smart_hiring_db?authSource=admin
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672

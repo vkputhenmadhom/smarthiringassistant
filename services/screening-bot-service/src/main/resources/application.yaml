@@ -8,7 +8,7 @@ spring:
     password: hiring_password
     virtual-host: /
   mongodb:
-    uri: mongodb://hiring_user:hiring_password@localhost:27017/smart_hiring_db?authSource=admin
+    uri: ${SPRING_MONGODB_URI:mongodb://hiring_user:hiring_password@localhost:27017/smart_hiring_db?authSource=admin}
   data:
     redis:
       host: localhost
