@@ -203,6 +203,24 @@ Optional overrides:
 GATEWAY_URL=http://localhost:8000 HR_FRONTEND_URL=http://localhost:4200 HR_SMOKE_HEADLESS=false node scripts/hr-click-validate.js
 ```
 
+### One-Command Phase-1 Serverless Smoke (Quarkus Lambda + SAM)
+
+Use this to validate the new serverless starter independently from Docker Compose.
+
+```bash
+cd /Users/vinodputhenmadhom/Downloads/JavaProjects/SmartHiringAssistant
+chmod +x scripts/serverless-phase1-smoke.sh
+./scripts/serverless-phase1-smoke.sh
+```
+
+If Docker is not running yet:
+
+```bash
+SKIP_LOCAL_INVOKE=true ./scripts/serverless-phase1-smoke.sh
+```
+
+Reference docs: `serverless/phase1/README.md`
+
 ### View Logs for All Services
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.apps.yml logs --follow

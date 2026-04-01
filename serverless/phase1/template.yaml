@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Smart Hiring Assistant - Phase 1 serverless starter
+
+Globals:
+  Function:
+    Runtime: java17
+    Timeout: 20
+    MemorySize: 1024
+    Tracing: Active
+
+Resources:
+  ResumeParserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: sha-phase1-resume-parser
+      Handler: org.vinod.sha.serverless.resume.ResumeParserLambda::handleRequest
+      CodeUri: functions/resume-parser-lambda/build/function.zip
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+      Events:
+        ResumeApi:
+          Type: Api
+          Properties:
+            Path: /resume/parse
+            Method: post
+
+Outputs:
+  ResumeParserApi:
+    Description: API endpoint for resume parser lambda
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/resume/parse"

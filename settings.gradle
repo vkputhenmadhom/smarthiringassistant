@@ -15,7 +15,8 @@ def serviceModules = [
 		'services:job-analyzer-service',
 		'services:screening-bot-service',
 		'services:ai-integration-service',
-		'services:notification-service'
+		'services:notification-service',
+		'serverless:phase1:functions:resume-parser-lambda'
 ]
 
 serviceModules.each { modulePath ->
@@ -24,4 +25,3 @@ serviceModules.each { modulePath ->
 		include modulePath
 	}
 }
-
