@@ -175,6 +175,17 @@ Optional custom endpoints:
 AUTH_BASE_URL=http://localhost:8001/api/auth RESUME_BASE_URL=http://localhost:8002/api/resumes ./scripts/smoke-auth-e2e.sh
 ```
 
+### One-Command LinkedIn Demo Flow (PASS/FAIL Summary)
+
+Runs full demo path: register -> login -> JWT validate -> resume parse -> matching -> screening -> decision.
+
+```bash
+chmod +x scripts/linkedin-demo.sh
+./scripts/linkedin-demo.sh
+```
+
+Detailed doc: `docs/demo/linkedin-demo.md`
+
 ### View Logs for All Services
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.apps.yml logs --follow

@@ -70,7 +70,8 @@ events:
 
 app:
   oauth2:
-    success-redirect-uri: ${OAUTH2_SUCCESS_REDIRECT_URI:http://localhost:5173/auth/callback}
+    success-redirect-uri-candidate: ${OAUTH2_SUCCESS_REDIRECT_URI_CANDIDATE:http://localhost:5173/auth/callback}
+    success-redirect-uri-hr-admin: ${OAUTH2_SUCCESS_REDIRECT_URI_HR_ADMIN:http://localhost:4200/auth/callback}
     failure-redirect-uri: ${OAUTH2_FAILURE_REDIRECT_URI:http://localhost:5173/login}
 
 logging:

@@ -16,6 +16,7 @@ import org.vinod.sha.auth.dto.AuthResponse;
 import org.vinod.sha.auth.service.AuthService;
 
 import java.io.IOException;
+import java.util.Set;
 
 @Component
 public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccessHandler {
@@ -28,8 +29,13 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         this.authService = authService;
     }
 
-    @Value("${app.oauth2.success-redirect-uri:http://localhost:5173/auth/callback}")
-    private String successRedirectUri;
+    @Value("${app.oauth2.success-redirect-uri-candidate:http://localhost:5173/auth/callback}")
+    private String candidateSuccessRedirectUri;
+
+    @Value("${app.oauth2.success-redirect-uri-hr-admin:http://localhost:4200/auth/callback}")
+    private String hrAdminSuccessRedirectUri;
+
+    private static final Set<String> HR_ROLES = Set.of("ADMIN", "RECRUITER", "HIRING_MANAGER");
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
@@ -41,11 +47,15 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
         AuthResponse authResponse = authService.handleOAuth2Login(oauth2User, registrationId);
 
-        String redirectUrl = UriComponentsBuilder.fromUriString(successRedirectUri)
+        String role = authResponse.getUser() != null ? authResponse.getUser().getRole() : null;
+        String targetRedirectUri = HR_ROLES.contains(role) ? hrAdminSuccessRedirectUri : candidateSuccessRedirectUri;
+
+        String redirectUrl = UriComponentsBuilder.fromUriString(targetRedirectUri)
                 .queryParam("accessToken", authResponse.getAccessToken())
                 .queryParam("refreshToken", authResponse.getRefreshToken())
                 .queryParam("expiresIn", authResponse.getExpiresIn())
                 .queryParam("provider", registrationId)
+                .queryParam("role", role)
                 .build(true)
                 .toUriString();
 

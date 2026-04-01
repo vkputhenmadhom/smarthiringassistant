@@ -22,7 +22,8 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required (set it in .env)}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required (set it in .env)}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8000/api/auth/login/oauth2/code/google}
-      OAUTH2_SUCCESS_REDIRECT_URI: ${OAUTH2_SUCCESS_REDIRECT_URI:-http://localhost:5173/auth/callback}
+      OAUTH2_SUCCESS_REDIRECT_URI_CANDIDATE: ${OAUTH2_SUCCESS_REDIRECT_URI_CANDIDATE:-http://localhost:5173/auth/callback}
+      OAUTH2_SUCCESS_REDIRECT_URI_HR_ADMIN: ${OAUTH2_SUCCESS_REDIRECT_URI_HR_ADMIN:-http://localhost:4200/auth/callback}
       OAUTH2_FAILURE_REDIRECT_URI: ${OAUTH2_FAILURE_REDIRECT_URI:-http://localhost:5173/login}
     depends_on:
       postgres:
