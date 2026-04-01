@@ -24,7 +24,10 @@ spring:
           google:
             client-id: ${GOOGLE_CLIENT_ID:replace-me}
             client-secret: ${GOOGLE_CLIENT_SECRET:replace-me}
-            redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8000/api/auth/login/oauth2/code/google}
+            # Must match the URL registered in Google Cloud Console.
+            # Use localhost:8001 (auth-service direct) – NOT the gateway – so the
+            # JSESSIONID that carries the OAuth2 state survives the round-trip.
+            redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8001/api/auth/login/oauth2/code/google}
             scope: openid,profile,email
           linkedin:
             client-id: ${LINKEDIN_CLIENT_ID:replace-me}
@@ -73,6 +76,19 @@ app:
     success-redirect-uri-candidate: ${OAUTH2_SUCCESS_REDIRECT_URI_CANDIDATE:http://localhost:5173/auth/callback}
     success-redirect-uri-hr-admin: ${OAUTH2_SUCCESS_REDIRECT_URI_HR_ADMIN:http://localhost:4200/auth/callback}
     failure-redirect-uri: ${OAUTH2_FAILURE_REDIRECT_URI:http://localhost:5173/login}
+
+management:
+  server:
+    port: 9001   # separate management port – no context-path, no security filter chain
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
 
 logging:
   level:

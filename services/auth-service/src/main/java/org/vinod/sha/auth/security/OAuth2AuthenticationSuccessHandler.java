@@ -3,6 +3,7 @@ package org.vinod.sha.auth.security;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +19,13 @@ import org.vinod.sha.auth.service.AuthService;
 import java.io.IOException;
 import java.util.Set;
 
+/**
+ * Redirects the browser to the correct portal after a successful OAuth2 login.
+ *
+ * <p>Portal origin is read from the HTTP session key set by
+ * {@link PortalAwareAuthorizationRequestRepository} – no cookies, no host/port
+ * assumptions.  Role is used only as a fallback when the session key is absent.
+ */
 @Component
 public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
@@ -46,9 +54,11 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         String registrationId = oauthToken.getAuthorizedClientRegistrationId();
 
         AuthResponse authResponse = authService.handleOAuth2Login(oauth2User, registrationId);
-
         String role = authResponse.getUser() != null ? authResponse.getUser().getRole() : null;
-        String targetRedirectUri = HR_ROLES.contains(role) ? hrAdminSuccessRedirectUri : candidateSuccessRedirectUri;
+
+        // --- state-based portal resolution (no cookies) ---
+        String portalOrigin = popPortalFromSession(request);
+        String targetRedirectUri = resolveTargetRedirectUri(portalOrigin, role);
 
         String redirectUrl = UriComponentsBuilder.fromUriString(targetRedirectUri)
                 .queryParam("accessToken", authResponse.getAccessToken())
@@ -59,8 +69,34 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
                 .build(true)
                 .toUriString();
 
-        log.info("OAuth2 login success for provider '{}' and user '{}'", registrationId, authResponse.getUser().getUsername());
+        log.info("OAuth2 login success – provider='{}' user='{}' portal='{}' → {}",
+                registrationId,
+                authResponse.getUser().getUsername(),
+                portalOrigin != null ? portalOrigin : "role-fallback",
+                targetRedirectUri);
+
         response.sendRedirect(redirectUrl);
     }
-}
 
+    /** Reads and removes the portal hint from the server-side session. */
+    private String popPortalFromSession(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return null;
+        }
+        Object value = session.getAttribute(PortalAwareAuthorizationRequestRepository.PORTAL_SESSION_KEY);
+        session.removeAttribute(PortalAwareAuthorizationRequestRepository.PORTAL_SESSION_KEY);
+        return value instanceof String s ? s : null;
+    }
+
+    private String resolveTargetRedirectUri(String portalOrigin, String role) {
+        if ("hr-admin".equals(portalOrigin)) {
+            return hrAdminSuccessRedirectUri;
+        }
+        if ("candidate".equals(portalOrigin)) {
+            return candidateSuccessRedirectUri;
+        }
+        // role-based fallback – used only when ?portal= was not supplied
+        return HR_ROLES.contains(role) ? hrAdminSuccessRedirectUri : candidateSuccessRedirectUri;
+    }
+}

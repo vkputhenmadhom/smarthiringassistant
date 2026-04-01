@@ -11,6 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { login } from '../../../store/auth/auth.actions';
 import { selectAuthLoading, selectAuthError } from '../../../store/auth/auth.selectors';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'sha-login',
@@ -124,7 +125,10 @@ export class LoginComponent {
   loading$ = this.store.select(selectAuthLoading);
   error$   = this.store.select(selectAuthError);
   hide     = true;
-  private oauthBase = 'http://localhost:8001/api/auth/oauth2/authorization';
+  private readonly oauthPortal = 'hr-admin';
+  // Must point directly to auth-service (same host as the registered OAuth callback URL)
+  // so the JSESSIONID carrying OAuth2 state is present on callback.
+  private readonly oauthBase = environment.oauthBaseUrl;
 
   form = this.fb.group({
     username: ['', Validators.required],
@@ -139,7 +143,6 @@ export class LoginComponent {
   }
 
   continueWithProvider(provider: 'google' | 'linkedin'): void {
-    window.location.href = `${this.oauthBase}/${provider}`;
+    window.location.href = `${this.oauthBase}/${provider}?portal=${encodeURIComponent(this.oauthPortal)}`;
   }
 }
-

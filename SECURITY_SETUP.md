@@ -142,24 +142,47 @@ Example:
 
 ### OAuth2/OIDC Provider Setup (Google + LinkedIn)
 
-Configure these redirect URLs in both Google and LinkedIn developer consoles:
+#### How portal-origin routing works (state-based, host/port-agnostic)
 
-- `http://localhost:8001/api/auth/login/oauth2/code/google`
+The `?portal=candidate` or `?portal=hr-admin` query parameter is added to the
+authorization URL by each frontend login button.  The auth-service embeds this hint into
+the `OAuth2AuthorizationRequest.attributes` map (server-side session, keyed by `state`).
+When Google redirects back, Spring Security reloads the session entry via `state`, copies
+the portal value to the session, and the success handler redirects accordingly — **no
+cookies are involved**, so the flow is independent of host/port configuration.
+
+#### Registered callback URLs in Google Cloud Console
+
+> **Important:** Both the initial OAuth request AND the Google callback must hit the
+> same host:port so the server-side session (JSESSIONID) is reachable on the callback.
+> Always use the **auth-service direct URL** (port 8001), never the gateway (8000).
+
+Add these as "Authorized redirect URIs":
+
+- `http://localhost:8001/api/auth/login/oauth2/code/google`   ← local dev
+- `https://your-domain.com/api/auth/login/oauth2/code/google` ← production
+
+LinkedIn (if enabled):
+
 - `http://localhost:8001/api/auth/login/oauth2/code/linkedin`
 
-Local provider login endpoints:
+#### Frontend OAuth login endpoints
 
-- `http://localhost:8001/api/auth/oauth2/authorization/google`
-- `http://localhost:8001/api/auth/oauth2/authorization/linkedin`
+Both portals use port 8001 **directly** (not via gateway):
 
-After successful external login, auth-service redirects the browser to:
+| Portal | Button clicks | `?portal=` value |
+|---|---|---|
+| Candidate portal (`localhost:5173`) | Continue with Google | `candidate` |
+| HR Admin dashboard (`localhost:4200`) | Continue with Google | `hr-admin` |
 
-- `OAUTH2_SUCCESS_REDIRECT_URI` with query params: `accessToken`, `refreshToken`, `expiresIn`, `provider`
+Full URL shape: `http://localhost:8001/api/auth/oauth2/authorization/google?portal=candidate`
 
-Frontend callback routes now available:
+#### After successful login the auth-service redirects to:
 
-- Candidate portal: `http://localhost:5173/auth/callback`
-- HR admin dashboard (if configured as OAuth success URI): `http://localhost:4200/auth/callback`
+- `http://localhost:5173/auth/callback?accessToken=...` — candidate portal
+- `http://localhost:4200/auth/callback?accessToken=...` — HR admin dashboard
+
+Query params: `accessToken`, `refreshToken`, `expiresIn`, `provider`, `role`
 
 ### Step 2: Update .gitignore
 ```bash
