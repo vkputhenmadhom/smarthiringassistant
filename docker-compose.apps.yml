@@ -102,6 +102,7 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: hiring_user
       SPRING_RABBITMQ_PASSWORD: hiring_password
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy

@@ -155,6 +155,26 @@ MailHog Web UI:
 
 - `http://localhost:8025`
 
+### One-Command Auth E2E Smoke Test
+
+This validates: `register -> login -> JWT -> protected resume parse`.
+
+Prerequisites:
+
+- Services running (`auth-service` and `resume-parser-service` up)
+- `JWT_SECRET` set in `.env` (already included in project template)
+
+```bash
+chmod +x scripts/smoke-auth-e2e.sh
+./scripts/smoke-auth-e2e.sh
+```
+
+Optional custom endpoints:
+
+```bash
+AUTH_BASE_URL=http://localhost:8001/api/auth RESUME_BASE_URL=http://localhost:8002/api/resumes ./scripts/smoke-auth-e2e.sh
+```
+
 ### View Logs for All Services
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.apps.yml logs --follow

@@ -57,7 +57,7 @@ server:
     context-path: /api/auth
 
 jwt:
-  secret: VpytNml18b0NoLrGL+S4kPnyhNNj4CMHpEUas44IZ6Jgsr91FVA8qPwznevpKVJ+
+  secret: ${JWT_SECRET}
   expiration: 3600000 # 1 hour in milliseconds
   refresh-expiration: 604800000 # 7 days in milliseconds
 
