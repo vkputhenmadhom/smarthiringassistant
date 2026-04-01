@@ -186,6 +186,23 @@ chmod +x scripts/linkedin-demo.sh
 
 Detailed doc: `docs/demo/linkedin-demo.md`
 
+### One-Command HR Admin Click-Path Validation (PASS/FAIL Summary)
+
+Runs an automated browser validation for HR flows:
+`login -> dashboard -> jobs -> screening -> analytics` (nav + direct routes),
+plus a GraphQL backend check for analytics metrics.
+
+```bash
+chmod +x scripts/hr-click-validate.js
+node scripts/hr-click-validate.js
+```
+
+Optional overrides:
+
+```bash
+GATEWAY_URL=http://localhost:8000 HR_FRONTEND_URL=http://localhost:4200 HR_SMOKE_HEADLESS=false node scripts/hr-click-validate.js
+```
+
 ### View Logs for All Services
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.apps.yml logs --follow

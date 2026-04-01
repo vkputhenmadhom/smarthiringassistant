@@ -1,5 +1,9 @@
 # Smart Hiring Assistant - Microservices Architecture
 
+[![Backend Services](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/backend-services.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/backend-services.yml)
+[![Frontend Apps](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/frontend-apps.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/frontend-apps.yml)
+[![Contracts](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/contracts.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/contracts.yml)
+
 A production-grade, event-driven microservices platform for intelligent recruitment and hiring automation. Built with Java, Spring Boot, and cutting-edge AI/GenAI integration.
 
 ## 🎯 Project Overview
@@ -277,6 +281,21 @@ Use `docker-compose.monitoring-staging.yml` when you want staging-specific alert
 ### Integration Tests
 ```bash
 ./gradlew integrationTest
+```
+
+### Frontend HR Click Smoke (CI + Local)
+
+This smoke validates HR dashboard click paths and analytics wiring:
+`login -> dashboard -> jobs -> screening -> analytics`.
+
+```bash
+node scripts/hr-click-validate.js
+```
+
+Optional (visible browser + explicit URLs):
+
+```bash
+GATEWAY_URL=http://localhost:8000 HR_FRONTEND_URL=http://localhost:4200 HR_SMOKE_HEADLESS=false node scripts/hr-click-validate.js
 ```
 
 ## 📦 Dependencies Management

@@ -1,13 +1,20 @@
 name: frontend-apps
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - 'frontend/**'
+      - 'scripts/hr-click-validate.js'
+      - 'docker-compose.yml'
+      - 'docker-compose.apps.yml'
   push:
     branches: [ main ]
     paths:
       - 'frontend/**'
+      - 'scripts/hr-click-validate.js'
+      - 'docker-compose.yml'
+      - 'docker-compose.apps.yml'
 
 jobs:
   detect-changed-apps:
@@ -103,4 +110,64 @@ jobs:
         with:
           name: frontend-publish-${{ matrix.app }}
           path: out/${{ matrix.app }}.json
+
+  hr-admin-click-smoke:
+    needs: detect-changed-apps
+    if: github.event_name == 'workflow_dispatch' || contains(needs.detect-changed-apps.outputs.matrix, 'hr-admin-dashboard')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright runtime
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Start required stack for HR click smoke
+        env:
+          GOOGLE_CLIENT_ID: ci-google-client-id
+          GOOGLE_CLIENT_SECRET: ci-google-client-secret
+          JWT_SECRET: ci-local-jwt-secret-for-smoke-tests-please-change
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build \
+            postgres mongodb rabbitmq redis \
+            auth-service api-gateway \
+            job-analyzer-service screening-bot-service \
+            hr-admin-dashboard
+
+      - name: Wait for gateway and HR frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8000/actuator/health >/dev/null && curl -fsS http://localhost:4200 >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Gateway/frontend did not become ready in time" >&2
+          docker compose -f docker-compose.yml -f docker-compose.apps.yml ps
+          exit 1
+
+      - name: Run HR click validation
+        run: |
+          node scripts/hr-click-validate.js
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.apps.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.apps.yml logs --tail=200
+
+      - name: Tear down stack
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.apps.yml down -v
 
