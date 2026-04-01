@@ -19,8 +19,13 @@ import org.vinod.sha.screening.repository.ScreeningSessionRepository;
 import org.vinod.sha.screening.repository.WorkflowSagaStateRepository;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -145,6 +150,78 @@ public class ScreeningBotService {
                 .finalScore(s.getFinalScore())
                 .failureReasons(s.getFailureReasons())
                 .build();
+    }
+
+    public List<ScreeningSession> listSessions() {
+        return sortByUpdatedDesc(repository.findAll());
+    }
+
+    public List<ScreeningSession> listSessionsForCandidate(Long candidateId) {
+        return sortByUpdatedDesc(repository.findByCandidateId(candidateId));
+    }
+
+    private List<ScreeningSession> sortByUpdatedDesc(List<ScreeningSession> sessions) {
+        return sessions.stream()
+                .sorted(Comparator.comparing(ScreeningSession::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
+    }
+
+    public Map<String, Object> getDashboardMetrics() {
+        List<ScreeningSession> sessions = repository.findAll();
+        long pending = sessions.stream().filter(s -> "IN_PROGRESS".equalsIgnoreCase(s.getStatus())).count();
+        long completed = sessions.stream().filter(s -> "COMPLETED".equalsIgnoreCase(s.getStatus())).count();
+        long hires = sessions.stream().filter(s -> "PASS".equalsIgnoreCase(s.getDecision())).count();
+        long totalCandidates = sessions.stream().map(ScreeningSession::getCandidateId).filter(Objects::nonNull).distinct().count();
+        long activeCandidates = sessions.stream()
+                .filter(s -> "IN_PROGRESS".equalsIgnoreCase(s.getStatus()))
+                .map(ScreeningSession::getCandidateId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+
+        double averageMatchScore = sessions.stream()
+                .map(ScreeningSession::getFinalScore)
+                .filter(Objects::nonNull)
+                .mapToDouble(score -> Math.max(0, Math.min(1, score / 100.0)))
+                .average()
+                .orElse(0.0);
+
+        double hireRate = completed == 0 ? 0.0 : (double) hires / (double) completed;
+
+        List<Map<String, Object>> stagePassRates = stages.stream()
+                .map(this::normalizeStage)
+                .map(stage -> {
+                    List<StageResult> results = sessions.stream()
+                            .flatMap(session -> (session.getStageResults() == null ? List.<StageResult>of() : session.getStageResults()).stream())
+                            .filter(result -> stage.equalsIgnoreCase(normalizeStage(result.getStage())))
+                            .collect(Collectors.toList());
+                    int total = results.size();
+                    long pass = results.stream().filter(StageResult::isPassed).count();
+                    double passRate = total == 0 ? 0.0 : (double) pass / (double) total;
+                    return Map.<String, Object>of("stage", stage, "passRate", passRate, "totalCount", total);
+                })
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> recentActivity = sessions.stream()
+                .sorted(Comparator.comparing(ScreeningSession::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(10)
+                .map(session -> Map.<String, Object>of(
+                        "type", "SCREENING_" + ("COMPLETED".equalsIgnoreCase(session.getStatus()) ? "COMPLETED" : "UPDATED"),
+                        "description", "Session " + session.getId() + " is " + session.getStatus(),
+                        "timestamp", String.valueOf(Objects.requireNonNullElse(session.getUpdatedAt(), session.getCreatedAt()))
+                ))
+                .collect(Collectors.toList());
+
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        metrics.put("totalCandidates", (int) totalCandidates);
+        metrics.put("activeCandidates", (int) activeCandidates);
+        metrics.put("pendingScreenings", (int) pending);
+        metrics.put("completedScreenings", (int) completed);
+        metrics.put("averageMatchScore", averageMatchScore);
+        metrics.put("hireRate", hireRate);
+        metrics.put("stagePassRates", stagePassRates);
+        metrics.put("recentActivity", recentActivity);
+        return metrics;
     }
 
     private StageResult evaluateStage(String stage, String response) {

@@ -44,7 +44,7 @@ export const appRoutes: Routes = [
         path: 'analytics',
         loadComponent: () => import('./features/analytics/analytics.component').then(m => m.AnalyticsComponent),
         canActivate: [roleGuard],
-        data: { roles: ['HR_ADMIN', 'SUPER_ADMIN'] },
+        data: { roles: ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN'] },
       },
     ],
   },

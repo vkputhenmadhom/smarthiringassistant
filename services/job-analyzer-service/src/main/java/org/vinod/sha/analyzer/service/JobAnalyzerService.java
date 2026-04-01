@@ -21,7 +21,20 @@ import org.vinod.sha.analyzer.entity.JobAnalysis;
 import org.vinod.sha.analyzer.repository.JobAnalysisRepository;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -80,6 +93,7 @@ public class JobAnalyzerService {
                 .jobId(defaultIfBlank(request.getJobId(), UUID.randomUUID().toString()))
                 .jobTitle(request.getJobTitle())
                 .companyName(request.getCompanyName())
+                .department(null)
                 .location(request.getLocation())
                 .employmentType(defaultIfBlank(request.getEmploymentType(), "FULL_TIME"))
                 .jobDescription(request.getJobDescription())
@@ -93,6 +107,9 @@ public class JobAnalyzerService {
                 .confidence(salary.getConfidence())
                 .status("ANALYZED")
                 .notes(salary.getRationale())
+                .applicantCount(0)
+                .postedAt(LocalDateTime.now())
+                .closingDate(null)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -104,6 +121,121 @@ public class JobAnalyzerService {
         }
         sample.stop(meterRegistry.timer("job_analyzer.analyze.duration"));
         return saved;
+    }
+
+    public Map<String, Object> listJobs(int page, int size, String status, String search) {
+        List<JobAnalysis> all = repository.findAll().stream()
+                .sorted(Comparator.comparing(JobAnalysis::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .filter(job -> status == null || status.isBlank() || status.equalsIgnoreCase(defaultIfBlank(job.getStatus(), "DRAFT")))
+                .filter(job -> matchesSearch(job, search))
+                .collect(Collectors.toList());
+
+        int safeSize = Math.max(1, size);
+        int safePage = Math.max(0, page);
+        int fromIndex = Math.min(safePage * safeSize, all.size());
+        int toIndex = Math.min(fromIndex + safeSize, all.size());
+        int totalPages = all.isEmpty() ? 0 : (int) Math.ceil((double) all.size() / safeSize);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("content", all.subList(fromIndex, toIndex));
+        response.put("totalElements", all.size());
+        response.put("totalPages", totalPages);
+        response.put("page", safePage);
+        response.put("size", safeSize);
+        return response;
+    }
+
+    public JobAnalysis createJobFromInput(Map<String, Object> input) {
+        JobAnalyzeRequest request = JobAnalyzeRequest.builder()
+                .jobId(readString(input, "jobId"))
+                .jobTitle(readString(input, "title"))
+                .companyName(readString(input, "companyName"))
+                .location(readString(input, "location"))
+                .employmentType(readString(input, "type"))
+                .jobDescription(readString(input, "description"))
+                .build();
+
+        JobAnalysis analysis = analyze(request);
+        analysis.setDepartment(readString(input, "department"));
+        analysis.setRequiredSkills(readStringList(input.get("skills"), analysis.getRequiredSkills()));
+        analysis.setSalaryMin(readInteger(input.get("salaryMin"), analysis.getSalaryMin()));
+        analysis.setSalaryMax(readInteger(input.get("salaryMax"), analysis.getSalaryMax()));
+        analysis.setCurrency(defaultIfBlank(readString(input, "salaryCurrency"), analysis.getCurrency()));
+        analysis.setClosingDate(parseDateTime(input.get("closingDate")));
+        analysis.setStatus("DRAFT");
+        analysis.setUpdatedAt(LocalDateTime.now());
+        return repository.save(analysis);
+    }
+
+    public JobAnalysis updateJob(String id, Map<String, Object> input) {
+        JobAnalysis job = getById(id);
+        if (input.containsKey("title")) job.setJobTitle(readString(input, "title"));
+        if (input.containsKey("description")) job.setJobDescription(readString(input, "description"));
+        if (input.containsKey("department")) job.setDepartment(readString(input, "department"));
+        if (input.containsKey("location")) job.setLocation(readString(input, "location"));
+        if (input.containsKey("type")) job.setEmploymentType(readString(input, "type"));
+        if (input.containsKey("skills")) job.setRequiredSkills(readStringList(input.get("skills"), job.getRequiredSkills()));
+        if (input.containsKey("salaryMin")) job.setSalaryMin(readInteger(input.get("salaryMin"), job.getSalaryMin()));
+        if (input.containsKey("salaryMax")) job.setSalaryMax(readInteger(input.get("salaryMax"), job.getSalaryMax()));
+        if (input.containsKey("salaryCurrency")) job.setCurrency(readString(input, "salaryCurrency"));
+        if (input.containsKey("status")) job.setStatus(readString(input, "status"));
+        if (input.containsKey("closingDate")) job.setClosingDate(parseDateTime(input.get("closingDate")));
+        job.setUpdatedAt(LocalDateTime.now());
+        return repository.save(job);
+    }
+
+    public void deleteJob(String id) {
+        repository.deleteById(id);
+    }
+
+    public JobAnalysis publishJob(String id) {
+        JobAnalysis job = getById(id);
+        job.setStatus("OPEN");
+        job.setPostedAt(LocalDateTime.now());
+        job.setUpdatedAt(LocalDateTime.now());
+        return repository.save(job);
+    }
+
+    public JobAnalysis closeJob(String id) {
+        JobAnalysis job = getById(id);
+        job.setStatus("CLOSED");
+        job.setUpdatedAt(LocalDateTime.now());
+        return repository.save(job);
+    }
+
+    public Map<String, Object> getJobDashboardMetrics() {
+        List<JobAnalysis> jobs = repository.findAll();
+        long openJobs = jobs.stream().filter(job -> "OPEN".equalsIgnoreCase(defaultIfBlank(job.getStatus(), "DRAFT"))).count();
+
+        Map<String, Long> skillCounts = jobs.stream()
+                .map(JobAnalysis::getRequiredSkills)
+                .filter(Objects::nonNull)
+                .flatMap(Collection::stream)
+                .filter(skill -> !skill.isBlank())
+                .collect(Collectors.groupingBy(skill -> skill, LinkedHashMap::new, Collectors.counting()));
+
+        List<Map<String, Object>> topSkills = skillCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(10)
+                .map(entry -> Map.<String, Object>of("skill", entry.getKey(), "count", entry.getValue().intValue()))
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> recentActivity = jobs.stream()
+                .sorted(Comparator.comparing(JobAnalysis::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(10)
+                .map(job -> Map.<String, Object>of(
+                        "type", "JOB_UPDATED",
+                        "description", defaultIfBlank(job.getJobTitle(), "Untitled job") + " is " + defaultIfBlank(job.getStatus(), "DRAFT"),
+                        "timestamp", String.valueOf(Objects.requireNonNullElse(job.getUpdatedAt(), job.getCreatedAt()))
+                ))
+                .collect(Collectors.toList());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("totalJobs", jobs.size());
+        response.put("openJobs", (int) openJobs);
+        response.put("topSkillsInDemand", topSkills);
+        response.put("recentActivity", recentActivity);
+        return response;
     }
 
     public SkillsExtractResponse extractSkillsFromText(String text) {
@@ -119,7 +251,6 @@ public class JobAnalyzerService {
             }
         }
 
-        // AI-assisted refinement (best effort)
         List<String> aiSkills = callAiSkillsExtraction(text);
         required.addAll(aiSkills.stream().map(this::normalizeSkill).collect(Collectors.toList()));
 
@@ -154,6 +285,23 @@ public class JobAnalyzerService {
 
     public JobAnalysis getById(String id) {
         return repository.findById(id).orElseThrow(() -> new RuntimeException("Analysis not found: " + id));
+    }
+
+    private boolean matchesSearch(JobAnalysis job, String search) {
+        if (search == null || search.isBlank()) {
+            return true;
+        }
+        String needle = search.toLowerCase();
+        return StreamCandidates.of(
+                job.getJobTitle(),
+                job.getDepartment(),
+                job.getLocation(),
+                job.getCompanyName(),
+                job.getJobDescription(),
+                job.getEmploymentType(),
+                job.getStatus(),
+                job.getRequiredSkills() == null ? null : String.join(" ", job.getRequiredSkills())
+        ).stream().filter(Objects::nonNull).map(String::toLowerCase).anyMatch(value -> value.contains(needle));
     }
 
     private int extractExperienceYears(String jd) {
@@ -261,5 +409,56 @@ public class JobAnalyzerService {
     private String defaultIfBlank(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
     }
-}
 
+    private String readString(Map<String, Object> input, String key) {
+        Object value = input.get(key);
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private Integer readInteger(Object value, Integer fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return (int) Math.round(Double.parseDouble(String.valueOf(value)));
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
+    }
+
+    private List<String> readStringList(Object value, List<String> fallback) {
+        if (value instanceof Collection<?> collection) {
+            return collection.stream().filter(Objects::nonNull).map(String::valueOf).filter(s -> !s.isBlank()).collect(Collectors.toList());
+        }
+        return fallback == null ? List.of() : fallback;
+    }
+
+    private LocalDateTime parseDateTime(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String raw = String.valueOf(value);
+        if (raw.isBlank()) {
+            return null;
+        }
+        try {
+            return OffsetDateTime.parse(raw).toLocalDateTime();
+        } catch (DateTimeParseException ignored) {
+            try {
+                return LocalDateTime.parse(raw);
+            } catch (DateTimeParseException ignoredAgain) {
+                return null;
+            }
+        }
+    }
+
+    private static final class StreamCandidates {
+        private StreamCandidates() {}
+        static List<String> of(String... values) {
+            return Arrays.asList(values);
+        }
+    }
+}

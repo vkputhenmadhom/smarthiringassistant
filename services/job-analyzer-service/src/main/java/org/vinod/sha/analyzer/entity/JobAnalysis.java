@@ -23,6 +23,7 @@ public class JobAnalysis {
     private String jobId;
     private String jobTitle;
     private String companyName;
+    private String department;
     private String location;
     private String employmentType;
 
@@ -40,8 +41,10 @@ public class JobAnalysis {
     private Double confidence;
     private String status;
     private String notes;
+    private Integer applicantCount;
 
+    private LocalDateTime postedAt;
+    private LocalDateTime closingDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-
