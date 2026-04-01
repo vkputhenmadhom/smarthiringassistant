@@ -211,6 +211,9 @@ jobs:
   quality-gate:
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -238,10 +241,7 @@ jobs:
             **/build/reports/tests/test/**
 
       - name: SonarQube analysis with quality gate
-        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        if: env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != ''
         run: |
           ./gradlew sonarqube \
             -Dsonar.host.url=${SONAR_HOST_URL} \
@@ -251,14 +251,41 @@ jobs:
             --console=plain
 
       - name: SonarQube skipped notice
-        if: ${{ secrets.SONAR_TOKEN == '' || secrets.SONAR_HOST_URL == '' }}
+        if: env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == ''
         run: echo "SONAR_TOKEN or SONAR_HOST_URL is missing. SonarQube checks were skipped."
 
+  resolve-deploy-secrets:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      has_aws_role: ${{ steps.flags.outputs.has_aws_role }}
+      has_codedeploy_bucket: ${{ steps.flags.outputs.has_codedeploy_bucket }}
+    env:
+      AWS_GITHUB_ACTIONS_ROLE_ARN: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+      CODEDEPLOY_ARTIFACT_BUCKET: ${{ secrets.CODEDEPLOY_ARTIFACT_BUCKET }}
+    steps:
+      - id: flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${AWS_GITHUB_ACTIONS_ROLE_ARN}" ]]; then
+            echo "has_aws_role=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_aws_role=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -n "${CODEDEPLOY_ARTIFACT_BUCKET}" ]]; then
+            echo "has_codedeploy_bucket=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_codedeploy_bucket=false" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy-service-codedeploy:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'codedeploy' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN != '' && secrets.CODEDEPLOY_ARTIFACT_BUCKET != ''
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'codedeploy' && needs.resolve-deploy-secrets.outputs.has_aws_role == 'true' && needs.resolve-deploy-secrets.outputs.has_codedeploy_bucket == 'true'
     needs:
       - validate-dispatch-inputs
       - detect-changed-services
+      - resolve-deploy-secrets
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.deploy_environment }}
     permissions:
@@ -328,16 +355,19 @@ jobs:
             --description "Deploy ${{ matrix.service }} from commit ${{ github.sha }}"
 
   deploy-skipped-notice:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'codedeploy' && (secrets.AWS_GITHUB_ACTIONS_ROLE_ARN == '' || secrets.CODEDEPLOY_ARTIFACT_BUCKET == '')
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'codedeploy' && (needs.resolve-deploy-secrets.outputs.has_aws_role != 'true' || needs.resolve-deploy-secrets.outputs.has_codedeploy_bucket != 'true')
+    needs:
+      - resolve-deploy-secrets
     runs-on: ubuntu-latest
     steps:
       - name: Missing deployment secrets
         run: echo "Skipping deploy. Configure AWS_GITHUB_ACTIONS_ROLE_ARN and CODEDEPLOY_ARTIFACT_BUCKET secrets to enable CodeDeploy."
 
   deploy-kubernetes-eks:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'kubernetes' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN != ''
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'kubernetes' && needs.resolve-deploy-secrets.outputs.has_aws_role == 'true'
     needs:
       - validate-dispatch-inputs
+      - resolve-deploy-secrets
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.deploy_environment == 'production' && 'prod' || github.event.inputs.deploy_environment }}
     permissions:
@@ -388,7 +418,9 @@ jobs:
           kubectl -n smart-hiring rollout status deploy/api-gateway --timeout=180s
 
   deploy-kubernetes-skipped-notice:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'kubernetes' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN == ''
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'kubernetes' && needs.resolve-deploy-secrets.outputs.has_aws_role != 'true'
+    needs:
+      - resolve-deploy-secrets
     runs-on: ubuntu-latest
     steps:
       - name: Missing Kubernetes deployment secret
