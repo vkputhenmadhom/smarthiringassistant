@@ -33,7 +33,8 @@ tasks.register('copyRuntimeLibs', Copy) {
 }
 
 tasks.register('packageLambdaZip', Zip) {
-    dependsOn tasks.named('build'), tasks.named('copyRuntimeLibs')
+    // 'jar' produces build/libs/*.jar without running tests (unlike 'build')
+    dependsOn tasks.named('jar'), tasks.named('copyRuntimeLibs')
     archiveFileName = 'function.zip'
     destinationDirectory = file("$buildDir")
 
