@@ -2,23 +2,18 @@ package org.vinod.sha.serverless.ai;
 
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AiIntegrationLambdaTest {
 
     private AiIntegrationLambda lambda;
-    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         lambda = new AiIntegrationLambda();
-        objectMapper = new ObjectMapper();
     }
 
     @Test
@@ -36,22 +31,20 @@ class AiIntegrationLambdaTest {
 
     @Test
     void testSuccessfulAiGeneration() throws Exception {
-        AiGenerateRequest aiRequest = new AiGenerateRequest(
-                "Generate interview questions for Java developer",
-                "gpt-4",
-                100
-        );
+        // Use raw JSON string — avoids Jackson record serialization issues with plain new ObjectMapper()
+        String jsonBody = "{\"prompt\":\"Generate interview questions for Java developer\",\"model\":\"gpt-4\",\"maxTokens\":100}";
 
         APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent()
                 .withHttpMethod("POST")
                 .withPath("/ai/generate")
-                .withBody(objectMapper.writeValueAsString(aiRequest));
+                .withBody(jsonBody);
 
         APIGatewayProxyResponseEvent response = lambda.handleRequest(request, null);
 
         assertThat(response).isNotNull();
         assertThat(response.getStatusCode()).isEqualTo(200);
         assertThat(response.getBody()).contains("SUCCESS");
+        assertThat(response.getBody()).contains("gpt-4");
     }
 
     @Test
@@ -71,16 +64,13 @@ class AiIntegrationLambdaTest {
 
     @Test
     void testMissingModel() throws Exception {
-        AiGenerateRequest aiRequest = new AiGenerateRequest(
-                "Generate interview questions",
-                null,
-                100
-        );
+        // Use raw JSON string — avoids Jackson record serialization issues with plain new ObjectMapper()
+        String jsonBody = "{\"prompt\":\"Generate interview questions\",\"model\":null,\"maxTokens\":100}";
 
         APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent()
                 .withHttpMethod("POST")
                 .withPath("/ai/generate")
-                .withBody(objectMapper.writeValueAsString(aiRequest));
+                .withBody(jsonBody);
 
         APIGatewayProxyResponseEvent response = lambda.handleRequest(request, null);
 

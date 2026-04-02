@@ -95,12 +95,13 @@ jobs:
         run: |
           sam deploy \
             --template-file ${{ env.SAM_TEMPLATE }} \
-            --config-file serverless/phase2/samconfig.toml \
-            --config-env default \
             --stack-name ${{ env.STACK_NAME }} \
             --region ${{ env.AWS_REGION }} \
+            --capabilities CAPABILITY_IAM \
+            --resolve-s3 \
+            --s3-prefix ${{ env.STACK_NAME }} \
             --no-confirm-changeset \
-            --capabilities CAPABILITY_IAM
+            --no-fail-on-empty-changeset
 
       - name: Health check (smoke test)
         run: |
