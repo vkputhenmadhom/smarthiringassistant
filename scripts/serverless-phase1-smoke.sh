@@ -6,6 +6,7 @@ TEMPLATE_PATH="${TEMPLATE_PATH:-$ROOT_DIR/serverless/phase1/template.yaml}"
 EVENT_PATH="${EVENT_PATH:-$ROOT_DIR/serverless/phase1/events/resume-parse-request.json}"
 FUNCTION_NAME="${FUNCTION_NAME:-ResumeParserFunction}"
 SKIP_LOCAL_INVOKE="${SKIP_LOCAL_INVOKE:-false}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
 
 status_gradle="FAIL"
 status_validate="FAIL"
@@ -41,7 +42,7 @@ run_step "Packaging Lambda zip via Gradle" \
   ./gradlew --no-daemon :serverless:phase1:functions:resume-parser-lambda:packageLambdaZip
 status_gradle="PASS"
 
-run_step "Validating SAM template" sam validate -t "$TEMPLATE_PATH"
+run_step "Validating SAM template" sam validate -t "$TEMPLATE_PATH" --region "$AWS_REGION"
 status_validate="PASS"
 
 if [[ "$SKIP_LOCAL_INVOKE" == "true" ]]; then

@@ -54,7 +54,7 @@ jobs:
         run: pip install --upgrade aws-sam-cli
 
       - name: Validate SAM template
-        run: sam validate -t ${{ env.SAM_TEMPLATE }} --lint
+        run: sam validate -t ${{ env.SAM_TEMPLATE }} --lint --region ${{ env.AWS_REGION }}
 
   # Deploy job: only on push to main, after ci passes
   # Rebuilds ZIP locally so no download-artifact action needed

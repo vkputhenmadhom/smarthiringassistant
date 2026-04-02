@@ -24,6 +24,9 @@ on:
         default: false
         type: boolean
 
+env:
+  AWS_REGION: us-east-1
+
 jobs:
   build-and-validate:
     runs-on: ubuntu-latest
@@ -39,16 +42,16 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Setup SAM CLI
-        uses: aws-actions/setup-sam@v2
+      - name: Install SAM CLI
+        run: pip install --upgrade aws-sam-cli
 
       - name: Run serverless phase-1 smoke (CI mode)
         run: |
           chmod +x scripts/serverless-phase1-smoke.sh
-          SKIP_LOCAL_INVOKE=true ./scripts/serverless-phase1-smoke.sh
+          SKIP_LOCAL_INVOKE=true AWS_REGION=${{ env.AWS_REGION }} ./scripts/serverless-phase1-smoke.sh
 
       - name: Validate SAM template lint rules
-        run: sam validate --lint -t serverless/phase1/template.yaml
+        run: sam validate --lint -t serverless/phase1/template.yaml --region ${{ env.AWS_REGION }}
 
   manual-full-local-invoke:
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_full_local_invoke == 'true' }}
@@ -65,10 +68,10 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Setup SAM CLI
-        uses: aws-actions/setup-sam@v2
+      - name: Install SAM CLI
+        run: pip install --upgrade aws-sam-cli
 
       - name: Run serverless phase-1 smoke (full invoke)
         run: |
           chmod +x scripts/serverless-phase1-smoke.sh
-          ./scripts/serverless-phase1-smoke.sh
+          AWS_REGION=${{ env.AWS_REGION }} ./scripts/serverless-phase1-smoke.sh
