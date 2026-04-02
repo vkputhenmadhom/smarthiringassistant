@@ -1,0 +1,53 @@
+plugins {
+    id 'java'
+}
+
+version = '0.2.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation platform('io.quarkus.platform:quarkus-bom:3.17.6')
+    implementation 'io.quarkus:quarkus-amazon-lambda'
+    implementation 'io.quarkus:quarkus-jackson'
+    implementation 'com.amazonaws:aws-lambda-java-core:1.2.3'
+
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'org.assertj:assertj-core:3.26.3'
+}
+
+tasks.register('copyRuntimeLibs', Copy) {
+    from configurations.runtimeClasspath
+    into "$buildDir/runtime-libs"
+    doFirst {
+        delete "$buildDir/runtime-libs"
+    }
+}
+
+tasks.register('packageLambdaZip', Zip) {
+    dependsOn tasks.named('classes'), tasks.named('copyRuntimeLibs')
+    archiveFileName = 'function.zip'
+    destinationDirectory = file("$buildDir")
+
+    into('lib') {
+        from("$buildDir/libs") {
+            include '*.jar'
+        }
+        from("$buildDir/runtime-libs") {
+            include '*.jar'
+        }
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
+

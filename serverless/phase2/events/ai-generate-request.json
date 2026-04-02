@@ -1,0 +1,11 @@
+{
+  "resource": "/ai/generate",
+  "path": "/ai/generate",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"prompt\":\"Generate 5 Java interview questions for a senior backend engineer\",\"model\":\"gpt-4\",\"maxTokens\":500}",
+  "isBase64Encoded": false
+}
+

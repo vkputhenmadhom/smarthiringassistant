@@ -1,0 +1,134 @@
+name: Deploy Phase 1 - Resume Parser Lambda
+
+# Trigger ONLY when Phase 1 files change
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'serverless/phase1/functions/resume-parser-lambda/**'
+      - 'serverless/phase1/template.yaml'
+      - 'serverless/phase1/samconfig.toml'
+      - '.github/workflows/deploy-phase1-resume-parser.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'serverless/phase1/functions/resume-parser-lambda/**'
+      - 'serverless/phase1/template.yaml'
+
+env:
+  AWS_REGION: us-east-1
+  LAMBDA_MODULE: serverless/phase1/functions/resume-parser-lambda
+  SAM_TEMPLATE: serverless/phase1/template.yaml
+  STACK_NAME: smart-hiring-phase1-deploy
+
+jobs:
+  build:
+    name: Build Resume Parser Lambda
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+      - run: ./gradlew :serverless:phase1:functions:resume-parser-lambda:build -x test --no-daemon
+
+  test:
+    name: Test Resume Parser Lambda
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+      - run: ./gradlew :serverless:phase1:functions:resume-parser-lambda:test --no-daemon
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: phase1-test-results
+          path: ${{ env.LAMBDA_MODULE }}/build/reports/tests/test/
+          retention-days: 7
+
+  package:
+    name: Package Lambda Artifact
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+      - run: ./gradlew :serverless:phase1:functions:resume-parser-lambda:packageLambdaZip --no-daemon
+      - uses: actions/upload-artifact@v3
+        with:
+          name: phase1-lambda-zip
+          path: ${{ env.LAMBDA_MODULE }}/build/function.zip
+          retention-days: 30
+
+  validate:
+    name: Validate SAM Template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/setup-sam@v2
+      - run: sam validate -t ${{ env.SAM_TEMPLATE }} --lint
+
+  deploy:
+    name: Deploy to AWS Lambda
+    runs-on: ubuntu-latest
+    needs: [build, test, package, validate]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/setup-sam@v2
+      - uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: actions/download-artifact@v3
+        with:
+          name: phase1-lambda-zip
+          path: ${{ env.LAMBDA_MODULE }}/build/
+      - run: |
+          sam deploy \
+            --template-file ${{ env.SAM_TEMPLATE }} \
+            --config-file serverless/phase1/samconfig.toml \
+            --config-env default \
+            --stack-name ${{ env.STACK_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --no-confirm-changeset \
+            --capabilities CAPABILITY_IAM
+      - name: Health check
+        run: |
+          HEALTH_ENDPOINT=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`HealthEndpoint`].OutputValue' \
+            --output text 2>/dev/null || echo "")
+          
+          if [ -z "$HEALTH_ENDPOINT" ]; then
+            echo "Health endpoint not found, skipping health check"
+            exit 0
+          fi
+          
+          for i in {1..5}; do
+            RESPONSE=$(curl -s -w "\n%{http_code}" "$HEALTH_ENDPOINT" || echo "000")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✓ Health check passed"
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
+

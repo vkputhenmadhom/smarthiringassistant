@@ -1,0 +1,251 @@
+name: Deploy Phase 2 - AI Integration Lambda
+
+# Trigger ONLY when Phase 2 or SAM template files change
+# This ensures independent deployment - doesn't run for Phase 1 or other services
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'serverless/phase2/functions/ai-integration-lambda/**'
+      - 'serverless/phase2/template.yaml'
+      - 'serverless/phase2/samconfig.toml'
+      - '.github/workflows/deploy-phase2-ai-integration.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'serverless/phase2/functions/ai-integration-lambda/**'
+      - 'serverless/phase2/template.yaml'
+
+# Environment variables
+env:
+  AWS_REGION: us-east-1
+  LAMBDA_MODULE: serverless/phase2/functions/ai-integration-lambda
+  SAM_TEMPLATE: serverless/phase2/template.yaml
+  STACK_NAME: smart-hiring-phase2-ai-integration
+
+jobs:
+  # Job 1: Build the Lambda independently
+  build:
+    name: Build AI Integration Lambda
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build Lambda module (independent)
+        run: |
+          ./gradlew :serverless:phase2:functions:ai-integration-lambda:build -x test --no-daemon
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-jar
+          path: ${{ env.LAMBDA_MODULE }}/build/libs/*.jar
+          retention-days: 1
+
+  # Job 2: Run unit tests
+  test:
+    name: Test AI Integration Lambda
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Run unit tests
+        run: |
+          ./gradlew :serverless:phase2:functions:ai-integration-lambda:test --no-daemon
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: ${{ env.LAMBDA_MODULE }}/build/reports/tests/test/
+          retention-days: 7
+
+  # Job 3: Package Lambda ZIP
+  package:
+    name: Package Lambda Artifact
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Package Lambda ZIP
+        run: |
+          ./gradlew :serverless:phase2:functions:ai-integration-lambda:packageLambdaZip --no-daemon
+        working-directory: ${{ github.workspace }}
+
+      - name: Verify ZIP artifact
+        run: |
+          ls -lh ${{ env.LAMBDA_MODULE }}/build/function.zip
+          unzip -l ${{ env.LAMBDA_MODULE }}/build/function.zip | head -20
+
+      - name: Upload Lambda ZIP
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-zip
+          path: ${{ env.LAMBDA_MODULE }}/build/function.zip
+          retention-days: 30
+
+  # Job 4: Validate SAM template
+  validate:
+    name: Validate SAM Template
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          version: latest
+
+      - name: Validate SAM template
+        run: |
+          sam validate -t ${{ env.SAM_TEMPLATE }}
+
+      - name: Lint SAM template (additional validation)
+        run: |
+          sam validate -t ${{ env.SAM_TEMPLATE }} --lint
+
+  # Job 5: Deploy to AWS (only on main branch push, not on PR)
+  deploy:
+    name: Deploy to AWS Lambda
+    runs-on: ubuntu-latest
+    needs: [build, test, package, validate]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          version: latest
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download Lambda ZIP artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: lambda-zip
+          path: ${{ env.LAMBDA_MODULE }}/build/
+
+      - name: Deploy using SAM
+        run: |
+          sam deploy \
+            --template-file ${{ env.SAM_TEMPLATE }} \
+            --config-file serverless/phase2/samconfig.toml \
+            --config-env default \
+            --stack-name ${{ env.STACK_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --no-confirm-changeset \
+            --capabilities CAPABILITY_IAM
+        working-directory: ${{ github.workspace }}
+
+      - name: Fetch Lambda endpoint
+        id: lambda-endpoint
+        run: |
+          ENDPOINT=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`AiIntegrationApi`].OutputValue' \
+            --output text)
+          echo "endpoint=$ENDPOINT" >> $GITHUB_OUTPUT
+          echo "Deployed endpoint: $ENDPOINT"
+
+      - name: Health check (smoke test)
+        run: |
+          HEALTH_ENDPOINT=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`HealthEndpoint`].OutputValue' \
+            --output text)
+          
+          echo "Health endpoint: $HEALTH_ENDPOINT"
+          
+          # Retry logic for Lambda cold start
+          for i in {1..5}; do
+            echo "Health check attempt $i..."
+            RESPONSE=$(curl -s -w "\n%{http_code}" "$HEALTH_ENDPOINT" || echo "000")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | head -n-1)
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✓ Health check passed (HTTP 200)"
+              echo "Response: $BODY"
+              exit 0
+            else
+              echo "⚠ Health check failed (HTTP $HTTP_CODE), retrying..."
+              sleep 5
+            fi
+          done
+          
+          echo "✗ Health check failed after 5 attempts"
+          exit 1
+
+      - name: Post deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack**: ${{ env.STACK_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region**: ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+
+  # Job 6: Notify on deployment (optional)
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    steps:
+      - name: Deployment successful
+        if: needs.deploy.result == 'success'
+        run: |
+          echo "✓ Phase 2 AI Integration Lambda deployed successfully!"
+          echo "Stack: ${{ env.STACK_NAME }}"
+          echo "Region: ${{ env.AWS_REGION }}"
+
+      - name: Deployment failed
+        if: needs.deploy.result == 'failure'
+        run: |
+          echo "✗ Phase 2 AI Integration Lambda deployment failed"
+          exit 1
+

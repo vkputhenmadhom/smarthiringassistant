@@ -1,0 +1,15 @@
+# SAM configuration for Phase 2 - AI Integration Lambda
+# Run: sam deploy --config-env default
+
+version = 0.1
+
+[default]
+[default.deploy]
+region = "us-east-1"
+s3_bucket = "smart-hiring-phase2-artifacts"
+s3_prefix = "ai-integration-lambda"
+stack_name = "smart-hiring-phase2-ai-integration"
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
+confirm_changeset = false
+
