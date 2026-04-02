@@ -79,8 +79,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: aws-actions/setup-sam@v2
-        # Note: no version: field — "latest" fails regex /^[\d.*]*$/
+      - name: Install SAM CLI
+        run: pip install --upgrade aws-sam-cli
       - run: sam validate -t ${{ env.SAM_TEMPLATE }} --lint
 
   deploy:
@@ -91,8 +91,8 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      - uses: aws-actions/setup-sam@v2
-        # Note: no version: field — "latest" fails regex /^[\d.*]*$/
+      - name: Install SAM CLI
+        run: pip install --upgrade aws-sam-cli
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
