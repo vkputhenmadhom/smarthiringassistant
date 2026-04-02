@@ -22,6 +22,7 @@ env:
   LAMBDA_MODULE: serverless/phase1/functions/resume-parser-lambda
   SAM_TEMPLATE: serverless/phase1/template.yaml
   STACK_NAME: smart-hiring-phase1-deploy
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -29,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v3
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -42,13 +43,13 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v3
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: gradle
       - run: ./gradlew :serverless:phase1:functions:resume-parser-lambda:test --no-daemon
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: phase1-test-results
@@ -61,13 +62,13 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v3
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: gradle
       - run: ./gradlew :serverless:phase1:functions:resume-parser-lambda:packageLambdaZip --no-daemon
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: phase1-lambda-zip
           path: ${{ env.LAMBDA_MODULE }}/build/function.zip
@@ -79,6 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/setup-sam@v2
+        # Note: no version: field — "latest" fails regex /^[\d.*]*$/
       - run: sam validate -t ${{ env.SAM_TEMPLATE }} --lint
 
   deploy:
@@ -90,12 +92,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/setup-sam@v2
-      - uses: aws-actions/configure-aws-credentials@v2
+        # Note: no version: field — "latest" fails regex /^[\d.*]*$/
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: phase1-lambda-zip
           path: ${{ env.LAMBDA_MODULE }}/build/
