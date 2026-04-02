@@ -42,11 +42,93 @@ sam local invoke ResumeParserFunction \
 
 A JSON response with extracted fields like `email`, `skills`, and `experienceYears`.
 
+## API Contract (API Gateway Proxy)
+
+Request body (`POST /resume/parse`) must be JSON:
+
+```json
+{
+  "candidateId": "cand-1001",
+  "fileName": "resume.txt",
+  "contentType": "text/plain",
+  "content": "Email: vinod@example.com Skills: Java, Spring Boot, React Experience: 6 years"
+}
+```
+
+Response shape:
+
+```json
+{
+  "status": "SUCCESS",
+  "data": {
+    "candidateId": "cand-1001",
+    "email": "vinod@example.com",
+    "experienceYears": 6,
+    "skills": ["java", "spring boot", "react"],
+    "parseStatus": "PARSED"
+  }
+}
+```
+
+Validation/malformed payloads return HTTP `400`:
+
+```json
+{
+  "status": "ERROR",
+  "error": "Field 'content' is required"
+}
+```
+
 ## Deploy (guided)
 
+Use the deploy script so first deploy is guided and follow-up deploys are non-guided.
+
+First deploy (interactive):
+
 ```bash
-sam deploy --guided --stack-name sha-phase1-dev
+cd /Users/vinodputhenmadhom/Downloads/JavaProjects/SmartHiringAssistant
+chmod +x scripts/serverless-phase1-deploy.sh
+./scripts/serverless-phase1-deploy.sh --guided --stack-name smart-hiring-phase1-deploy --region us-east-1
 ```
+
+Subsequent deploy (uses `samconfig.toml`):
+
+```bash
+./scripts/serverless-phase1-deploy.sh --non-guided --config-env default
+```
+
+Auto mode (guided if config missing, otherwise non-guided):
+
+```bash
+./scripts/serverless-phase1-deploy.sh
+```
+
+Script help:
+
+```bash
+./scripts/serverless-phase1-deploy.sh --help
+```
+
+## Browser-Friendly Health Endpoint
+
+After deployment, append `/health` to your API Gateway stage URL from stack outputs.
+
+Example:
+
+```text
+https://<api-id>.execute-api.us-east-1.amazonaws.com/Prod/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "UP",
+  "service": "resume-parser-lambda"
+}
+```
+
+`/resume/parse` remains a `POST` endpoint.
 
 ## CI Modes
 

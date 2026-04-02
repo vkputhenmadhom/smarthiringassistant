@@ -56,9 +56,9 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
+status_invoke="FAIL"
 run_step "Invoking Lambda locally with SAM" \
   sam local invoke "$FUNCTION_NAME" -t "$TEMPLATE_PATH" -e "$EVENT_PATH"
 status_invoke="PASS"
 
 print_summary
-

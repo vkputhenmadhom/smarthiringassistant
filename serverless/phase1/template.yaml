@@ -25,6 +25,11 @@ Resources:
           Properties:
             Path: /resume/parse
             Method: post
+        HealthApi:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
 
 Outputs:
   ResumeParserApi:

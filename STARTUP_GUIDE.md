@@ -221,6 +221,20 @@ SKIP_LOCAL_INVOKE=true ./scripts/serverless-phase1-smoke.sh
 
 Reference docs: `serverless/phase1/README.md`
 
+### Phase-1 Serverless Deploy (First Time + Repeat)
+
+```bash
+cd /Users/vinodputhenmadhom/Downloads/JavaProjects/SmartHiringAssistant
+chmod +x scripts/serverless-phase1-deploy.sh
+./scripts/serverless-phase1-deploy.sh --guided --stack-name smart-hiring-phase1-deploy --region us-east-1
+```
+
+For repeat deploys:
+
+```bash
+./scripts/serverless-phase1-deploy.sh --non-guided --config-env default
+```
+
 ### View Logs for All Services
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.apps.yml logs --follow

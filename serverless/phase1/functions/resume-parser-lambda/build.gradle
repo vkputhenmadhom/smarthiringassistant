@@ -27,6 +27,9 @@ dependencies {
 tasks.register('copyRuntimeLibs', Copy) {
     from configurations.runtimeClasspath
     into "$buildDir/runtime-libs"
+    doFirst {
+        delete "$buildDir/runtime-libs"
+    }
 }
 
 tasks.register('packageLambdaZip', Zip) {
@@ -34,12 +37,13 @@ tasks.register('packageLambdaZip', Zip) {
     archiveFileName = 'function.zip'
     destinationDirectory = file("$buildDir")
 
-    from("$buildDir/libs") {
-        include '*.jar'
-    }
     into('lib') {
-        from("$buildDir/runtime-libs")
-        include '*.jar'
+        from("$buildDir/libs") {
+            include '*.jar'
+        }
+        from("$buildDir/runtime-libs") {
+            include '*.jar'
+        }
     }
 }
 
