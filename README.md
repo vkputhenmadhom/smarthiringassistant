@@ -3,6 +3,8 @@
 [![Backend Services](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/backend-services.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/backend-services.yml)
 [![Frontend Apps](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/frontend-apps.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/frontend-apps.yml)
 [![Contracts](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/contracts.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/contracts.yml)
+[![Phase 2 AI Integration Lambda](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/deploy-phase2-ai-integration.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/deploy-phase2-ai-integration.yml)
+[![Phase 2 Job Analyzer Lambda](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/deploy-phase2-job-analyzer.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/deploy-phase2-job-analyzer.yml)
 
 A production-grade, event-driven microservices platform for intelligent recruitment and hiring automation. Built with Java, Spring Boot, and cutting-edge AI/GenAI integration.
 
@@ -61,6 +63,22 @@ Smart Hiring Assistant is a sophisticated hiring platform designed to streamline
 | **Monitoring** | Prometheus, Grafana, Elasticsearch, Kibana |
 | **Tracing** | Jaeger |
 | **Containerization** | Docker, Docker Compose |
+
+## 🌟 Phase 2 Serverless Showcase
+
+Phase 2 demonstrates a repeatable serverless pattern with independently deployable artifacts and isolated CI/CD workflows.
+
+| Lambda | Module | Endpoint | Workflow | Deploy stack |
+|---|---|---|---|---|
+| AI Integration | `serverless/phase2/functions/ai-integration-lambda/` | `POST /ai/generate`, `GET /health` | `.github/workflows/deploy-phase2-ai-integration.yml` | `smart-hiring-phase2-ai-integration` |
+| Job Analyzer | `serverless/phase2/functions/job-analyzer-lambda/` | `POST /job/analyze`, `GET /health` | `.github/workflows/deploy-phase2-job-analyzer.yml` | `smart-hiring-phase2-job-analyzer` |
+
+Why this matters:
+- each Lambda builds, tests, and deploys independently
+- changes in one Phase 2 artifact do not block the other
+- clear deployment paths via dedicated SAM templates and stacks
+
+See `serverless/phase2/README.md` for build, local invoke, and deploy commands.
 
 ## 🚀 Quick Start
 
