@@ -17,7 +17,8 @@ def serviceModules = [
 		'services:ai-integration-service',
 		'services:notification-service',
 		'serverless:phase1:functions:resume-parser-lambda',
-		'serverless:phase2:functions:ai-integration-lambda'
+		'serverless:phase2:functions:ai-integration-lambda',
+		'serverless:phase2:functions:job-analyzer-lambda'
 ]
 
 serviceModules.each { modulePath ->

@@ -1,17 +1,29 @@
-# Phase 2: AI Integration Lambda (Independently Deployable)
+# Phase 2: Independently Deployable Lambdas
 
-This module demonstrates **microservice segregation** in action: an independently deployable Lambda function that can build, test, and deploy without touching other services.
+This phase demonstrates **microservice segregation** in action: independently deployable Lambda functions that can build, test, and deploy without touching other services.
 
 ## Architecture
 
 ```
-Phase 1                    Phase 2 (This Module)
-├─ Resume Parser Lambda    └─ AI Integration Lambda
-                              - POST /ai/generate
-                              - GET /health
-                              - Stateless
-                              - Independent build/deploy
+Phase 1                    Phase 2
+├─ Resume Parser Lambda    ├─ AI Integration Lambda
+│                            │  - POST /ai/generate
+│                            │  - GET /health
+│                            │  - Stateless
+│                            │  - Independent build/deploy
+│                            └─ Job Analyzer Lambda
+│                               - POST /job/analyze
+│                               - GET /health
+│                               - Stateless
+│                               - Independent build/deploy
 ```
+
+## Available artifacts
+
+- `template.yaml` + `samconfig.toml` → AI Integration Lambda
+- `job-analyzer-template.yaml` + `job-analyzer-samconfig.toml` → Job Analyzer Lambda
+- `functions/ai-integration-lambda/` → AI Integration source, tests, packaging
+- `functions/job-analyzer-lambda/` → Job Analyzer source, tests, packaging
 
 ## Key Features
 

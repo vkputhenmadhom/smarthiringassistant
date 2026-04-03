@@ -1,0 +1,11 @@
+{
+  "resource": "/job/analyze",
+  "path": "/job/analyze",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"jobId\":\"job-1001\",\"title\":\"Senior Java Engineer\",\"description\":\"We are hiring a senior Java engineer with Spring Boot, AWS, Docker and microservices experience for a hybrid platform team.\",\"requiredSkills\":[\"Java\",\"Spring Boot\",\"AWS\"],\"location\":\"Atlanta, GA\",\"employmentType\":\"FULL_TIME\"}",
+  "isBase64Encoded": false
+}
+
