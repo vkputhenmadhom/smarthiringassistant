@@ -15,6 +15,7 @@ import org.vinod.sha.auth.repository.UserRepository;
 import org.vinod.sha.auth.security.JwtTokenProvider;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -108,7 +109,7 @@ public class AuthService {
         return buildAuthResponse(user, accessToken, refreshToken);
     }
 
-    public AuthResponse handleOAuth2Login(OAuth2User oauth2User, String registrationId) {
+    public AuthResponse handleOAuth2Login(OAuth2User oauth2User, String registrationId, String portalOrigin) {
         String email = extractEmail(oauth2User);
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("Unable to retrieve email from " + registrationId + " profile");
@@ -116,8 +117,8 @@ public class AuthService {
 
         boolean isNewUser = !userRepository.existsByEmail(email);
         User user = userRepository.findByEmail(email)
-                .map(existing -> updateUserFromOAuth2(existing, oauth2User))
-                .orElseGet(() -> createUserFromOAuth2(oauth2User, registrationId, email));
+                .map(existing -> updateUserFromOAuth2(existing, oauth2User, portalOrigin))
+                .orElseGet(() -> createUserFromOAuth2(oauth2User, registrationId, email, portalOrigin));
 
         user.setLastLogin(LocalDateTime.now());
         User savedUser = userRepository.save(user);
@@ -179,10 +180,12 @@ public class AuthService {
                 .build();
     }
 
-    private User createUserFromOAuth2(OAuth2User oauth2User, String registrationId, String email) {
+    private User createUserFromOAuth2(OAuth2User oauth2User, String registrationId, String email, String portalOrigin) {
         String firstName = extractFirstName(oauth2User);
         String lastName = extractLastName(oauth2User);
         String username = generateUniqueUsername(email, registrationId);
+
+        UserRole assignedRole = isHrPortal(portalOrigin) ? UserRole.ADMIN : UserRole.JOB_SEEKER;
 
         return User.builder()
                 .username(username)
@@ -190,7 +193,7 @@ public class AuthService {
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .firstName(firstName)
                 .lastName(lastName)
-                .role(UserRole.JOB_SEEKER)
+                .role(assignedRole)
                 .enabled(true)
                 .accountNonExpired(true)
                 .accountNonLocked(true)
@@ -198,7 +201,7 @@ public class AuthService {
                 .build();
     }
 
-    private User updateUserFromOAuth2(User existing, OAuth2User oauth2User) {
+    private User updateUserFromOAuth2(User existing, OAuth2User oauth2User, String portalOrigin) {
         String firstName = extractFirstName(oauth2User);
         String lastName = extractLastName(oauth2User);
 
@@ -209,7 +212,17 @@ public class AuthService {
             existing.setLastName(lastName);
         }
 
+        // Upgrade a previously-created JOB_SEEKER to ADMIN when they log in from
+        // the HR admin portal (handles accounts created before portal-aware registration).
+        if (isHrPortal(portalOrigin) && existing.getRole() == UserRole.JOB_SEEKER) {
+            existing.setRole(UserRole.ADMIN);
+        }
+
         return existing;
+    }
+
+    private boolean isHrPortal(String portalOrigin) {
+        return portalOrigin != null && "hr-admin".equals(portalOrigin.trim().toLowerCase(Locale.ROOT));
     }
 
     private String extractEmail(OAuth2User user) {

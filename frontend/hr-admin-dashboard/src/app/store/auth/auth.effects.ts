@@ -148,14 +148,18 @@ export class AuthEffects {
   loadCurrentUser$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AuthActions.loadCurrentUser),
+      tap(() => console.log(`[authEffects] loadCurrentUser$ triggered`)),
       switchMap(() =>
         this.apollo.query<any>({ query: ME_QUERY, fetchPolicy: 'network-only' }).pipe(
           timeout(APOLLO_TIMEOUT_MS),
+          tap(res => console.log(`[authEffects] ME_QUERY resolved: user=${JSON.stringify(res.data.me?.username)} role=${res.data.me?.role}`)),
           map(res  => AuthActions.loadCurrentUserSuccess({ user: res.data.me })),
-          catchError(() => of(AuthActions.logout()))
+          catchError(err => {
+            console.log(`[authEffects] ME_QUERY failed: ${err.message}`);
+            return of(AuthActions.logout());
+          })
         )
       )
     )
   );
 }
-

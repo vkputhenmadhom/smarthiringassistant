@@ -53,11 +53,12 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         OAuth2User oauth2User = oauthToken.getPrincipal();
         String registrationId = oauthToken.getAuthorizedClientRegistrationId();
 
-        AuthResponse authResponse = authService.handleOAuth2Login(oauth2User, registrationId);
+        // Resolve the portal FIRST so we can pass it to AuthService for correct role assignment.
+        String portalOrigin = popPortalFromSession(request);
+        AuthResponse authResponse = authService.handleOAuth2Login(oauth2User, registrationId, portalOrigin);
         String role = authResponse.getUser() != null ? authResponse.getUser().getRole() : null;
 
         // --- state-based portal resolution (no cookies) ---
-        String portalOrigin = popPortalFromSession(request);
         String targetRedirectUri = resolveTargetRedirectUri(portalOrigin, role);
 
         String redirectUrl = UriComponentsBuilder.fromUriString(targetRedirectUri)
@@ -69,9 +70,10 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
                 .build(true)
                 .toUriString();
 
-        log.info("OAuth2 login success – provider='{}' user='{}' portal='{}' → {}",
+        log.info("OAuth2 login success – provider='{}' user='{}' role='{}' portal='{}' → {}",
                 registrationId,
                 authResponse.getUser().getUsername(),
+                role,
                 portalOrigin != null ? portalOrigin : "role-fallback",
                 targetRedirectUri);
 

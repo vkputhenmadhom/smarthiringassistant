@@ -50,6 +50,7 @@ export class OauthCallbackComponent {
     const accessToken = params.get('accessToken');
     const refreshToken = params.get('refreshToken');
     const expiresInRaw = params.get('expiresIn');
+    const callbackRole = params.get('role');
 
     if (!accessToken || !refreshToken || !expiresInRaw) {
       this.error = 'Missing OAuth callback parameters.';
@@ -57,7 +58,7 @@ export class OauthCallbackComponent {
     }
 
     const expiresIn = Number(expiresInRaw);
-    const user = this.decodeJwtUser(accessToken);
+    const user = this.decodeJwtUser(accessToken, callbackRole);
 
     if (!user || !Number.isFinite(expiresIn) || expiresIn <= 0) {
       this.error = 'Invalid OAuth callback payload.';
@@ -79,7 +80,7 @@ export class OauthCallbackComponent {
     this.router.navigate(['/auth/login']);
   }
 
-  private decodeJwtUser(token: string): User | null {
+  private decodeJwtUser(token: string, callbackRole?: string | null): User | null {
     try {
       const parts = token.split('.');
       if (parts.length < 2) {
@@ -90,7 +91,11 @@ export class OauthCallbackComponent {
       const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
       const payload = JSON.parse(atob(padded));
 
-      const role = this.normalizeRole(payload.role);
+      const normalizedRoleFromToken = this.normalizeRole(payload.role);
+      const normalizedRoleFromCallback = this.normalizeRole(callbackRole ?? undefined);
+      const role = normalizedRoleFromToken === 'CANDIDATE' && normalizedRoleFromCallback !== 'CANDIDATE'
+        ? normalizedRoleFromCallback
+        : normalizedRoleFromToken;
       const username = payload.username ?? payload.sub ?? 'oauth-user';
 
       return {
@@ -105,10 +110,19 @@ export class OauthCallbackComponent {
   }
 
   private normalizeRole(rawRole: string | undefined): Role {
-    if (rawRole === 'HR_ADMIN' || rawRole === 'RECRUITER' || rawRole === 'SUPER_ADMIN') {
-      return rawRole;
+    switch (rawRole) {
+      case 'HR_ADMIN':
+      case 'SUPER_ADMIN':
+      case 'RECRUITER':
+        return rawRole;
+      // Backend UserRole enum names that map to GraphQL Role values
+      case 'ADMIN':
+      case 'HIRING_MANAGER':
+        return 'HR_ADMIN';
+      case 'JOB_SEEKER':
+        return 'CANDIDATE';
+      default:
+        return 'CANDIDATE';
     }
-    return 'CANDIDATE';
   }
 }
-

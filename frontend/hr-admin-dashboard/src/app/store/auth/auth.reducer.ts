@@ -54,6 +54,7 @@ export const authReducer = createReducer(
     localStorage.setItem('sha_refresh_token', payload.refreshToken);
     localStorage.setItem('sha_expires_at', String(expiresAt));
     localStorage.setItem('sha_user', JSON.stringify(payload.user));
+    console.log(`[authReducer] loginSuccess/registerSuccess: user=${payload.user.username} role=${payload.user.role}`);
     return {
       ...state,
       loading: false,
@@ -93,6 +94,8 @@ export const authReducer = createReducer(
 
   on(AuthActions.refreshFailure, (state, { error }) => ({ ...state, error })),
 
-  on(AuthActions.loadCurrentUserSuccess, (state, { user }) => ({ ...state, user })),
+  on(AuthActions.loadCurrentUserSuccess, (state, { user }) => {
+    console.log(`[authReducer] loadCurrentUserSuccess: user=${user?.username} role=${user?.role}`);
+    return { ...state, user };
+  }),
 );
-
