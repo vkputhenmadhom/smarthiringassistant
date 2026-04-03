@@ -13,14 +13,35 @@ export interface AuthState {
 
 const computeExpiresAt = (expiresIn: number): number => Date.now() + (expiresIn * 1000);
 
-const initialState: AuthState = {
-  user: JSON.parse(localStorage.getItem('sha_user') ?? 'null'),
-  token: localStorage.getItem('sha_token'),
-  refreshToken: localStorage.getItem('sha_refresh_token'),
-  expiresAt: Number(localStorage.getItem('sha_expires_at') ?? '') || null,
-  loading: false,
-  error: null,
-};
+/** Keys stored in localStorage. */
+const STORAGE_KEYS = ['sha_token', 'sha_refresh_token', 'sha_expires_at', 'sha_user'] as const;
+
+/**
+ * Build the initial NgRx auth state from localStorage.
+ * If the stored access-token is clearly expired (> 30 s in the past) we wipe
+ * all four keys immediately so the guard and initRefresh$ effect never see a
+ * stale session and the app never stalls waiting for a doomed network call.
+ */
+function buildInitialState(): AuthState {
+  const storedExpiresAt = Number(localStorage.getItem('sha_expires_at') ?? '') || 0;
+  const tokenExpired    = storedExpiresAt > 0 && storedExpiresAt < Date.now() - 30_000;
+
+  if (tokenExpired) {
+    STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
+    return { user: null, token: null, refreshToken: null, expiresAt: null, loading: false, error: null };
+  }
+
+  return {
+    user:         JSON.parse(localStorage.getItem('sha_user') ?? 'null'),
+    token:        localStorage.getItem('sha_token'),
+    refreshToken: localStorage.getItem('sha_refresh_token'),
+    expiresAt:    storedExpiresAt || null,
+    loading:      false,
+    error:        null,
+  };
+}
+
+const initialState: AuthState = buildInitialState();
 
 export const authReducer = createReducer(
   initialState,
