@@ -25,6 +25,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,8 +54,8 @@ class ScreeningBotIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        when(meterRegistry.counter(anyString())).thenReturn(counter);
-        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
+        lenient().when(meterRegistry.counter(anyString())).thenReturn(counter);
+        lenient().when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
         ReflectionTestUtils.setField(service, "stages", List.of("initial", "technical", "behavioral"));
         ReflectionTestUtils.setField(service, "finalScoreSummary", finalScoreSummary);

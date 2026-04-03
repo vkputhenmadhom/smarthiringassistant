@@ -1,8 +1,8 @@
-# Phase 2 AI Integration Lambda - Segregation Complete ✅
+# Phase 2 Serverless Lambdas - Segregation Complete ✅
 
 ## Executive Summary
 
-You have successfully created an **independently deployable Lambda service** that demonstrates professional microservice segregation. This is a production-ready artifact you can showcase in portfolio interviews.
+You now have **independently deployable Phase 2 Lambda services** that demonstrate a repeatable professional microservice segregation pattern. These are production-ready artifacts you can showcase in portfolio interviews.
 
 ---
 
@@ -11,15 +11,15 @@ You have successfully created an **independently deployable Lambda service** tha
 ### Artifact Details
 
 ```
-AI Integration Lambda (Phase 2)
-├─ Location: serverless/phase2/functions/ai-integration-lambda/
-├─ Build Status: ✅ PASSING
-├─ Package Status: ✅ CREATED (function.zip - 19 MB)
-├─ SAM Template: ✅ VALID
-├─ API Endpoints:
-│  ├─ POST /ai/generate (text generation)
-│  └─ GET /health (health check)
-└─ Independent: ✅ YES (builds without other services)
+Phase 2 Lambdas
+├─ AI Integration Lambda
+│  ├─ Location: serverless/phase2/functions/ai-integration-lambda/
+│  ├─ Workflow: .github/workflows/deploy-phase2-ai-integration.yml
+│  └─ Endpoints: POST /ai/generate, GET /health
+└─ Job Analyzer Lambda
+   ├─ Location: serverless/phase2/functions/job-analyzer-lambda/
+   ├─ Workflow: .github/workflows/deploy-phase2-job-analyzer.yml
+   └─ Endpoints: POST /job/analyze, GET /health
 ```
 
 ---
@@ -131,7 +131,7 @@ sam deploy --config-env default
 
 ---
 
-## API Contract (Simple, JSON-based)
+## API Contracts (Simple, JSON-based)
 
 ### Endpoint 1: POST /ai/generate
 
@@ -175,6 +175,35 @@ sam deploy --config-env default
 }
 ```
 
+### Job Analyzer: POST /job/analyze
+
+**Request:**
+```json
+{
+  "jobId": "job-1001",
+  "title": "Senior Java Engineer",
+  "description": "We are hiring a senior Java engineer with Spring Boot, AWS and Docker experience for a hybrid backend platform role.",
+  "requiredSkills": ["Java", "Spring Boot", "AWS"],
+  "location": "Atlanta, GA",
+  "employmentType": "FULL_TIME"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "status": "SUCCESS",
+  "data": {
+    "jobId": "job-1001",
+    "seniorityLevel": "SENIOR",
+    "extractedSkills": ["java", "spring boot", "aws", "docker"],
+    "workMode": "HYBRID",
+    "summary": "Senior Java Engineer role classified as SENIOR with HYBRID work mode.",
+    "analysisStatus": "ANALYZED"
+  }
+}
+```
+
 ---
 
 ## Project Structure
@@ -188,7 +217,7 @@ SmartHiringAssistant/
 │   │   ├── samconfig.toml
 │   │   └── README.md
 │   │
-│   └── phase2/                              (AI Integration - this module)
+│   └── phase2/                              (AI Integration + Job Analyzer)
 │       ├── functions/ai-integration-lambda/
 │       │   ├── src/
 │       │   │   ├── main/java/org/vinod/sha/serverless/ai/
@@ -201,12 +230,25 @@ SmartHiringAssistant/
 │       │   └── build/
 │       │       └── function.zip                        (19 MB artifact)
 │       │
+│       ├── functions/job-analyzer-lambda/
+│       │   ├── src/main/java/org/vinod/sha/serverless/job/
+│       │   │   ├── JobAnalyzerLambda.java             (main handler)
+│       │   │   ├── JobAnalyzeRequest.java             (DTO)
+│       │   │   └── JobAnalyzeResponse.java            (DTO)
+│       │   ├── src/test/java/.../JobAnalyzerLambdaTest.java
+│       │   ├── build.gradle                           (independent)
+│       │   └── build/function.zip                     (Lambda artifact)
+│       │
 │       ├── events/
 │       │   ├── ai-generate-request.json               (sample POST)
-│       │   └── health-check.json                      (sample GET)
+│       │   ├── health-check.json                      (sample GET)
+│       │   ├── job-analyze-request.json               (sample POST)
+│       │   └── job-analyzer-health-check.json         (sample GET)
 │       │
 │       ├── template.yaml                              (SAM IaC)
 │       ├── samconfig.toml                             (deploy config)
+│       ├── job-analyzer-template.yaml                 (SAM IaC)
+│       ├── job-analyzer-samconfig.toml                (deploy config)
 │       ├── build.sh                                   (convenience script)
 │       └── README.md                                  (detailed guide)
 │

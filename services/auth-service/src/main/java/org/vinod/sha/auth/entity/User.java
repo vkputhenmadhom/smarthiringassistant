@@ -45,15 +45,19 @@ public class User implements UserDetails {
     private UserRole role;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean enabled = true;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean accountNonExpired = true;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean accountNonLocked = true;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean credentialsNonExpired = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)

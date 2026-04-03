@@ -13,9 +13,21 @@
 - [x] Sample events (health check, AI request)
 - [x] README with setup guide
 
+### Phase 2 Job Analyzer Lambda ✅
+- [x] Java Lambda handler (JobAnalyzerLambda.java)
+- [x] Request/Response DTOs (JobAnalyzeRequest/Response)
+- [x] Unit tests (6 test cases)
+- [x] Independent build.gradle
+- [x] Packaged as ZIP (ready for AWS)
+- [x] Dedicated SAM template (`job-analyzer-template.yaml`)
+- [x] Dedicated samconfig (`job-analyzer-samconfig.toml`)
+- [x] Sample events (job analyze + health)
+- [x] README with workflow and deployment path
+
 ### CI/CD Pipelines ✅
 - [x] Phase 1 workflow (deploy-phase1-resume-parser.yml)
 - [x] Phase 2 workflow (deploy-phase2-ai-integration.yml)
+- [x] Phase 2 workflow (deploy-phase2-job-analyzer.yml)
 - [x] Independent triggers (no blocking)
 - [x] Build → Test → Package → Validate → Deploy → Health Check
 - [x] Quality gates (tests must pass)
@@ -78,6 +90,10 @@ git push origin main
 .github/workflows/deploy-phase2-ai-integration.yml
 └─ Triggers: serverless/phase2/**
 └─ Actions: Build → Test → Package → Validate → Deploy → Health
+
+.github/workflows/deploy-phase2-job-analyzer.yml
+└─ Triggers: serverless/phase2/functions/job-analyzer-lambda/** and job-analyzer SAM assets
+└─ Actions: Build → Test → Package → Validate → Deploy → Health
 ```
 
 ### Lambda Source Files
@@ -90,16 +106,29 @@ serverless/phase2/functions/ai-integration-lambda/
 ├─ src/test/java/.../AiIntegrationLambdaTest.java (6 tests)
 ├─ build.gradle (independent build config)
 └─ build/function.zip (19 MB ready for Lambda)
+
+serverless/phase2/functions/job-analyzer-lambda/
+├─ src/main/java/org/vinod/sha/serverless/job/
+│  ├─ JobAnalyzerLambda.java (main handler)
+│  ├─ JobAnalyzeRequest.java (request DTO)
+│  └─ JobAnalyzeResponse.java (response DTO)
+├─ src/test/java/.../JobAnalyzerLambdaTest.java (6 tests)
+├─ build.gradle (independent build config)
+└─ build/function.zip (ready for Lambda)
 ```
 
 ### Configuration Files
 ```
 serverless/phase2/
-├─ template.yaml (SAM infrastructure)
-├─ samconfig.toml (deploy configuration)
-├─ events/ai-generate-request.json (test input)
-├─ events/health-check.json (test input)
-└─ README.md (setup guide)
+├─ template.yaml (AI Integration SAM infrastructure)
+├─ samconfig.toml (AI Integration deploy configuration)
+├─ job-analyzer-template.yaml (Job Analyzer SAM infrastructure)
+├─ job-analyzer-samconfig.toml (Job Analyzer deploy configuration)
+├─ events/ai-generate-request.json (AI Integration test input)
+├─ events/health-check.json (AI Integration test input)
+├─ events/job-analyze-request.json (Job Analyzer test input)
+├─ events/job-analyzer-health-check.json (Job Analyzer health input)
+└─ README.md (Phase 2 landing guide)
 ```
 
 ### Documentation Files
@@ -186,7 +215,7 @@ Root directory:
 
 ### Local Development
 ```bash
-# Build Phase 2 Lambda
+# Build Phase 2 AI Integration Lambda
 ./gradlew :serverless:phase2:functions:ai-integration-lambda:build -x test
 
 # Test Phase 2 Lambda
@@ -195,10 +224,23 @@ Root directory:
 # Package Phase 2 Lambda
 ./gradlew :serverless:phase2:functions:ai-integration-lambda:packageLambdaZip
 
+# Build Phase 2 Job Analyzer Lambda
+./gradlew :serverless:phase2:functions:job-analyzer-lambda:build -x test
+
+# Test Phase 2 Job Analyzer Lambda
+./gradlew :serverless:phase2:functions:job-analyzer-lambda:test
+
+# Package Phase 2 Job Analyzer Lambda
+./gradlew :serverless:phase2:functions:job-analyzer-lambda:packageLambdaZip
+
 # Test locally
 sam local invoke AiIntegrationFunction \
   -t serverless/phase2/template.yaml \
   -e serverless/phase2/events/ai-generate-request.json
+
+sam local invoke JobAnalyzerFunction \
+  -t serverless/phase2/job-analyzer-template.yaml \
+  -e serverless/phase2/events/job-analyze-request.json
 ```
 
 ### Deploy Manually (if needed)
@@ -217,6 +259,9 @@ aws cloudformation list-stacks
 # Get stack details
 aws cloudformation describe-stacks \
   --stack-name smart-hiring-phase2-ai-integration
+
+aws cloudformation describe-stacks \
+  --stack-name smart-hiring-phase2-job-analyzer
 ```
 
 ---

@@ -100,6 +100,7 @@ jobs:
     outputs:
       matrix: ${{ steps.compute.outputs.matrix }}
       count: ${{ steps.compute.outputs.count }}
+      backend_impact: ${{ steps.compute.outputs.backend_impact }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,6 +127,7 @@ jobs:
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             SELECTED=("${{ github.event.inputs.deploy_service }}")
+            echo 'backend_impact=true' >> "$GITHUB_OUTPUT"
           else
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
               BASE_SHA="${{ github.event.pull_request.base.sha }}"
@@ -137,12 +139,35 @@ jobs:
 
             if [[ -z "$BASE_SHA" || "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
               SELECTED=("${SERVICES[@]}")
+              echo 'backend_impact=true' >> "$GITHUB_OUTPUT"
             else
               CHANGED_FILES="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
               echo "$CHANGED_FILES"
 
+              BACKEND_IMPACT=false
+              if echo "$CHANGED_FILES" | grep -Eq '^(services/|shared/|build.gradle$|sonar-project.properties$|gradle/|gradlew$|gradlew.bat$)'; then
+                BACKEND_IMPACT=true
+              fi
+
+              if [[ "$BACKEND_IMPACT" == "false" ]] && echo "$CHANGED_FILES" | grep -Eq '^settings.gradle$'; then
+                SETTINGS_DIFF="$(git diff --unified=0 "$BASE_SHA" "$HEAD_SHA" -- settings.gradle || true)"
+                if echo "$SETTINGS_DIFF" | grep -Eq '^[+-].*(services:|shared:shared-commons|shared:grpc-definitions|shared:shared-events)'; then
+                  BACKEND_IMPACT=true
+                fi
+              fi
+
+              echo "backend_impact=${BACKEND_IMPACT}" >> "$GITHUB_OUTPUT"
+
+              if [[ "$BACKEND_IMPACT" != "true" ]]; then
+                echo 'matrix={"service":[]}' >> "$GITHUB_OUTPUT"
+                echo 'count=0' >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
               FULL_REBUILD=false
-              if echo "$CHANGED_FILES" | grep -Eq '^(shared/|build.gradle$|settings.gradle$|gradle/|gradlew$|gradlew.bat$)'; then
+              if echo "$CHANGED_FILES" | grep -Eq '^(shared/|build.gradle$|gradle/|gradlew$|gradlew.bat$)'; then
+                FULL_REBUILD=true
+              elif echo "$CHANGED_FILES" | grep -Eq '^settings.gradle$'; then
                 FULL_REBUILD=true
               fi
 
@@ -160,6 +185,7 @@ jobs:
           fi
 
           if [[ ${#SELECTED[@]} -eq 0 ]]; then
+            [[ -n "$(grep '^backend_impact=' "$GITHUB_OUTPUT" || true)" ]] || echo 'backend_impact=false' >> "$GITHUB_OUTPUT"
             echo 'matrix={"service":[]}' >> "$GITHUB_OUTPUT"
             echo 'count=0' >> "$GITHUB_OUTPUT"
             exit 0
@@ -208,8 +234,35 @@ jobs:
           name: backend-publish-${{ matrix.service }}
           path: out/${{ matrix.service }}.json
 
+  no-backend-impact-notice:
+    name: No backend impact detected
+    needs: detect-changed-services
+    if: github.event_name != 'workflow_dispatch' && needs.detect-changed-services.outputs.backend_impact != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain why backend validation was skipped
+        run: |
+          echo "No backend-impacting changes were detected." 
+          echo ""
+          echo "This workflow was triggered by a shared file change (for example settings.gradle)," 
+          echo "but the diff only affected serverless modules or non-backend areas." 
+          echo ""
+          echo "Backend build matrix and quality gate were intentionally skipped." 
+          echo ""
+          echo "## Backend workflow skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "No backend-impacting changes were detected in this revision." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Typical reasons:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- serverless-only module additions in \`settings.gradle\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- changes limited to \`serverless/**\` or workflow files" >> "$GITHUB_STEP_SUMMARY"
+          echo "- no diffs under \`services/**\`, backend \`shared/**\`, or core Gradle inputs" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "As designed, broad backend validation was skipped to keep CI focused and fast." >> "$GITHUB_STEP_SUMMARY"
+
   quality-gate:
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name != 'workflow_dispatch' && needs.detect-changed-services.outputs.backend_impact == 'true'
+    needs: detect-changed-services
     runs-on: ubuntu-latest
     env:
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
