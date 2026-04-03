@@ -2,9 +2,9 @@ spring:
   application:
     name: resume-parser-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/smart_hiring_db
-    username: hiring_user
-    password: hiring_password
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:smart_hiring_db}
+    username: ${POSTGRES_USER:hiring_user}
+    password: ${POSTGRES_PASSWORD:hiring_password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -17,11 +17,11 @@ spring:
       mode: always
       schema-locations: classpath:schema-resume-parser.sql
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: hiring_user
-    password: hiring_password
-    virtual-host: /
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:hiring_user}
+    password: ${RABBITMQ_PASSWORD:hiring_password}
+    virtual-host: ${RABBITMQ_VHOST:/}
 
 server:
   port: 8002

@@ -2,9 +2,9 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/smart_hiring_db
-    username: hiring_user
-    password: hiring_password
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:smart_hiring_db}
+    username: ${POSTGRES_USER:hiring_user}
+    password: ${POSTGRES_PASSWORD:hiring_password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -13,11 +13,11 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: hiring_user
-    password: hiring_password
-    virtual-host: /
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:hiring_user}
+    password: ${RABBITMQ_PASSWORD:hiring_password}
+    virtual-host: ${RABBITMQ_VHOST:/}
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -69,4 +69,3 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
-
