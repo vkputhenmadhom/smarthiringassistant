@@ -54,7 +54,7 @@ export const authReducer = createReducer(
     localStorage.setItem('sha_refresh_token', payload.refreshToken);
     localStorage.setItem('sha_expires_at', String(expiresAt));
     localStorage.setItem('sha_user', JSON.stringify(payload.user));
-    console.log(`[authReducer] loginSuccess/registerSuccess: user=${payload.user.username} role=${payload.user.role}`);
+
     return {
       ...state,
       loading: false,
@@ -95,7 +95,13 @@ export const authReducer = createReducer(
   on(AuthActions.refreshFailure, (state, { error }) => ({ ...state, error })),
 
   on(AuthActions.loadCurrentUserSuccess, (state, { user }) => {
-    console.log(`[authReducer] loadCurrentUserSuccess: user=${user?.username} role=${user?.role}`);
-    return { ...state, user };
+    const privileged = ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN'];
+    // Never downgrade a privileged role to CANDIDATE via a failed ME_QUERY fallback.
+    const resolvedRole =
+      privileged.includes(state.user?.role ?? '') && user?.role === 'CANDIDATE'
+        ? state.user!.role
+        : user?.role;
+    const resolvedUser = user ? { ...user, role: resolvedRole } : user;
+    return { ...state, user: resolvedUser };
   }),
 );

@@ -108,6 +108,9 @@ docker compose -f docker-compose.yml -f docker-compose.apps.yml ps
 ```
 
 ### Restart a Specific Service
+> ⚠️ **Always use both `-f docker-compose.yml -f docker-compose.apps.yml`** for any application service.  
+> Using only `docker compose` (single file) will return `no such service` for auth-service, api-gateway, hr-admin-dashboard, etc.
+
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.apps.yml restart <service-name>
 ```
