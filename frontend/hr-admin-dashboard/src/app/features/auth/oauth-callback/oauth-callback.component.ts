@@ -65,6 +65,15 @@ export class OauthCallbackComponent {
       return;
     }
 
+    // Prevent candidate users from logging into HR admin dashboard
+    if (user.role === 'CANDIDATE') {
+      this.error = 'This portal is for HR staff only. You are being redirected to the candidate portal.';
+      setTimeout(() => {
+        window.location.href = 'http://localhost:5173/login';
+      }, 2000);
+      return;
+    }
+
     const payload: AuthPayload = {
       token: accessToken,
       refreshToken,

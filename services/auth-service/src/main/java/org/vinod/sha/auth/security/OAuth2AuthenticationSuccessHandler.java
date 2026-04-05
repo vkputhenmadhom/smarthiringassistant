@@ -58,27 +58,20 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         AuthResponse authResponse = authService.handleOAuth2Login(oauth2User, registrationId, portalOrigin);
         String role = authResponse.getUser() != null ? authResponse.getUser().getRole() : null;
 
-        // --- state-based portal resolution (no cookies) ---
-        // If HR user tries to access candidate portal, redirect to HR dashboard with warning.
-        String targetRedirectUri = resolveTargetRedirectUri(portalOrigin, role);
-        String warningParam = null;
-        if ("candidate".equals(portalOrigin) && HR_ROLES.contains(role)) {
-            targetRedirectUri = hrAdminSuccessRedirectUri;
-            warningParam = "HR account cannot access candidate portal";
-        }
+         // --- state-based portal resolution (no cookies) ---
+         // Portal origin determines which frontend receives the OAuth callback.
+         // Role is preserved as-is in the token; frontend handles role-to-feature mapping.
+         String targetRedirectUri = resolveTargetRedirectUri(portalOrigin, role);
 
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(targetRedirectUri)
-                .queryParam("accessToken", authResponse.getAccessToken())
-                .queryParam("refreshToken", authResponse.getRefreshToken())
-                .queryParam("expiresIn", authResponse.getExpiresIn())
-                .queryParam("provider", registrationId)
-                .queryParam("role", role);
+         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(targetRedirectUri)
+                 .queryParam("accessToken", authResponse.getAccessToken())
+                 .queryParam("refreshToken", authResponse.getRefreshToken())
+                 .queryParam("expiresIn", authResponse.getExpiresIn())
+                 .queryParam("provider", registrationId)
+                 .queryParam("role", role);
 
-        if (warningParam != null) {
-            uriBuilder.queryParam("warning", warningParam);
-        }
 
-        String redirectUrl = uriBuilder.build(true).toUriString();
+        String redirectUrl = uriBuilder.build().encode().toUriString();
 
         log.info("OAuth2 login success – provider='{}' user='{}' role='{}' portal='{}' → {}",
                 registrationId,

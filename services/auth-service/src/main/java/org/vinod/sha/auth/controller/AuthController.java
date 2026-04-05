@@ -69,6 +69,21 @@ public class AuthController {
         return ResponseEntity.ok("User: " + authentication.getName());
     }
 
+    /**
+     * Clears the server-side session to avoid portal-mixing issues when
+     * users switch between candidate and HR portals without logging out.
+     * Returns 204 No Content on success.
+     */
+    @GetMapping("clear-session")
+    public ResponseEntity<Void> clearSession(jakarta.servlet.http.HttpServletRequest request) {
+        jakarta.servlet.http.HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+            log.info("Session cleared on request from {}", request.getRemoteAddr());
+        }
+        return ResponseEntity.noContent().build();
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleIllegalArgumentException(IllegalArgumentException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -87,4 +102,3 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error");
     }
 }
-

@@ -63,6 +63,7 @@ public class SecurityConfiguration {
                         .requestMatchers("/register", "/login", "/refresh", "/validate").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/actuator/**", "/error").permitAll()
+                        .requestMatchers("/clear-session").permitAll()
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(ae -> ae

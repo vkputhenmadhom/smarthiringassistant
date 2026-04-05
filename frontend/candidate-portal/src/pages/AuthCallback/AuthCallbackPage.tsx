@@ -12,10 +12,21 @@ const normalizeRole = (role: string | undefined): string => {
   if (!role) {
     return 'CANDIDATE';
   }
-  if (role === 'JOB_SEEKER') {
-    return 'CANDIDATE';
+  const normalized = role.toUpperCase();
+  switch (normalized) {
+    case 'JOB_SEEKER':
+      return 'CANDIDATE';
+    case 'HR_ADMIN':
+    case 'SUPER_ADMIN':
+    case 'RECRUITER':
+    case 'ADMIN':
+    case 'HIRING_MANAGER':
+    case 'CANDIDATE':
+    default:
+      // Candidate portal always maps all roles to CANDIDATE via candidatePortalUser below.
+      // normalizeRole just sanitizes the raw JWT value.
+      return normalized === 'CANDIDATE' ? 'CANDIDATE' : normalized;
   }
-  return role;
 };
 
 const decodeJwtUser = (token: string): AuthUser | null => {
@@ -74,11 +85,15 @@ const AuthCallbackPage: React.FC = () => {
       return;
     }
 
+    // For candidate portal, map all roles to CANDIDATE so HR users can browse candidate features
+    // while maintaining their database role in the JWT for backend authorization
+    const candidatePortalUser = { ...user, role: 'CANDIDATE' };
+
     const payload: AuthPayload = {
       token: accessToken,
       refreshToken,
       expiresIn,
-      user,
+      user: candidatePortalUser,
     };
 
     dispatch(setAuthFromOAuthCallback(payload));

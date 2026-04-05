@@ -49,6 +49,21 @@ export const authReducer = createReducer(
   on(AuthActions.login, AuthActions.register, state => ({ ...state, loading: true, error: null })),
 
   on(AuthActions.loginSuccess, AuthActions.registerSuccess, (state, { payload }) => {
+    // Prevent candidate users from logging into HR admin dashboard
+    const HR_ROLES = ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN', 'ADMIN'];
+    if (!HR_ROLES.includes(payload.user.role)) {
+      // Candidate user attempting to log into HR dashboard — reject and clear state
+      return {
+        ...state,
+        loading: false,
+        error: 'This portal is for HR staff only. Please use the candidate portal at http://localhost:5173',
+        user: null,
+        token: null,
+        refreshToken: null,
+        expiresAt: null,
+      };
+    }
+
     const expiresAt = computeExpiresAt(payload.expiresIn);
     localStorage.setItem('sha_token', payload.token);
     localStorage.setItem('sha_refresh_token', payload.refreshToken);
