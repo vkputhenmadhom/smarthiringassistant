@@ -36,10 +36,33 @@ dependencies {
     
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    
+    testImplementation 'org.testcontainers:junit-jupiter:1.21.3'
+    testImplementation 'org.testcontainers:postgresql:1.21.3'
+    testImplementation 'org.testcontainers:rabbitmq:1.21.3'
+    testImplementation 'org.testcontainers:testcontainers:1.21.3'
+
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Keep default unit/integration test cycle fast; broker-backed smoke runs only on demand.
+    exclude '**/*BrokerSmokeTest.*'
+}
+
+tasks.register('smokeTest', Test) {
+    description = 'Runs broker-backed smoke tests for notification-service'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    include '**/*BrokerSmokeTest.*'
+    shouldRunAfter tasks.named('test')
+}
+
+configurations.configureEach {
+    resolutionStrategy {
+        force 'org.testcontainers:testcontainers:1.21.3'
+    }
 }
 

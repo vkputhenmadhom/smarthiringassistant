@@ -1,8 +1,5 @@
 # Smart Hiring Assistant - Full Stack Startup Guide
 
-## ✅ Issue Fixed
-The Docker Compose error `service "candidate-portal" depends on undefined service api-gateway` has been resolved by reorganizing the frontend services into `docker-compose.apps.yml`.
-
 ## 🚀 Starting the Full Stack
 
 ### Step 1: Ensure Docker is Running

@@ -220,6 +220,48 @@ Notification Service (receives event)
 Sends email notification to candidate
 ```
 
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    COMPLETE EVENT FLOW                              │
+│                                                                     │
+│  [1] User Registers                                                 │
+│       auth-service ──publishes──► auth.exchange                     │
+│                                        │ user.registered            │
+│                                        ▼                           │
+│                              user.registered.queue                 │
+│                              (notification-service listens)        │
+│                                                                     │
+│  [2] Resume Uploaded                                               │
+│       resume-parser ──publishes──► resume.exchange                 │
+│                                        │ resume.parsed             │
+│                                        ▼                           │
+│                              resume.parsed.queue                   │
+│                              (candidate-matcher listens) ◄─────────┤
+│                                                                     │
+│  [3] Candidate Matched                                             │
+│       candidate-matcher ──publishes──► matcher.exchange            │
+│                                        │ candidate.matched         │
+│                                        ▼                           │
+│                              candidate.matched.queue               │
+│                              (screening-bot listens) ◄─────────────┤
+│                              (notification-service listens) ◄──────┤
+│                                                                     │
+│  [4] Job Analyzed                                                  │
+│       job-analyzer ──publishes──► job.exchange                     │
+│                                        │ job.analyzed              │
+│                                        ▼                           │
+│                              job.analyzed.queue                    │
+│                                                                     │
+│  [5] Screening Completed                                           │
+│       screening-bot ──publishes──► screening.exchange              │
+│                                        │ screening.completed       │
+│                                        ▼                           │
+│                              screening.completed.queue             │
+│                              (notification-service listens) ◄──────┘
+└─────────────────────────────────────────────────────────────────────┘
+
+```
+
 ## 🤖 AI/GenAI Features
 
 ### Resume Analysis

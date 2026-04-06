@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const DASHBOARD_METRICS_QUERY = gql`
-  query DashboardMetrics {
-    dashboardMetrics {
+  query MyCandidateDashboard {
+    myCandidateDashboard {
       totalJobs
       openJobs
       totalCandidates

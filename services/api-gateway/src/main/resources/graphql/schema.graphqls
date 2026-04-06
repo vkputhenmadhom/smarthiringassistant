@@ -297,6 +297,9 @@ type Query {
     # Analytics (HR/Admin only)
     dashboardMetrics: DashboardMetrics!
 
+    # Analytics (Candidate – user-scoped stats)
+    myCandidateDashboard: DashboardMetrics!
+
     # Notifications
     myNotifications(unreadOnly: Boolean): [Notification!]!
 }
