@@ -32,8 +32,9 @@ public class JobAnalyzerController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(service.listJobs(page, size, status, search));
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String source) {
+        return ResponseEntity.ok(service.listJobs(page, size, status, search, source));
     }
 
     @PostMapping("jobs")

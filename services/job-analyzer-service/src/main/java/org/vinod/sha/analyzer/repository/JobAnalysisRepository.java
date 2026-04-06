@@ -6,5 +6,6 @@ import org.vinod.sha.analyzer.entity.JobAnalysis;
 
 @Repository
 public interface JobAnalysisRepository extends MongoRepository<JobAnalysis, String> {
+    boolean existsByExternalId(String externalId);
 }
 

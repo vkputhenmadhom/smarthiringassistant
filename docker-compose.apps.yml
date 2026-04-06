@@ -359,6 +359,11 @@ services:
       SPRING_DATA_MONGODB_URI: mongodb://hiring_user:hiring_password@mongodb:27017/smart_hiring_db?authSource=admin
       SPRING_MONGODB_URI: mongodb://hiring_user:hiring_password@mongodb:27017/smart_hiring_db?authSource=admin
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      JOB_SYNC_ENABLED: "true"
+      JOB_SYNC_INDIA_ENABLED: "true"
+      JSEARCH_API_KEY: ${JSEARCH_API_KEY:-}
+      ADZUNA_API_KEY: ${ADZUNA_API_KEY:-}
+      ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
     depends_on:
       mongodb:
         condition: service_healthy

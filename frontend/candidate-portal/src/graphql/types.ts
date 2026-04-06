@@ -33,6 +33,10 @@ export interface Job {
   salaryCurrency?: string;
   salaryConfidence?: number;
   applicantCount?: number;
+  // External job fields
+  source?: string;
+  companyName?: string;
+  externalUrl?: string;
 }
 
 export interface StagePassRate {

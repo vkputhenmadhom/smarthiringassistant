@@ -54,6 +54,10 @@ type Job {
     closingDate: DateTime
     applicantCount: Int
     matchedCandidates: [CandidateMatch!]
+    # External job fields (populated for jobs synced from job portals)
+    source: String
+    companyName: String
+    externalUrl: String
 }
 
 enum JobType {
@@ -278,7 +282,7 @@ type Query {
     me: User!
 
     # Jobs
-    jobs(page: Int, size: Int, status: JobStatus, search: String): JobPage!
+    jobs(page: Int, size: Int, status: JobStatus, search: String, source: String): JobPage!
     job(id: ID!): Job!
 
     # Candidates

@@ -124,10 +124,15 @@ public class JobAnalyzerService {
     }
 
     public Map<String, Object> listJobs(int page, int size, String status, String search) {
+        return listJobs(page, size, status, search, null);
+    }
+
+    public Map<String, Object> listJobs(int page, int size, String status, String search, String source) {
         List<JobAnalysis> all = repository.findAll().stream()
                 .sorted(Comparator.comparing(JobAnalysis::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .filter(job -> status == null || status.isBlank() || status.equalsIgnoreCase(defaultIfBlank(job.getStatus(), "DRAFT")))
                 .filter(job -> matchesSearch(job, search))
+                .filter(job -> matchesSource(job, source))
                 .collect(Collectors.toList());
 
         int safeSize = Math.max(1, size);
@@ -285,6 +290,16 @@ public class JobAnalyzerService {
 
     public JobAnalysis getById(String id) {
         return repository.findById(id).orElseThrow(() -> new RuntimeException("Analysis not found: " + id));
+    }
+
+    private boolean matchesSource(JobAnalysis job, String source) {
+        if (source == null || source.isBlank()) return true;
+        // "INDIA" is a convenience alias that matches both India sync sources
+        if ("INDIA".equalsIgnoreCase(source)) {
+            return "JSEARCH_IN".equalsIgnoreCase(job.getSource())
+                    || "ADZUNA_IN".equalsIgnoreCase(job.getSource());
+        }
+        return source.equalsIgnoreCase(job.getSource());
     }
 
     private boolean matchesSearch(JobAnalysis job, String search) {

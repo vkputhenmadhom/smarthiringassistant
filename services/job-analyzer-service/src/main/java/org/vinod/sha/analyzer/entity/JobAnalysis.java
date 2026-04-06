@@ -43,6 +43,15 @@ public class JobAnalysis {
     private String notes;
     private Integer applicantCount;
 
+    /** "INTERNAL" | "JSEARCH" | "ADZUNA" — set only for externally-synced jobs */
+    private String source;
+    /** Unique external job id used for deduplication, e.g. "JSEARCH:{job_id}" */
+    private String externalId;
+    /** Link back to the original job posting on the source portal */
+    private String externalUrl;
+    /** Company logo URL (populated by JSearch) */
+    private String companyLogo;
+
     private LocalDateTime postedAt;
     private LocalDateTime closingDate;
     private LocalDateTime createdAt;

@@ -26,6 +26,58 @@ job:
     extract-skills: true
     predict-market-salary: true
 
+# ── External job-board sync ───────────────────────────────────────────────────
+# Set job-sync.enabled=true (or env JOB_SYNC_ENABLED=true) to activate.
+# Provide at least one source API key to start pulling real jobs.
+#
+# Sources
+#   JSearch  (RapidAPI) – aggregates LinkedIn, Indeed, Glassdoor, ZipRecruiter
+#     → https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch  (free: 200 req/month)
+#   Adzuna               – broad job board aggregator
+#     → https://developer.adzuna.com  (free: 250 req/day)
+# ─────────────────────────────────────────────────────────────────────────────
+job-sync:
+  enabled: ${JOB_SYNC_ENABLED:false}
+  cron: "0 0 */6 * * *"          # every 6 hours
+  max-per-sync: 50
+  country: us
+  keywords:
+    - "software engineer"
+    - "platform engineer"
+    - "backend engineer"
+    - "full-stack developer"
+    - "devops engineer"
+  jsearch:
+    api-key:    ${JSEARCH_API_KEY:}
+    base-url:   https://jsearch.p.rapidapi.com
+    date-posted: week
+    num-pages:  1
+  adzuna:
+    app-id:            ${ADZUNA_APP_ID:}
+    app-key:           ${ADZUNA_APP_KEY:}
+    base-url:          https://api.adzuna.com/v1/api
+    results-per-page:  20
+  # ── India government + PSU jobs ─────────────────────────────────────────────
+  # Sources: Adzuna /in/ (Naukri, LinkedIn IN, Indeed.co.in, TimesJobs)
+  #        + JSearch country=in (LinkedIn India, Indeed.co.in)
+  # NOTE: NCS (ncs.gov.in) has no public API. Adzuna/JSearch DO carry listings
+  #       from DRDO, ISRO, NTPC, BHEL, Indian Railways, IBPS, SBI etc.
+  # Set JOB_SYNC_INDIA_ENABLED=true to activate (reuses same API keys above).
+  # ─────────────────────────────────────────────────────────────────────────────
+  india:
+    enabled:      ${JOB_SYNC_INDIA_ENABLED:false}
+    max-per-sync: 30
+    keywords:
+      - "government engineer India"
+      - "PSU jobs India"
+      - "DRDO scientist"
+      - "ISRO engineer"
+      - "NTPC engineer"
+      - "BHEL engineer"
+      - "Indian Railways engineer"
+      - "IBPS bank jobs"
+      - "central government jobs"
+
 logging:
   level:
     root: INFO

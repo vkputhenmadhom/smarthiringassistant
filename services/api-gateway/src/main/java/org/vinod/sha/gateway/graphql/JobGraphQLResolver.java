@@ -40,12 +40,13 @@ public class JobGraphQLResolver {
             @Argument Integer page,
             @Argument Integer size,
             @Argument String status,
-            @Argument String search) {
-        log.debug("GraphQL jobs query: page={}, size={}, status={}, search={}", page, size, status, search);
+            @Argument String search,
+            @Argument String source) {
+        log.debug("GraphQL jobs query: page={}, size={}, status={}, search={}, source={}", page, size, status, search, source);
         int p = page == null ? 0 : page;
         int s = size == null ? 20 : size;
 
-        String uri = buildJobsUri(p, s, status, search);
+        String uri = buildJobsUri(p, s, status, search, source);
         return requestMap(uri)
                 .map(this::normalizeJobPage)
                 .defaultIfEmpty(emptyPage())
@@ -141,11 +142,12 @@ public class JobGraphQLResolver {
                 .map(this::toStringObjectMap);
     }
 
-    private String buildJobsUri(int page, int size, String status, String search) {
+    private String buildJobsUri(int page, int size, String status, String search, String source) {
         StringBuilder sb = new StringBuilder(JOB_SERVICE_BASE + "/jobs?page=")
                 .append(page).append("&size=").append(size);
         if (status != null) sb.append("&status=").append(status);
         if (search != null && !search.isBlank()) sb.append("&search=").append(search);
+        if (source != null && !source.isBlank()) sb.append("&source=").append(source);
         return sb.toString();
     }
 
@@ -214,6 +216,9 @@ public class JobGraphQLResolver {
         j.put("applicantCount", number(rawJob.get("applicantCount"), 0));
         j.put("postedAt", normalizeDateTime(rawJob.get("postedAt")));
         j.put("closingDate", normalizeDateTime(rawJob.get("closingDate")));
+        j.put("source", rawJob.get("source"));
+        j.put("companyName", firstNonNull(rawJob.get("companyName"), rawJob.get("company"), null));
+        j.put("externalUrl", rawJob.get("externalUrl"));
         return j;
     }
 
