@@ -1,0 +1,12 @@
+{
+  "name": "sha-smoke-scripts",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "smoke:ws-auth": "node smoke-ws-auth-init.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
+

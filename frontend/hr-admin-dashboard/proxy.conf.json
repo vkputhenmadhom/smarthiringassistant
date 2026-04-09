@@ -1,2 +1,1 @@
-{ "/api": { "target": "http://localhost:8000", "secure": false, "changeOrigin": true }, "/graphql": { "target": "http://localhost:8000", "secure": false, "changeOrigin": true }, "/graphiql": { "target": "http://localhost:8000", "secure": false, "changeOrigin": true } }
-
+{ "/api": { "target": "http://localhost:8000", "secure": false, "changeOrigin": true }, "/graphql": { "target": "http://localhost:8000", "secure": false, "changeOrigin": true }, "/graphql-ws": { "target": "ws://localhost:8000", "secure": false, "changeOrigin": true, "ws": true }, "/graphiql": { "target": "http://localhost:8000", "secure": false, "changeOrigin": true } }

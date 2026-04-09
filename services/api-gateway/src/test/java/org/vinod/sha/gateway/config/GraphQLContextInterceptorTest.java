@@ -44,13 +44,73 @@ class GraphQLContextInterceptorTest {
     }
 
     @Test
+    void fallsBackToWebSocketHeadersWhenConnectionInitMissingToken() {
+        TestWebSocketSessionInfo sessionInfo = new TestWebSocketSessionInfo();
+        sessionInfo.getHeaders().set(HttpHeaders.AUTHORIZATION, "Bearer header-token");
+
+        interceptor.handleConnectionInitialization(sessionInfo, Map.of()).block();
+
+        assertEquals("Bearer header-token", sessionInfo.getAttributes().get(GraphQLContextInterceptor.AUTHORIZATION_CONTEXT_KEY));
+    }
+
+    @Test
+    void connectionInitTokenOverridesSocketHeaderToken() {
+        TestWebSocketSessionInfo sessionInfo = new TestWebSocketSessionInfo();
+        sessionInfo.getHeaders().set(HttpHeaders.AUTHORIZATION, "Bearer header-token");
+
+        interceptor.handleConnectionInitialization(sessionInfo, Map.of("authorization", "Bearer payload-token")).block();
+
+        assertEquals("Bearer payload-token", sessionInfo.getAttributes().get(GraphQLContextInterceptor.AUTHORIZATION_CONTEXT_KEY));
+    }
+
+    @Test
     void resolvesAuthorizationFromWebSocketSessionAttributesWhenHeaderMissing() {
         TestWebSocketSessionInfo sessionInfo = new TestWebSocketSessionInfo();
         sessionInfo.getAttributes().put(GraphQLContextInterceptor.AUTHORIZATION_CONTEXT_KEY, "Bearer session-token");
 
-        WebSocketGraphQlRequest request = new WebSocketGraphQlRequest(
+        WebSocketGraphQlRequest request = createWebSocketRequest(sessionInfo, new HttpHeaders());
+
+        assertEquals("Bearer session-token", interceptor.resolveAuthorization(request));
+    }
+
+    @Test
+    void resolvesAuthorizationFromRequestHeadersBeforeSessionAttributes() {
+        TestWebSocketSessionInfo sessionInfo = new TestWebSocketSessionInfo();
+        sessionInfo.getAttributes().put(GraphQLContextInterceptor.AUTHORIZATION_CONTEXT_KEY, "Bearer session-token");
+        HttpHeaders requestHeaders = new HttpHeaders();
+        requestHeaders.set(HttpHeaders.AUTHORIZATION, "Bearer request-header-token");
+
+        WebSocketGraphQlRequest request = createWebSocketRequest(sessionInfo, requestHeaders);
+
+        assertEquals("Bearer request-header-token", interceptor.resolveAuthorization(request));
+    }
+
+    @Test
+    void ignoresBlankAuthorizationValuesInConnectionInitPayload() {
+        TestWebSocketSessionInfo sessionInfo = new TestWebSocketSessionInfo();
+        sessionInfo.getHeaders().set(HttpHeaders.AUTHORIZATION, "Bearer header-token");
+
+        interceptor.handleConnectionInitialization(sessionInfo, Map.of("authorization", "   ")).block();
+
+        assertEquals("Bearer header-token", sessionInfo.getAttributes().get(GraphQLContextInterceptor.AUTHORIZATION_CONTEXT_KEY));
+    }
+
+    @Test
+    void extractsAuthorizationFromNestedAuthTokenPayload() {
+        Map<String, Object> payload = Map.of("headers", Map.of("authToken", "Bearer nested-auth-token"));
+
+        assertEquals("Bearer nested-auth-token", interceptor.extractAuthorization(payload));
+    }
+
+    @Test
+    void returnsNullWhenNoAuthorizationPresent() {
+        assertNull(interceptor.extractAuthorization(Map.of()));
+    }
+
+    private WebSocketGraphQlRequest createWebSocketRequest(TestWebSocketSessionInfo sessionInfo, HttpHeaders headers) {
+        return new WebSocketGraphQlRequest(
                 URI.create("ws://localhost/graphql-ws"),
-                new HttpHeaders(),
+                headers,
                 new LinkedMultiValueMap<String, HttpCookie>(),
                 sessionInfo.getRemoteAddress(),
                 Map.of(),
@@ -59,13 +119,6 @@ class GraphQLContextInterceptorTest {
                 Locale.ENGLISH,
                 sessionInfo
         );
-
-        assertEquals("Bearer session-token", interceptor.resolveAuthorization(request));
-    }
-
-    @Test
-    void returnsNullWhenNoAuthorizationPresent() {
-        assertNull(interceptor.extractAuthorization(Map.of()));
     }
 
     static class TestWebSocketSessionInfo implements WebSocketSessionInfo {

@@ -25,6 +25,9 @@ dependencies {
     // GraphQL (auto-configures over WebFlux when webflux is present)
     implementation 'org.springframework.boot:spring-boot-starter-graphql'
 
+    // AMQP support for @RabbitListener and queue/exchange bindings in realtime subscriptions.
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
     // Reactive web stack
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
@@ -50,10 +53,10 @@ dependencies {
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'io.projectreactor:reactor-test'
 
 }
 
 tasks.named('test') {
     useJUnitPlatform()
 }
-

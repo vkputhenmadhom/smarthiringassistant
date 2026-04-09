@@ -41,6 +41,12 @@ export const appRoutes: Routes = [
         data: { roles: ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN'] },
       },
       {
+        path: 'notifications',
+        loadChildren: () => import('./features/notifications/notifications.routes').then(m => m.notificationsRoutes),
+        canActivate: [roleGuard],
+        data: { roles: ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN'] },
+      },
+      {
         path: 'analytics',
         loadComponent: () => import('./features/analytics/analytics.component').then(m => m.AnalyticsComponent),
         canActivate: [roleGuard],

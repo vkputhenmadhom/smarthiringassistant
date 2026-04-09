@@ -186,6 +186,24 @@ export const ADVANCE_SCREENING_MUTATION = gql`
   }
 `;
 
+export const SCREENING_UPDATED_SUBSCRIPTION = gql`
+  subscription ScreeningUpdated($sessionId: ID!) {
+    screeningUpdated(sessionId: $sessionId) {
+      id
+      candidateId
+      jobId
+      currentStage
+      status
+      decision
+      finalScore
+      stageResults { stage passed score reasons evaluatedAt }
+      failureReasons
+      createdAt
+      completedAt
+    }
+  }
+`;
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 export const MY_NOTIFICATIONS_QUERY = gql`
   query MyNotifications($unreadOnly: Boolean) {
@@ -195,7 +213,29 @@ export const MY_NOTIFICATIONS_QUERY = gql`
   }
 `;
 
+export const NEW_NOTIFICATION_SUBSCRIPTION = gql`
+  subscription NewNotification($userId: ID!) {
+    newNotification(userId: $userId) {
+      id
+      userId
+      type
+      title
+      message
+      read
+      createdAt
+    }
+  }
+`;
+
+export const MARK_NOTIFICATION_READ_MUTATION = gql`
+  mutation MarkNotificationRead($id: ID!) {
+    markNotificationRead(id: $id) {
+      id
+      read
+    }
+  }
+`;
+
 export const MARK_ALL_READ_MUTATION = gql`
   mutation MarkAllRead { markAllNotificationsRead }
 `;
-

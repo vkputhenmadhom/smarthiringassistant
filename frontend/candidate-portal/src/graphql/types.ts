@@ -91,8 +91,17 @@ export interface ScreeningSession {
   completedAt?: string;
 }
 
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt?: string;
+}
+
 export interface ResumeUploadPayload {
   id: string;
   parseStatus: string;
 }
-
