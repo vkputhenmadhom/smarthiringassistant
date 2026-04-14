@@ -11,6 +11,39 @@ import java.util.Map;
 class GatewaySubscriptionBrokerTest {
 
     @Test
+    void relaysBackplaneMessageFromDifferentInstanceToLocalSubscribers() {
+        GatewaySubscriptionBroker broker = new GatewaySubscriptionBroker();
+
+        StepVerifier.create(broker.notificationUpdates("42").take(1))
+                .then(() -> broker.onBackplaneMessage(
+                        "instance-b",
+                        RealtimeChannel.NOTIFICATION,
+                        "42",
+                        Map.of("userId", "42", "type", "MATCH")
+                ))
+                .assertNext(payload -> {
+                    org.junit.jupiter.api.Assertions.assertEquals("42", payload.get("userId"));
+                    org.junit.jupiter.api.Assertions.assertEquals("MATCH", payload.get("type"));
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void ignoresBackplaneEchoFromSameInstance() {
+        GatewaySubscriptionBroker broker = new GatewaySubscriptionBroker();
+
+        StepVerifier.create(broker.notificationUpdates("42").take(1))
+                .then(() -> broker.onBackplaneMessage(
+                        broker.getInstanceId(),
+                        RealtimeChannel.NOTIFICATION,
+                        "42",
+                        Map.of("userId", "42", "type", "MATCH")
+                ))
+                .expectTimeout(java.time.Duration.ofMillis(200))
+                .verify();
+    }
+
+    @Test
     void publishesMatchUpdateToJobSubscribers() {
         GatewaySubscriptionBroker broker = new GatewaySubscriptionBroker();
 

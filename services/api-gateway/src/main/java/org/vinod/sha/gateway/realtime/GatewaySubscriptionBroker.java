@@ -8,12 +8,20 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.ContextValue;
 import org.springframework.graphql.data.method.annotation.SubscriptionMapping;
+import org.springframework.data.redis.connection.Message;
+import org.springframework.data.redis.connection.MessageListener;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Component;
@@ -39,9 +47,15 @@ import java.util.concurrent.ConcurrentMap;
 @Component
 public class GatewaySubscriptionBroker {
 
+    static final String REALTIME_BACKPLANE_CHANNEL = "sha:gateway:realtime:v1";
+
     private final ConcurrentMap<String, Sinks.Many<Map<String, Object>>> screeningSinks = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Sinks.Many<Map<String, Object>>> matchSinks = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Sinks.Many<Map<String, Object>>> notificationSinks = new ConcurrentHashMap<>();
+    private final String instanceId = UUID.randomUUID().toString();
+
+    @Autowired(required = false)
+    private GatewayRealtimeBackplanePublisher backplanePublisher;
 
     public Flux<Map<String, Object>> screeningUpdates(String sessionId) {
         return sinkFor(screeningSinks, sessionId).asFlux();
@@ -57,14 +71,46 @@ public class GatewaySubscriptionBroker {
 
     public void publishScreeningUpdate(String sessionId, Map<String, Object> payload) {
         emit(screeningSinks, sessionId, payload);
+        publishToBackplane(RealtimeChannel.SCREENING, sessionId, payload);
     }
 
     public void publishMatchUpdate(String jobId, Map<String, Object> payload) {
         emit(matchSinks, jobId, payload);
+        publishToBackplane(RealtimeChannel.MATCH, jobId, payload);
     }
 
     public void publishNotification(String userId, Map<String, Object> payload) {
         emit(notificationSinks, userId, payload);
+        publishToBackplane(RealtimeChannel.NOTIFICATION, userId, payload);
+    }
+
+    void onBackplaneMessage(String originInstanceId,
+                            RealtimeChannel channel,
+                            String key,
+                            Map<String, Object> payload) {
+        if (originInstanceId == null || channel == null || key == null || payload == null) {
+            return;
+        }
+        if (instanceId.equals(originInstanceId)) {
+            return;
+        }
+
+        switch (channel) {
+            case SCREENING -> emit(screeningSinks, key, payload);
+            case MATCH -> emit(matchSinks, key, payload);
+            case NOTIFICATION -> emit(notificationSinks, key, payload);
+        }
+    }
+
+    String getInstanceId() {
+        return instanceId;
+    }
+
+    private void publishToBackplane(RealtimeChannel channel, String key, Map<String, Object> payload) {
+        if (backplanePublisher == null) {
+            return;
+        }
+        backplanePublisher.publish(instanceId, channel, key, payload);
     }
 
     private Sinks.Many<Map<String, Object>> sinkFor(ConcurrentMap<String, Sinks.Many<Map<String, Object>>> registry,
@@ -79,6 +125,104 @@ public class GatewaySubscriptionBroker {
         if (result.isFailure() && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
             log.debug("Realtime emit dropped for key {} with result {}", key, result);
         }
+    }
+}
+
+enum RealtimeChannel {
+    SCREENING,
+    MATCH,
+    NOTIFICATION
+}
+
+record GatewayRealtimeEnvelope(String originInstanceId,
+                               RealtimeChannel channel,
+                               String key,
+                               Map<String, Object> payload) {
+}
+
+@Slf4j
+@Component
+class GatewayRealtimeBackplanePublisher {
+
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper().findAndRegisterModules();
+    }
+
+    GatewayRealtimeBackplanePublisher(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
+    }
+
+    void publish(String originInstanceId,
+                 RealtimeChannel channel,
+                 String key,
+                 Map<String, Object> payload) {
+        try {
+            String serialized = objectMapper.writeValueAsString(
+                    new GatewayRealtimeEnvelope(originInstanceId, channel, key, payload)
+            );
+            redisTemplate.convertAndSend(GatewaySubscriptionBroker.REALTIME_BACKPLANE_CHANNEL, serialized);
+        } catch (Exception e) {
+            log.warn("Failed to publish realtime event to Redis backplane. channel={} key={} error={}",
+                    channel,
+                    key,
+                    e.getMessage());
+        }
+    }
+}
+
+@Slf4j
+@Component
+class GatewayRealtimeBackplaneSubscriber implements MessageListener {
+
+    private final ObjectMapper objectMapper;
+    private final GatewaySubscriptionBroker subscriptionBroker;
+
+    GatewayRealtimeBackplaneSubscriber(ObjectMapper objectMapper, GatewaySubscriptionBroker subscriptionBroker) {
+        this.objectMapper = objectMapper;
+        this.subscriptionBroker = subscriptionBroker;
+    }
+
+    @Override
+    public void onMessage(Message message, byte[] pattern) {
+        try {
+            String payload = new String(message.getBody(), StandardCharsets.UTF_8);
+            GatewayRealtimeEnvelope envelope = objectMapper.readValue(payload, GatewayRealtimeEnvelope.class);
+            subscriptionBroker.onBackplaneMessage(
+                    envelope.originInstanceId(),
+                    envelope.channel(),
+                    envelope.key(),
+                    envelope.payload()
+            );
+        } catch (Exception e) {
+            log.debug("Ignoring malformed realtime backplane message: {}", e.getMessage());
+        }
+    }
+}
+
+@Configuration
+class GatewayRealtimeBackplaneConfig {
+
+    @Bean
+    ChannelTopic gatewayRealtimeBackplaneTopic() {
+        return new ChannelTopic(GatewaySubscriptionBroker.REALTIME_BACKPLANE_CHANNEL);
+    }
+
+    @Bean
+    RedisMessageListenerContainer gatewayRealtimeBackplaneListenerContainer(
+            RedisConnectionFactory redisConnectionFactory,
+            GatewayRealtimeBackplaneSubscriber backplaneSubscriber,
+            ChannelTopic gatewayRealtimeBackplaneTopic
+    ) {
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(redisConnectionFactory);
+        container.setTopicSerializer(new StringRedisSerializer());
+        container.addMessageListener(backplaneSubscriber, gatewayRealtimeBackplaneTopic);
+        return container;
     }
 }
 
