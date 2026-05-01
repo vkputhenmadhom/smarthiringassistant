@@ -31,6 +31,10 @@ dependencies {
     // Reactive web stack
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
+    // Resilience4j for downstream WebClient protection
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
+    implementation 'io.github.resilience4j:resilience4j-reactor:2.2.0'
+
     // Logging & Observability (versions managed by Spring Boot BOM)
     implementation 'io.micrometer:micrometer-tracing-bridge-brave'
     implementation 'io.micrometer:micrometer-registry-prometheus'

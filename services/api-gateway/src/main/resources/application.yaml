@@ -175,3 +175,82 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        slowCallRateThreshold: 60
+        slowCallDurationThreshold: 2s
+        permittedNumberOfCallsInHalfOpenState: 5
+        waitDurationInOpenState: 30s
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      auth-service:
+        baseConfig: default
+      resume-parser-service:
+        baseConfig: default
+      candidate-matcher-service:
+        baseConfig: default
+      job-analyzer-service:
+        baseConfig: default
+      screening-bot-service:
+        baseConfig: default
+
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 200ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+    instances:
+      auth-service:
+        baseConfig: default
+      resume-parser-service:
+        baseConfig: default
+      candidate-matcher-service:
+        baseConfig: default
+      job-analyzer-service:
+        baseConfig: default
+      screening-bot-service:
+        baseConfig: default
+
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 2s
+        cancelRunningFuture: true
+    instances:
+      auth-service:
+        baseConfig: default
+      resume-parser-service:
+        baseConfig: default
+      candidate-matcher-service:
+        baseConfig: default
+      job-analyzer-service:
+        baseConfig: default
+      screening-bot-service:
+        baseConfig: default
+
+  bulkhead:
+    configs:
+      default:
+        maxConcurrentCalls: 40
+        maxWaitDuration: 50ms
+    instances:
+      auth-service:
+        baseConfig: default
+      resume-parser-service:
+        baseConfig: default
+      candidate-matcher-service:
+        baseConfig: default
+      job-analyzer-service:
+        baseConfig: default
+      screening-bot-service:
+        baseConfig: default
+

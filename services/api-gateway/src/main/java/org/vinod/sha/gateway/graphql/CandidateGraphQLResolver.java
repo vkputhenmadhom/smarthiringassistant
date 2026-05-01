@@ -5,6 +5,7 @@ import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.vinod.sha.gateway.resilience.GatewayResilience;
 
 import java.util.*;
 
@@ -12,11 +13,17 @@ import java.util.*;
 @Controller
 public class CandidateGraphQLResolver {
 
+    private static final String RESUME_PARSER_BACKEND = "resume-parser-service";
+    private static final String MATCHER_BACKEND = "candidate-matcher-service";
+
 
     private final WebClient.Builder webClientBuilder;
+    private final GatewayResilience gatewayResilience;
 
-    public CandidateGraphQLResolver(WebClient.Builder webClientBuilder) {
+    public CandidateGraphQLResolver(WebClient.Builder webClientBuilder,
+                                    GatewayResilience gatewayResilience) {
         this.webClientBuilder = webClientBuilder;
+        this.gatewayResilience = gatewayResilience;
     }
 
     // ── Queries ──────────────────────────────────────────────────────────────
@@ -34,7 +41,9 @@ public class CandidateGraphQLResolver {
                 + (status != null ? "&status=" + status : "")
                 + (search != null ? "&search=" + search : "");
         try {
-            return webClientBuilder.build().get().uri(uri).retrieve().bodyToMono(Map.class).block();
+            return gatewayResilience.protect(RESUME_PARSER_BACKEND,
+                            webClientBuilder.build().get().uri(uri).retrieve().bodyToMono(Map.class).map(this::toStringObjectMap))
+                    .block();
         } catch (Exception e) {
             log.warn("resume-parser-service unreachable: {}", e.getMessage());
             return stubCandidatePage();
@@ -45,9 +54,12 @@ public class CandidateGraphQLResolver {
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER','CANDIDATE')")
     public Map<String, Object> candidate(@Argument String id) {
         try {
-            return webClientBuilder.build()
-                    .get().uri("http://resume-parser-service:8002/resumes/" + id)
-                    .retrieve().bodyToMono(Map.class).block();
+            return gatewayResilience.protect(RESUME_PARSER_BACKEND,
+                            webClientBuilder.build()
+                                    .get().uri("http://resume-parser-service:8002/resumes/" + id)
+                                    .retrieve().bodyToMono(Map.class)
+                                    .map(this::toStringObjectMap))
+                    .block();
         } catch (Exception e) {
             return stubCandidate(id);
         }
@@ -68,9 +80,12 @@ public class CandidateGraphQLResolver {
         int p = page == null ? 0 : page;
         int s = size == null ? 20 : size;
         try {
-            return webClientBuilder.build()
-                    .get().uri("http://candidate-matcher-service:8003/matches/job/" + jobId + "?page=" + p + "&size=" + s)
-                    .retrieve().bodyToMono(Map.class).block();
+            return gatewayResilience.protect(MATCHER_BACKEND,
+                            webClientBuilder.build()
+                                    .get().uri("http://candidate-matcher-service:8003/matches/job/" + jobId + "?page=" + p + "&size=" + s)
+                                    .retrieve().bodyToMono(Map.class)
+                                    .map(this::toStringObjectMap))
+                    .block();
         } catch (Exception e) {
             return emptyPage();
         }
@@ -84,9 +99,12 @@ public class CandidateGraphQLResolver {
         int p = page == null ? 0 : page;
         int s = size == null ? 20 : size;
         try {
-            return webClientBuilder.build()
-                    .get().uri("http://candidate-matcher-service:8003/matches/candidate/" + candidateId + "?page=" + p + "&size=" + s)
-                    .retrieve().bodyToMono(Map.class).block();
+            return gatewayResilience.protect(MATCHER_BACKEND,
+                            webClientBuilder.build()
+                                    .get().uri("http://candidate-matcher-service:8003/matches/candidate/" + candidateId + "?page=" + p + "&size=" + s)
+                                    .retrieve().bodyToMono(Map.class)
+                                    .map(this::toStringObjectMap))
+                    .block();
         } catch (Exception e) {
             return emptyPage();
         }
@@ -100,10 +118,13 @@ public class CandidateGraphQLResolver {
                                                 @Argument String jobId) {
         Map<String, Object> body = Map.of("candidateId", candidateId, "jobId", jobId);
         try {
-            return webClientBuilder.build()
-                    .post().uri("http://candidate-matcher-service:8003/matches")
-                    .bodyValue(body)
-                    .retrieve().bodyToMono(Map.class).block();
+            return gatewayResilience.protect(MATCHER_BACKEND,
+                            webClientBuilder.build()
+                                    .post().uri("http://candidate-matcher-service:8003/matches")
+                                    .bodyValue(body)
+                                    .retrieve().bodyToMono(Map.class)
+                                    .map(this::toStringObjectMap))
+                    .block();
         } catch (Exception e) {
             return stubMatch(candidateId, jobId);
         }
@@ -115,10 +136,13 @@ public class CandidateGraphQLResolver {
                                                   @Argument String status) {
         Map<String, Object> body = Map.of("status", status);
         try {
-            return webClientBuilder.build()
-                    .put().uri("http://candidate-matcher-service:8003/matches/" + matchId + "/status")
-                    .bodyValue(body)
-                    .retrieve().bodyToMono(Map.class).block();
+            return gatewayResilience.protect(MATCHER_BACKEND,
+                            webClientBuilder.build()
+                                    .put().uri("http://candidate-matcher-service:8003/matches/" + matchId + "/status")
+                                    .bodyValue(body)
+                                    .retrieve().bodyToMono(Map.class)
+                                    .map(this::toStringObjectMap))
+                    .block();
         } catch (Exception e) {
             return stubMatch(matchId, "");
         }
@@ -169,6 +193,11 @@ public class CandidateGraphQLResolver {
         m.put("skillMatches", List.of("Java", "Spring Boot"));
         m.put("skillGaps", List.of("Kubernetes"));
         return m;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> toStringObjectMap(Map<?, ?> raw) {
+        return raw == null ? Map.of() : (Map<String, Object>) raw;
     }
 }
 

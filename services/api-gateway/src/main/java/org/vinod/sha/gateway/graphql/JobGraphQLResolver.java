@@ -7,6 +7,7 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.vinod.sha.gateway.resilience.GatewayResilience;
 import reactor.core.publisher.Mono;
 
 import java.util.LinkedHashMap;
@@ -26,11 +27,15 @@ import java.time.format.DateTimeParseException;
 public class JobGraphQLResolver {
 
     private static final String JOB_SERVICE_BASE = "http://job-analyzer-service:8005/api/jobs";
+    private static final String JOB_BACKEND = "job-analyzer-service";
 
     private final WebClient.Builder webClientBuilder;
+    private final GatewayResilience gatewayResilience;
 
-    public JobGraphQLResolver(WebClient.Builder webClientBuilder) {
+    public JobGraphQLResolver(WebClient.Builder webClientBuilder,
+                              GatewayResilience gatewayResilience) {
         this.webClientBuilder = webClientBuilder;
+        this.gatewayResilience = gatewayResilience;
     }
 
     // ── Queries ──────────────────────────────────────────────────────────────
@@ -73,10 +78,11 @@ public class JobGraphQLResolver {
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> createJob(@Argument Map<String, Object> input) {
         log.info("GraphQL createJob mutation");
-        return webClientBuilder.build()
-                .post().uri(JOB_SERVICE_BASE + "/jobs")
-                .bodyValue(input)
-                .retrieve().bodyToMono(Map.class)
+        return gatewayResilience.protect(JOB_BACKEND,
+                        webClientBuilder.build()
+                                .post().uri(JOB_SERVICE_BASE + "/jobs")
+                                .bodyValue(input)
+                                .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
                 .onErrorResume(e -> {
@@ -89,10 +95,11 @@ public class JobGraphQLResolver {
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> updateJob(@Argument String id, @Argument Map<String, Object> input) {
         log.info("GraphQL updateJob mutation: id={}", id);
-        return webClientBuilder.build()
-                .put().uri(JOB_SERVICE_BASE + "/jobs/" + id)
-                .bodyValue(input)
-                .retrieve().bodyToMono(Map.class)
+        return gatewayResilience.protect(JOB_BACKEND,
+                        webClientBuilder.build()
+                                .put().uri(JOB_SERVICE_BASE + "/jobs/" + id)
+                                .bodyValue(input)
+                                .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
                 .onErrorResume(e -> Mono.just(emptyJob(id)));
@@ -101,9 +108,10 @@ public class JobGraphQLResolver {
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Boolean> deleteJob(@Argument String id) {
-        return webClientBuilder.build()
-                .delete().uri(JOB_SERVICE_BASE + "/jobs/" + id)
-                .retrieve().toBodilessEntity()
+        return gatewayResilience.protect(JOB_BACKEND,
+                        webClientBuilder.build()
+                                .delete().uri(JOB_SERVICE_BASE + "/jobs/" + id)
+                                .retrieve().toBodilessEntity())
                 .map(ignored -> true)
                 .onErrorResume(e -> {
                     log.warn("deleteJob failed: {}", e.getMessage());
@@ -114,9 +122,10 @@ public class JobGraphQLResolver {
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> publishJob(@Argument String id) {
-        return webClientBuilder.build()
-                .post().uri(JOB_SERVICE_BASE + "/jobs/" + id + "/publish")
-                .retrieve().bodyToMono(Map.class)
+        return gatewayResilience.protect(JOB_BACKEND,
+                        webClientBuilder.build()
+                                .post().uri(JOB_SERVICE_BASE + "/jobs/" + id + "/publish")
+                                .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
                 .onErrorResume(e -> Mono.just(emptyJob(id)));
@@ -125,9 +134,10 @@ public class JobGraphQLResolver {
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> closeJob(@Argument String id) {
-        return webClientBuilder.build()
-                .post().uri(JOB_SERVICE_BASE + "/jobs/" + id + "/close")
-                .retrieve().bodyToMono(Map.class)
+        return gatewayResilience.protect(JOB_BACKEND,
+                        webClientBuilder.build()
+                                .post().uri(JOB_SERVICE_BASE + "/jobs/" + id + "/close")
+                                .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
                 .onErrorResume(e -> Mono.just(emptyJob(id)));
@@ -136,9 +146,10 @@ public class JobGraphQLResolver {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private Mono<Map<String, Object>> requestMap(String uri) {
-        return webClientBuilder.build()
-                .get().uri(uri)
-                .retrieve().bodyToMono(Map.class)
+        return gatewayResilience.protect(JOB_BACKEND,
+                        webClientBuilder.build()
+                                .get().uri(uri)
+                                .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap);
     }
 

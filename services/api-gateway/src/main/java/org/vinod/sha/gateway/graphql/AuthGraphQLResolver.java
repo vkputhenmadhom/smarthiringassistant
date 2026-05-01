@@ -2,6 +2,7 @@ package org.vinod.sha.gateway.graphql;
 
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.vinod.sha.gateway.resilience.GatewayResilience;
 import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -16,13 +17,17 @@ import java.util.*;
 public class AuthGraphQLResolver {
 
     private static final String AUTH_BASE = "http://auth-service:8001/api/auth";
+    private static final String AUTH_BACKEND = "auth-service";
 
 
     private final WebClient.Builder webClientBuilder;
+    private final GatewayResilience gatewayResilience;
     private final ObjectMapper objectMapper;
 
-    public AuthGraphQLResolver(WebClient.Builder webClientBuilder) {
+    public AuthGraphQLResolver(WebClient.Builder webClientBuilder,
+                               GatewayResilience gatewayResilience) {
         this.webClientBuilder = webClientBuilder;
+        this.gatewayResilience = gatewayResilience;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -53,10 +58,11 @@ public class AuthGraphQLResolver {
                 "lastName", "User",
                 "role", toAuthRole(role)
         );
-        return webClientBuilder.build()
-                .post().uri(AUTH_BASE + "/register")
-                .bodyValue(body)
-                .retrieve().bodyToMono(Map.class)
+        return gatewayResilience.protect(AUTH_BACKEND,
+                        webClientBuilder.build()
+                                .post().uri(AUTH_BASE + "/register")
+                                .bodyValue(body)
+                                .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeAuthPayload)
                 .switchIfEmpty(Mono.just(stubAuthPayload(username, role)))
@@ -69,10 +75,11 @@ public class AuthGraphQLResolver {
     @MutationMapping
     public Mono<Map<String, Object>> login(@Argument String username, @Argument String password) {
         Map<String, Object> body = Map.of("username", username, "password", password);
-        return webClientBuilder.build()
-                .post().uri(AUTH_BASE + "/login")
-                .bodyValue(body)
-                .retrieve().bodyToMono(Map.class)
+        return gatewayResilience.protect(AUTH_BACKEND,
+                        webClientBuilder.build()
+                                .post().uri(AUTH_BASE + "/login")
+                                .bodyValue(body)
+                                .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeAuthPayload)
                 .switchIfEmpty(Mono.just(stubAuthPayload(username, "CANDIDATE")))
@@ -84,10 +91,11 @@ public class AuthGraphQLResolver {
 
     @MutationMapping
     public Mono<Map<String, Object>> refreshToken(@Argument String refreshToken) {
-        return webClientBuilder.build()
-                .post().uri(AUTH_BASE + "/refresh")
-                .header("Authorization", "Bearer " + refreshToken)
-                .retrieve().bodyToMono(Map.class)
+        return gatewayResilience.protect(AUTH_BACKEND,
+                        webClientBuilder.build()
+                                .post().uri(AUTH_BASE + "/refresh")
+                                .header("Authorization", "Bearer " + refreshToken)
+                                .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeAuthPayload)
                 .switchIfEmpty(Mono.just(stubAuthPayload("user", "CANDIDATE")))
