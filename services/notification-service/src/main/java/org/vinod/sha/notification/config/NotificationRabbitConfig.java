@@ -35,6 +35,69 @@ public class NotificationRabbitConfig {
     }
 
     @Bean
+    public TopicExchange authExchange() {
+        return new TopicExchange(RabbitMQConfiguration.AUTH_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Queue userRegisteredQueue() {
+        return QueueBuilder.durable(RabbitMQConfiguration.USER_REGISTERED_QUEUE)
+                .deadLetterExchange(RabbitMQConfiguration.DEAD_LETTER_EXCHANGE)
+                .build();
+    }
+
+    @Bean
+    public Binding userRegisteredBinding(
+            @Qualifier("userRegisteredQueue") Queue userRegisteredQueue,
+            @Qualifier("authExchange") TopicExchange authExchange) {
+        return BindingBuilder.bind(userRegisteredQueue)
+                .to(authExchange)
+                .with(RabbitMQConfiguration.USER_REGISTERED_ROUTING_KEY);
+    }
+
+    @Bean
+    public TopicExchange matcherExchange() {
+        return new TopicExchange(RabbitMQConfiguration.MATCHER_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Queue candidateMatchedQueue() {
+        return QueueBuilder.durable(RabbitMQConfiguration.CANDIDATE_MATCHED_QUEUE)
+                .deadLetterExchange(RabbitMQConfiguration.DEAD_LETTER_EXCHANGE)
+                .build();
+    }
+
+    @Bean
+    public Binding candidateMatchedBinding(
+            @Qualifier("candidateMatchedQueue") Queue candidateMatchedQueue,
+            @Qualifier("matcherExchange") TopicExchange matcherExchange) {
+        return BindingBuilder.bind(candidateMatchedQueue)
+                .to(matcherExchange)
+                .with(RabbitMQConfiguration.CANDIDATE_MATCHED_ROUTING_KEY);
+    }
+
+    @Bean
+    public TopicExchange screeningExchange() {
+        return new TopicExchange(RabbitMQConfiguration.SCREENING_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Queue screeningCompletedQueue() {
+        return QueueBuilder.durable(RabbitMQConfiguration.SCREENING_COMPLETED_QUEUE)
+                .deadLetterExchange(RabbitMQConfiguration.DEAD_LETTER_EXCHANGE)
+                .build();
+    }
+
+    @Bean
+    public Binding screeningCompletedBinding(
+            @Qualifier("screeningCompletedQueue") Queue screeningCompletedQueue,
+            @Qualifier("screeningExchange") TopicExchange screeningExchange) {
+        return BindingBuilder.bind(screeningCompletedQueue)
+                .to(screeningExchange)
+                .with(RabbitMQConfiguration.SCREENING_COMPLETED_ROUTING_KEY);
+    }
+
+    @Bean
     public Queue interviewScheduledNotificationQueue() {
         return QueueBuilder.durable(INTERVIEW_SCHEDULED_NOTIFICATION_QUEUE)
                 .deadLetterExchange(RabbitMQConfiguration.DEAD_LETTER_EXCHANGE)

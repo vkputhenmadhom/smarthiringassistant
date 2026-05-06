@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "event_outbox")
+@Table(name = "resume_parser_event_outbox", schema = "hiring")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

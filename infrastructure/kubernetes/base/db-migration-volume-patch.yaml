@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+spec:
+  template:
+    spec:
+      volumes:
+        - name: migration-script
+          configMap:
+            name: db-migration-script
+            defaultMode: 0755
+            items:
+              - key: migrate-all-to-hiring.sql
+                path: migrate-all-to-hiring.sql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resume-parser-service
+spec:
+  template:
+    spec:
+      volumes:
+        - name: migration-script
+          configMap:
+            name: db-migration-script
+            defaultMode: 0755
+            items:
+              - key: migrate-all-to-hiring.sql
+                path: migrate-all-to-hiring.sql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: candidate-matcher-service
+spec:
+  template:
+    spec:
+      volumes:
+        - name: migration-script
+          configMap:
+            name: db-migration-script
+            defaultMode: 0755
+            items:
+              - key: migrate-all-to-hiring.sql
+                path: migrate-all-to-hiring.sql
+

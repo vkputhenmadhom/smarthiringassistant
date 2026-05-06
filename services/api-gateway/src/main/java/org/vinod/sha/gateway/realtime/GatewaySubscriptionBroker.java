@@ -147,10 +147,6 @@ class GatewayRealtimeBackplanePublisher {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper().findAndRegisterModules();
-    }
 
     GatewayRealtimeBackplanePublisher(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
@@ -206,6 +202,11 @@ class GatewayRealtimeBackplaneSubscriber implements MessageListener {
 
 @Configuration
 class GatewayRealtimeBackplaneConfig {
+
+    @Bean
+    ObjectMapper gatewayRealtimeObjectMapper() {
+        return new ObjectMapper().findAndRegisterModules();
+    }
 
     @Bean
     ChannelTopic gatewayRealtimeBackplaneTopic() {

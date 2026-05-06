@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS users (
+CREATE SCHEMA IF NOT EXISTS hiring;
+
+CREATE TABLE IF NOT EXISTS hiring.auth_users (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
@@ -15,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_login TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS event_outbox (
+CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
     id BIGSERIAL PRIMARY KEY,
     event_id VARCHAR(255) NOT NULL UNIQUE,
     exchange_name VARCHAR(255) NOT NULL,
@@ -29,4 +31,10 @@ CREATE TABLE IF NOT EXISTS event_outbox (
     updated_at TIMESTAMP NOT NULL,
     sent_at TIMESTAMP
 );
+
+GRANT USAGE ON SCHEMA hiring TO hiring_user;
+GRANT ALL PRIVILEGES ON TABLE hiring.auth_users TO hiring_user;
+GRANT ALL PRIVILEGES ON TABLE hiring.auth_event_outbox TO hiring_user;
+GRANT ALL PRIVILEGES ON SEQUENCE hiring.auth_users_id_seq TO hiring_user;
+GRANT ALL PRIVILEGES ON SEQUENCE hiring.auth_event_outbox_id_seq TO hiring_user;
 

@@ -7,7 +7,7 @@ import org.vinod.sha.resumeparser.security.EncryptedByteArrayConverter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "resumes")
+@Table(name = "resume_parser_resumes", schema = "hiring")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

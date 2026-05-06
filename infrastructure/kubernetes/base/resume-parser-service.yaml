@@ -15,6 +15,38 @@ spec:
       labels:
         app: resume-parser-service
     spec:
+      initContainers:
+        - name: db-migrate
+          image: postgres:16-alpine
+          command: ["sh", "-c"]
+          args:
+            - |
+              until pg_isready -h postgres -p 5432 -U hiring_user; do
+                echo "Waiting for PostgreSQL to be ready..."
+                sleep 5
+              done
+              echo "PostgreSQL is ready!"
+              psql -h postgres -p 5432 -U hiring_user -d smart_hiring_db -f /migrations/migrate-all-to-hiring.sql
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: migration-script
+              mountPath: /migrations
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
       containers:
         - name: resume-parser-service
           image: ghcr.io/your-org/smart-hiring/resume-parser-service:latest
@@ -104,4 +136,3 @@ spec:
         target:
           type: Utilization
           averageUtilization: 80
-

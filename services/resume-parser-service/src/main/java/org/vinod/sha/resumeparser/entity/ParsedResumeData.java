@@ -7,7 +7,7 @@ import org.vinod.sha.resumeparser.security.EncryptedStringConverter;
 import java.util.List;
 
 @Entity
-@Table(name = "parsed_resume_data")
+@Table(name = "resume_parser_parsed_data", schema = "hiring")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -39,12 +39,12 @@ public class ParsedResumeData {
     private String summary;
 
     @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "resume_skills", joinColumns = @JoinColumn(name = "parsed_data_id"))
+    @CollectionTable(name = "resume_parser_skills", schema = "hiring", joinColumns = @JoinColumn(name = "parsed_data_id"))
     @Column(name = "skill")
     private List<String> skills;
 
     @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "resume_certifications", joinColumns = @JoinColumn(name = "parsed_data_id"))
+    @CollectionTable(name = "resume_parser_certifications", schema = "hiring", joinColumns = @JoinColumn(name = "parsed_data_id"))
     @Column(name = "certification")
     private List<String> certifications;
 

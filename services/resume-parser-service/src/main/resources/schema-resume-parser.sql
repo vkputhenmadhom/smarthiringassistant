@@ -1,6 +1,8 @@
 -- Resume Parser schema bootstrap (idempotent)
 
-CREATE TABLE IF NOT EXISTS parsed_resume_data (
+CREATE SCHEMA IF NOT EXISTS hiring;
+
+CREATE TABLE IF NOT EXISTS hiring.resume_parser_parsed_data (
     id BIGSERIAL PRIMARY KEY,
     full_name VARCHAR(255),
     email VARCHAR(255),
@@ -10,7 +12,7 @@ CREATE TABLE IF NOT EXISTS parsed_resume_data (
     total_experience_years DOUBLE PRECISION
 );
 
-CREATE TABLE IF NOT EXISTS resume_experience (
+CREATE TABLE IF NOT EXISTS hiring.resume_parser_experience (
     id BIGSERIAL PRIMARY KEY,
     parsed_data_id BIGINT,
     company VARCHAR(255),
@@ -21,7 +23,7 @@ CREATE TABLE IF NOT EXISTS resume_experience (
     duration_years DOUBLE PRECISION
 );
 
-CREATE TABLE IF NOT EXISTS resume_education (
+CREATE TABLE IF NOT EXISTS hiring.resume_parser_education (
     id BIGSERIAL PRIMARY KEY,
     parsed_data_id BIGINT,
     institution VARCHAR(255),
@@ -31,17 +33,17 @@ CREATE TABLE IF NOT EXISTS resume_education (
     gpa VARCHAR(255)
 );
 
-CREATE TABLE IF NOT EXISTS resume_skills (
+CREATE TABLE IF NOT EXISTS hiring.resume_parser_skills (
     parsed_data_id BIGINT NOT NULL,
     skill VARCHAR(255)
 );
 
-CREATE TABLE IF NOT EXISTS resume_certifications (
+CREATE TABLE IF NOT EXISTS hiring.resume_parser_certifications (
     parsed_data_id BIGINT NOT NULL,
     certification VARCHAR(255)
 );
 
-CREATE TABLE IF NOT EXISTS resumes (
+CREATE TABLE IF NOT EXISTS hiring.resume_parser_resumes (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     resume_id VARCHAR(255) NOT NULL UNIQUE,
@@ -56,15 +58,30 @@ CREATE TABLE IF NOT EXISTS resumes (
     parsed_at TIMESTAMP
 );
 
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS user_id BIGINT;
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS resume_id VARCHAR(255);
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS file_name VARCHAR(255);
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS file_content BYTEA;
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS file_format VARCHAR(255);
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS status VARCHAR(50);
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS error_message VARCHAR(255);
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS parsed_data_id BIGINT;
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS created_at TIMESTAMP;
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
-ALTER TABLE resumes ADD COLUMN IF NOT EXISTS parsed_at TIMESTAMP;
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS user_id BIGINT;
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS resume_id VARCHAR(255);
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS file_name VARCHAR(255);
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS file_content BYTEA;
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS file_format VARCHAR(255);
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS status VARCHAR(50);
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS error_message VARCHAR(255);
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS parsed_data_id BIGINT;
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS created_at TIMESTAMP;
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+ALTER TABLE hiring.resume_parser_resumes ADD COLUMN IF NOT EXISTS parsed_at TIMESTAMP;
+
+CREATE TABLE IF NOT EXISTS hiring.resume_parser_event_outbox (
+    id BIGSERIAL PRIMARY KEY,
+    event_id VARCHAR(255) NOT NULL UNIQUE,
+    exchange_name VARCHAR(255) NOT NULL,
+    routing_key VARCHAR(255) NOT NULL,
+    event_type VARCHAR(255) NOT NULL,
+    payload_json TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    sent_at TIMESTAMP
+);
 

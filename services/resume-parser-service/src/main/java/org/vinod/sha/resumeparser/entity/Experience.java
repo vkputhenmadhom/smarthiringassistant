@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "resume_experience")
+@Table(name = "resume_parser_experience", schema = "hiring")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

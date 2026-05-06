@@ -1,0 +1,316 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-migration-script
+  namespace: smart-hiring
+data:
+  migrate-all-to-hiring.sql: |
+    -- Consolidated migration: moves auth-service and resume-parser data from public to hiring schema.
+    -- Safe to run multiple times.
+
+    BEGIN;
+
+    CREATE SCHEMA IF NOT EXISTS hiring;
+
+    -- =========================
+    -- Auth-service structures
+    -- =========================
+    CREATE TABLE IF NOT EXISTS hiring.auth_users (
+        id BIGSERIAL PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        first_name VARCHAR(255) NOT NULL,
+        last_name VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        account_non_expired BOOLEAN NOT NULL DEFAULT TRUE,
+        account_non_locked BOOLEAN NOT NULL DEFAULT TRUE,
+        credentials_non_expired BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP,
+        last_login TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
+        id BIGSERIAL PRIMARY KEY,
+        event_id VARCHAR(255) NOT NULL UNIQUE,
+        exchange_name VARCHAR(255) NOT NULL,
+        routing_key VARCHAR(255) NOT NULL,
+        event_type VARCHAR(255) NOT NULL,
+        payload_json TEXT NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT,
+        created_at TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP NOT NULL,
+        sent_at TIMESTAMP
+    );
+
+    -- =========================
+    -- Resume-parser structures
+    -- =========================
+    CREATE TABLE IF NOT EXISTS hiring.resume_parser_parsed_data (
+        id BIGSERIAL PRIMARY KEY,
+        full_name VARCHAR(255),
+        email VARCHAR(255),
+        phone VARCHAR(255),
+        location VARCHAR(255),
+        summary TEXT,
+        total_experience_years DOUBLE PRECISION
+    );
+
+    CREATE TABLE IF NOT EXISTS hiring.resume_parser_experience (
+        id BIGSERIAL PRIMARY KEY,
+        parsed_data_id BIGINT,
+        company VARCHAR(255),
+        job_title VARCHAR(255),
+        start_date VARCHAR(255),
+        end_date VARCHAR(255),
+        description TEXT,
+        duration_years DOUBLE PRECISION
+    );
+
+    CREATE TABLE IF NOT EXISTS hiring.resume_parser_education (
+        id BIGSERIAL PRIMARY KEY,
+        parsed_data_id BIGINT,
+        institution VARCHAR(255),
+        degree VARCHAR(255),
+        field_of_study VARCHAR(255),
+        graduation_date VARCHAR(255),
+        gpa VARCHAR(255)
+    );
+
+    CREATE TABLE IF NOT EXISTS hiring.resume_parser_skills (
+        parsed_data_id BIGINT NOT NULL,
+        skill VARCHAR(255)
+    );
+
+    CREATE TABLE IF NOT EXISTS hiring.resume_parser_certifications (
+        parsed_data_id BIGINT NOT NULL,
+        certification VARCHAR(255)
+    );
+
+    CREATE TABLE IF NOT EXISTS hiring.resume_parser_resumes (
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        resume_id VARCHAR(255) NOT NULL UNIQUE,
+        file_name VARCHAR(255) NOT NULL,
+        file_content BYTEA NOT NULL,
+        file_format VARCHAR(255) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        error_message VARCHAR(255),
+        parsed_data_id BIGINT,
+        created_at TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP,
+        parsed_at TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS hiring.resume_parser_event_outbox (
+        id BIGSERIAL PRIMARY KEY,
+        event_id VARCHAR(255) NOT NULL UNIQUE,
+        exchange_name VARCHAR(255) NOT NULL,
+        routing_key VARCHAR(255) NOT NULL,
+        event_type VARCHAR(255) NOT NULL,
+        payload_json TEXT NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT,
+        created_at TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP NOT NULL,
+        sent_at TIMESTAMP
+    );
+
+    -- =========================
+    -- Data migration from public
+    -- =========================
+    DO $$
+    BEGIN
+        -- Auth users
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = 'users'
+        ) THEN
+            INSERT INTO hiring.auth_users (
+                id, username, email, password, first_name, last_name,
+                role, enabled, account_non_expired, account_non_locked,
+                credentials_non_expired, created_at, updated_at, last_login
+            )
+            SELECT
+                id, username, email, password, first_name, last_name,
+                role, enabled, account_non_expired, account_non_locked,
+                credentials_non_expired, created_at, updated_at, last_login
+            FROM public.users
+            ON CONFLICT (email) DO UPDATE SET
+                username = EXCLUDED.username,
+                password = EXCLUDED.password,
+                first_name = EXCLUDED.first_name,
+                last_name = EXCLUDED.last_name,
+                role = EXCLUDED.role,
+                enabled = EXCLUDED.enabled,
+                account_non_expired = EXCLUDED.account_non_expired,
+                account_non_locked = EXCLUDED.account_non_locked,
+                credentials_non_expired = EXCLUDED.credentials_non_expired,
+                updated_at = EXCLUDED.updated_at,
+                last_login = EXCLUDED.last_login;
+        END IF;
+
+        -- Auth outbox (copy all legacy rows once)
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = 'event_outbox'
+        ) THEN
+            INSERT INTO hiring.auth_event_outbox (
+                id, event_id, exchange_name, routing_key, event_type,
+                payload_json, status, retry_count, last_error,
+                created_at, updated_at, sent_at
+            )
+            SELECT
+                id, event_id, exchange_name, routing_key, event_type,
+                payload_json, status, retry_count, last_error,
+                created_at, updated_at, sent_at
+            FROM public.event_outbox
+            ON CONFLICT (event_id) DO UPDATE SET
+                exchange_name = EXCLUDED.exchange_name,
+                routing_key = EXCLUDED.routing_key,
+                event_type = EXCLUDED.event_type,
+                payload_json = EXCLUDED.payload_json,
+                status = EXCLUDED.status,
+                retry_count = EXCLUDED.retry_count,
+                last_error = EXCLUDED.last_error,
+                updated_at = EXCLUDED.updated_at,
+                sent_at = EXCLUDED.sent_at;
+        END IF;
+
+        -- Resume parser parsed data
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema='public' AND table_name='parsed_resume_data'
+        ) THEN
+            INSERT INTO hiring.resume_parser_parsed_data (id, full_name, email, phone, location, summary, total_experience_years)
+            SELECT id, full_name, email, phone, location, summary, total_experience_years
+            FROM public.parsed_resume_data
+            ON CONFLICT (id) DO NOTHING;
+        END IF;
+
+        -- Resume parser experience
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema='public' AND table_name='resume_experience'
+        ) THEN
+            INSERT INTO hiring.resume_parser_experience (id, parsed_data_id, company, job_title, start_date, end_date, description, duration_years)
+            SELECT id, parsed_data_id, company, job_title, start_date, end_date, description, duration_years
+            FROM public.resume_experience
+            ON CONFLICT (id) DO NOTHING;
+        END IF;
+
+        -- Resume parser education
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema='public' AND table_name='resume_education'
+        ) THEN
+            INSERT INTO hiring.resume_parser_education (id, parsed_data_id, institution, degree, field_of_study, graduation_date, gpa)
+            SELECT id, parsed_data_id, institution, degree, field_of_study, graduation_date, gpa
+            FROM public.resume_education
+            ON CONFLICT (id) DO NOTHING;
+        END IF;
+
+        -- Resume parser skills
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema='public' AND table_name='resume_skills'
+        ) THEN
+            INSERT INTO hiring.resume_parser_skills (parsed_data_id, skill)
+            SELECT parsed_data_id, skill
+            FROM public.resume_skills s
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM hiring.resume_parser_skills hs
+                WHERE hs.parsed_data_id = s.parsed_data_id
+                  AND hs.skill = s.skill
+            );
+        END IF;
+
+        -- Resume parser certifications
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema='public' AND table_name='resume_certifications'
+        ) THEN
+            INSERT INTO hiring.resume_parser_certifications (parsed_data_id, certification)
+            SELECT parsed_data_id, certification
+            FROM public.resume_certifications c
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM hiring.resume_parser_certifications hc
+                WHERE hc.parsed_data_id = c.parsed_data_id
+                  AND hc.certification = c.certification
+            );
+        END IF;
+
+        -- Resume parser resumes
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema='public' AND table_name='resumes'
+        ) THEN
+            INSERT INTO hiring.resume_parser_resumes (
+                id, user_id, resume_id, file_name, file_content, file_format,
+                status, error_message, parsed_data_id, created_at, updated_at, parsed_at
+            )
+            SELECT
+                id, user_id, resume_id, file_name, file_content, file_format,
+                status, error_message, parsed_data_id, created_at, updated_at, parsed_at
+            FROM public.resumes
+            ON CONFLICT (resume_id) DO UPDATE SET
+                user_id = EXCLUDED.user_id,
+                file_name = EXCLUDED.file_name,
+                file_content = EXCLUDED.file_content,
+                file_format = EXCLUDED.file_format,
+                status = EXCLUDED.status,
+                error_message = EXCLUDED.error_message,
+                parsed_data_id = EXCLUDED.parsed_data_id,
+                updated_at = EXCLUDED.updated_at,
+                parsed_at = EXCLUDED.parsed_at;
+        END IF;
+
+        -- Resume parser outbox rows (service-specific filter)
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema='public' AND table_name='event_outbox'
+        ) THEN
+            INSERT INTO hiring.resume_parser_event_outbox (
+                id, event_id, exchange_name, routing_key, event_type,
+                payload_json, status, retry_count, last_error,
+                created_at, updated_at, sent_at
+            )
+            SELECT
+                id, event_id, exchange_name, routing_key, event_type,
+                payload_json, status, retry_count, last_error,
+                created_at, updated_at, sent_at
+            FROM public.event_outbox
+            WHERE exchange_name = 'resume.exchange'
+               OR routing_key = 'resume.parsed'
+               OR event_type = 'ResumeParseEvent'
+            ON CONFLICT (event_id) DO NOTHING;
+        END IF;
+    END $$;
+
+    -- =========================
+    -- Sequence alignment
+    -- =========================
+    SELECT setval('hiring.auth_users_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM hiring.auth_users), 0), 1), true);
+    SELECT setval('hiring.auth_event_outbox_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM hiring.auth_event_outbox), 0), 1), true);
+    SELECT setval('hiring.resume_parser_parsed_data_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM hiring.resume_parser_parsed_data), 0), 1), true);
+    SELECT setval('hiring.resume_parser_experience_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM hiring.resume_parser_experience), 0), 1), true);
+    SELECT setval('hiring.resume_parser_education_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM hiring.resume_parser_education), 0), 1), true);
+    SELECT setval('hiring.resume_parser_resumes_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM hiring.resume_parser_resumes), 0), 1), true);
+    SELECT setval('hiring.resume_parser_event_outbox_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM hiring.resume_parser_event_outbox), 0), 1), true);
+
+    -- =========================
+    -- Permissions
+    -- =========================
+    GRANT USAGE ON SCHEMA hiring TO hiring_user;
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA hiring TO hiring_user;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA hiring TO hiring_user;
+
+    COMMIT;
+

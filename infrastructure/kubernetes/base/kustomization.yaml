@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: smart-hiring
 resources:
   - namespace.yaml
+  - db-migration-configmap.yaml
   - api-gateway.yaml
   - resume-parser-service.yaml
   - screening-bot-service.yaml
@@ -11,3 +12,5 @@ resources:
   - notification-service.yaml
   - servicemonitors.yaml
 
+patchesStrategicMerge:
+  - db-migration-volume-patch.yaml

@@ -1,5 +1,8 @@
 -- PostgreSQL bootstrap schema for Smart Hiring Assistant
 
+-- NOTE: Tables are created in the 'hiring' schema for better organization
+-- If you want to use public schema instead, comment out the line below and remove 'hiring.' prefix from all table names
+
 CREATE SCHEMA IF NOT EXISTS hiring;
 
 -- Users / Auth
@@ -198,6 +201,20 @@ CREATE TABLE IF NOT EXISTS hiring.saga_state (
     ended_at TIMESTAMP
 );
 
+-- Notification delivery logs
+CREATE TABLE IF NOT EXISTS hiring.notification_logs (
+    id BIGSERIAL PRIMARY KEY,
+    event_type VARCHAR(100) NOT NULL,
+    recipient_email VARCHAR(255),
+    recipient_phone VARCHAR(50),
+    channel VARCHAR(20) NOT NULL,
+    subject VARCHAR(500),
+    status VARCHAR(20) NOT NULL,
+    error_message TEXT,
+    reference_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON hiring.users(email);
 CREATE INDEX IF NOT EXISTS idx_users_username ON hiring.users(username);
@@ -216,6 +233,9 @@ CREATE INDEX IF NOT EXISTS idx_job_analyses_job_id ON hiring.job_analyses(job_id
 CREATE INDEX IF NOT EXISTS idx_event_outbox_status_created ON hiring.event_outbox(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_processed_events_type_time ON hiring.processed_events(event_type, processed_at);
 CREATE INDEX IF NOT EXISTS idx_saga_state_aggregate ON hiring.saga_state(aggregate_id);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_reference_id ON hiring.notification_logs(reference_id);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_event_type ON hiring.notification_logs(event_type);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_status ON hiring.notification_logs(status);
 
 -- Permissions
 GRANT USAGE ON SCHEMA hiring TO hiring_user;

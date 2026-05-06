@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "event_outbox")
+@Table(name = "auth_event_outbox", schema = "hiring")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -51,4 +51,3 @@ public class OutboxEvent {
     @Column
     private LocalDateTime sentAt;
 }
-
