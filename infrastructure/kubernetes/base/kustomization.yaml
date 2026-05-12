@@ -12,5 +12,22 @@ resources:
   - notification-service.yaml
   - servicemonitors.yaml
 
-patchesStrategicMerge:
-  - db-migration-volume-patch.yaml
+patches:
+  - path: db-migration-auth-service-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: auth-service
+  - path: db-migration-resume-parser-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: resume-parser-service
+  - path: db-migration-candidate-matcher-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: candidate-matcher-service

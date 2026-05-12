@@ -1,0 +1,17 @@
+apiVersion: v2
+name: smart-hiring-assistant
+description: Smart Hiring Assistant - AI-powered microservices hiring platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://github.com/your-org/smart-hiring-assistant
+sources:
+  - https://github.com/your-org/smart-hiring-assistant
+maintainers:
+  - name: Smart Hiring Team
+    email: team@smarthiringassistant.com
+keywords:
+  - hiring
+  - ai
+  - microservices
+  - spring-boot

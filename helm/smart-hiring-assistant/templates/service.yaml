@@ -1,0 +1,22 @@
+{{- $namespace := .Values.global.namespace }}
+{{- range $service, $config := .Values.services }}
+{{- if $config.enabled }}
+{{- $svcName := $service | kebabcase }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svcName }}
+  namespace: {{ $namespace }}
+  labels:
+    app: {{ $svcName }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ $svcName }}
+  ports:
+    - name: http
+      port: {{ $config.port }}
+      targetPort: {{ $config.port }}
+{{- end }}
+{{- end }}

@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.vinod.sha.gateway.resilience.GatewayResilience;
 import org.springframework.graphql.data.method.annotation.*;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -61,6 +62,7 @@ public class AuthGraphQLResolver {
         return gatewayResilience.protect(AUTH_BACKEND,
                         webClientBuilder.build()
                                 .post().uri(AUTH_BASE + "/register")
+                                .contentType(MediaType.APPLICATION_JSON)
                                 .bodyValue(body)
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
@@ -78,6 +80,7 @@ public class AuthGraphQLResolver {
         return gatewayResilience.protect(AUTH_BACKEND,
                         webClientBuilder.build()
                                 .post().uri(AUTH_BASE + "/login")
+                                .contentType(MediaType.APPLICATION_JSON)
                                 .bodyValue(body)
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)

@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: smart-hiring
+spec:
+  template:
+    spec:
+      containers:
+        - name: api-gateway
+          envFrom:
+            - configMapRef:
+                name: api-gateway-config
+

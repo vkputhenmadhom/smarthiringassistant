@@ -1,0 +1,174 @@
+{{- $namespace := .Values.global.namespace }}
+{{- $env := .Values.global.environment }}
+{{- range $service, $config := .Values.services }}
+{{- if $config.enabled }}
+{{- $svcName := $service | kebabcase }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $svcName }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "smart-hiring-assistant.labels" $ | nindent 4 }}
+    app: {{ $svcName }}
+spec:
+  replicas: {{ $config.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ $svcName }}
+  template:
+    metadata:
+      labels:
+        app: {{ $svcName }}
+        {{- include "smart-hiring-assistant.selectorLabels" $ | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "smart-hiring-assistant.serviceAccountName" $ }}
+      {{- if and $config.initContainer $config.initContainer.enabled }}
+      initContainers:
+        - name: db-migrate
+          image: postgres:16-alpine
+          command: ["sh", "-c"]
+          args:
+            - |
+              until pg_isready -h {{ $.Values.database.host }} -p {{ $.Values.database.port }} -U {{ $.Values.database.username }}; do
+                echo "Waiting for PostgreSQL to be ready..."
+                sleep 5
+              done
+              psql -h {{ $.Values.database.host }} -p {{ $.Values.database.port }} -U {{ $.Values.database.username }} -d {{ $.Values.database.name }} -f /migrations/migrate-all-to-hiring.sql
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: migration-script
+              mountPath: /migrations
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+      {{- end }}
+      containers:
+        - name: {{ $svcName }}
+          image: {{ include "smart-hiring-assistant.serviceImage" (dict "root" $ "config" $config) }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ $config.port }}
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: {{ include "smart-hiring-assistant.springProfile" $ }}
+            - name: APP_ENV
+              value: {{ $env }}
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://{{ $.Values.database.host }}:{{ $.Values.database.port }}/{{ $.Values.database.name }}"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: {{ $.Values.database.username }}
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: postgres-password
+            {{- if eq $service "apiGateway" }}
+            - name: SPRING_DATA_REDIS_HOST
+              value: {{ $.Values.redis.host }}
+            - name: SPRING_DATA_REDIS_PORT
+              value: {{ $.Values.redis.port | quote }}
+            {{- end }}
+            {{- if eq $service "notificationService" }}
+            - name: SPRING_RABBITMQ_HOST
+              value: {{ $.Values.rabbitmq.host }}
+            - name: SPRING_RABBITMQ_PORT
+              value: {{ $.Values.rabbitmq.port | quote }}
+            - name: SPRING_RABBITMQ_USERNAME
+              value: {{ $.Values.rabbitmq.username }}
+            - name: SPRING_RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: rabbitmq-password
+            - name: MAIL_HOST
+              value: {{ $.Values.mail.host }}
+            - name: MAIL_PORT
+              value: {{ $.Values.mail.port | quote }}
+            - name: MAIL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: mail-username
+            - name: MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: mail-password
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: twilio-account-sid
+            - name: TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: twilio-auth-token
+            - name: TWILIO_FROM_NUMBER
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: twilio-from-number
+            {{- end }}
+          {{- if and $config.probes $config.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: {{ $config.probes.readiness.path }}
+              port: {{ $config.port }}
+            initialDelaySeconds: {{ $config.probes.readiness.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ $config.probes.readiness.periodSeconds | default 10 }}
+            timeoutSeconds: 3
+            failureThreshold: 6
+          {{- end }}
+          {{- if and $config.probes $config.probes.liveness }}
+          livenessProbe:
+            httpGet:
+              path: {{ $config.probes.liveness.path }}
+              port: {{ $config.port }}
+            initialDelaySeconds: {{ $config.probes.liveness.initialDelaySeconds | default 75 }}
+            periodSeconds: {{ $config.probes.liveness.periodSeconds | default 20 }}
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- end }}
+          resources:
+            {{- toYaml $config.resources | nindent 12 }}
+          {{- if and $config.initContainer $config.initContainer.enabled }}
+          volumeMounts:
+            - name: migration-script
+              mountPath: /migrations
+          {{- end }}
+      {{- if and $config.initContainer $config.initContainer.enabled }}
+      volumes:
+        - name: migration-script
+          configMap:
+            name: db-migration-script
+            defaultMode: 0755
+      {{- end }}
+      {{- with $.Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}
+
