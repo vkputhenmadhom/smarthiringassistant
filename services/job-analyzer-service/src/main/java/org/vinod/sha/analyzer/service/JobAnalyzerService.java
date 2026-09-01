@@ -81,32 +81,34 @@ public class JobAnalyzerService {
         Timer.Sample sample = Timer.start(meterRegistry);
         meterRegistry.counter("job_analyzer.analyze.requests").increment();
 
-        SkillsExtractResponse skills = extractSkillsFromText(request.getJobDescription());
-        SalaryEstimateResponse salary = estimateSalary(SalaryEstimateRequest.builder()
-                .jobTitle(request.getJobTitle())
-                .location(request.getLocation())
-                .experienceYears(extractExperienceYears(request.getJobDescription()))
-                .requiredSkills(skills.getRequiredSkills())
-                .build());
+        SkillsExtractResponse skills = extractSkillsFromText(request.jobDescription());
+        SalaryEstimateResponse salary = estimateSalary(
+                new SalaryEstimateRequest(
+                        request.jobTitle(),
+                        request.location(),
+                        extractExperienceYears(request.jobDescription()),
+                        skills.requiredSkills()
+                )
+        );
 
         JobAnalysis analysis = JobAnalysis.builder()
-                .jobId(defaultIfBlank(request.getJobId(), UUID.randomUUID().toString()))
-                .jobTitle(request.getJobTitle())
-                .companyName(request.getCompanyName())
+                .jobId(defaultIfBlank(request.jobId(), UUID.randomUUID().toString()))
+                .jobTitle(request.jobTitle())
+                .companyName(request.companyName())
                 .department(null)
-                .location(request.getLocation())
-                .employmentType(defaultIfBlank(request.getEmploymentType(), "FULL_TIME"))
-                .jobDescription(request.getJobDescription())
-                .requiredSkills(skills.getRequiredSkills())
-                .preferredSkills(skills.getPreferredSkills())
-                .minExperienceYears(extractExperienceYears(request.getJobDescription()))
-                .maxExperienceYears(Math.max(extractExperienceYears(request.getJobDescription()) + 2, 3))
-                .salaryMin(salary.getMin())
-                .salaryMax(salary.getMax())
-                .currency(salary.getCurrency())
-                .confidence(salary.getConfidence())
+                .location(request.location())
+                .employmentType(defaultIfBlank(request.employmentType(), "FULL_TIME"))
+                .jobDescription(request.jobDescription())
+                .requiredSkills(skills.requiredSkills())
+                .preferredSkills(skills.preferredSkills())
+                .minExperienceYears(extractExperienceYears(request.jobDescription()))
+                .maxExperienceYears(Math.max(extractExperienceYears(request.jobDescription()) + 2, 3))
+                .salaryMin(salary.min())
+                .salaryMax(salary.max())
+                .currency(salary.currency())
+                .confidence(salary.confidence())
                 .status("ANALYZED")
-                .notes(salary.getRationale())
+                .notes(salary.rationale())
                 .applicantCount(0)
                 .postedAt(LocalDateTime.now())
                 .closingDate(null)
@@ -151,14 +153,14 @@ public class JobAnalyzerService {
     }
 
     public JobAnalysis createJobFromInput(Map<String, Object> input) {
-        JobAnalyzeRequest request = JobAnalyzeRequest.builder()
-                .jobId(readString(input, "jobId"))
-                .jobTitle(readString(input, "title"))
-                .companyName(readString(input, "companyName"))
-                .location(readString(input, "location"))
-                .employmentType(readString(input, "type"))
-                .jobDescription(readString(input, "description"))
-                .build();
+        var request = new JobAnalyzeRequest(
+                readString(input, "jobId"),
+                readString(input, "title"),
+                readString(input, "companyName"),
+                readString(input, "location"),
+                readString(input, "type"),
+                readString(input, "description")
+        );
 
         JobAnalysis analysis = analyze(request);
         analysis.setDepartment(readString(input, "department"));
@@ -246,45 +248,36 @@ public class JobAnalyzerService {
     public SkillsExtractResponse extractSkillsFromText(String text) {
         meterRegistry.counter("job_analyzer.skills.extract.requests").increment();
         if (text == null) {
-            return SkillsExtractResponse.builder().requiredSkills(List.of()).preferredSkills(List.of()).build();
+            return new SkillsExtractResponse(List.of(), List.of());
         }
 
-        Set<String> required = new LinkedHashSet<>();
+        var required = new LinkedHashSet<String>();
         for (String skill : SKILL_DICTIONARY) {
             if (text.toLowerCase().contains(skill)) {
                 required.add(normalizeSkill(skill));
             }
         }
 
-        List<String> aiSkills = callAiSkillsExtraction(text);
+        var aiSkills = callAiSkillsExtraction(text);
         required.addAll(aiSkills.stream().map(this::normalizeSkill).collect(Collectors.toList()));
 
-        List<String> preferred = required.stream().filter(s -> s.equals("Docker") || s.equals("Kubernetes") || s.equals("AWS")).collect(Collectors.toList());
+        var preferred = required.stream().filter(s -> s.equals("Docker") || s.equals("Kubernetes") || s.equals("AWS")).collect(Collectors.toList());
 
-        return SkillsExtractResponse.builder()
-                .requiredSkills(new ArrayList<>(required))
-                .preferredSkills(preferred)
-                .build();
+        return new SkillsExtractResponse(new ArrayList<>(required), preferred);
     }
 
     public SalaryEstimateResponse estimateSalary(SalaryEstimateRequest request) {
         meterRegistry.counter("job_analyzer.salary.estimate.requests").increment();
-        int base = titleBase(request.getJobTitle());
-        int exp = request.getExperienceYears() == null ? 2 : request.getExperienceYears();
-        int skillPremium = (request.getRequiredSkills() == null ? 0 : request.getRequiredSkills().size()) * 1500;
-        int locationFactor = locationFactor(request.getLocation());
+        int base = titleBase(request.jobTitle());
+        int exp = request.experienceYears() == null ? 2 : request.experienceYears();
+        int skillPremium = (request.requiredSkills() == null ? 0 : request.requiredSkills().size()) * 1500;
+        int locationFactor = locationFactor(request.location());
 
         int min = Math.max(45000, base + exp * 5000 + skillPremium + locationFactor);
         int max = min + 25000 + exp * 4000;
 
-        SalaryEstimateResponse response = SalaryEstimateResponse.builder()
-                .min(min)
-                .max(max)
-                .currency("USD")
-                .confidence(0.72)
-                .rationale("Rule-based estimate using title, experience, skills, and location.")
-                .build();
-        salaryConfidenceSummary.record(response.getConfidence());
+        var response = new SalaryEstimateResponse(min, max, "USD", 0.72, "Rule-based estimate using title, experience, skills, and location.");
+        salaryConfidenceSummary.record(response.confidence());
         return response;
     }
 

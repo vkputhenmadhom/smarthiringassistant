@@ -62,14 +62,14 @@ class JobAnalyzerIntegrationTest {
             return in;
         });
 
-        JobAnalysis result = service.analyze(JobAnalyzeRequest.builder()
-                .jobId("job-101")
-                .jobTitle("Senior Java Engineer")
-                .companyName("Acme")
-                .location("New York")
-                .employmentType("FULL_TIME")
-                .jobDescription("Need 5 years experience with Java, Spring Boot, Docker and AWS")
-                .build());
+        JobAnalysis result = service.analyze(new JobAnalyzeRequest(
+                "job-101",
+                "Senior Java Engineer",
+                "Acme",
+                "New York",
+                "FULL_TIME",
+                "Need 5 years experience with Java, Spring Boot, Docker and AWS"
+        ));
 
         assertEquals("analysis-1", result.getId());
         assertEquals("ANALYZED", result.getStatus());

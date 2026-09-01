@@ -75,7 +75,7 @@ public class JobAnalyzerController {
 
     @PostMapping("extract-skills")
     public ResponseEntity<SkillsExtractResponse> extractSkills(@RequestBody SkillsExtractRequest request) {
-        return ResponseEntity.ok(service.extractSkillsFromText(request.getText()));
+        return ResponseEntity.ok(service.extractSkillsFromText(request.text()));
     }
 
     @PostMapping("estimate-salary")

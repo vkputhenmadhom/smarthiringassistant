@@ -1,18 +1,14 @@
 package org.vinod.sha.analyzer.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.List;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class SkillsExtractResponse {
-    private List<String> requiredSkills;
-    private List<String> preferredSkills;
+/**
+ * Java 21 Record: Response containing extracted skills.
+ * Immutable data transfer object with automatic equals, hashCode, and toString.
+ */
+public record SkillsExtractResponse(
+        List<String> requiredSkills,
+        List<String> preferredSkills
+) {
 }
 

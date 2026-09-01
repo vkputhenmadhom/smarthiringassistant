@@ -1,20 +1,16 @@
 package org.vinod.sha.analyzer.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.List;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class SalaryEstimateRequest {
-    private String jobTitle;
-    private String location;
-    private Integer experienceYears;
-    private List<String> requiredSkills;
+/**
+ * Java 21 Record: Request to estimate salary for a job.
+ * Immutable data transfer object with automatic equals, hashCode, and toString.
+ */
+public record SalaryEstimateRequest(
+        String jobTitle,
+        String location,
+        Integer experienceYears,
+        List<String> requiredSkills
+) {
 }
 

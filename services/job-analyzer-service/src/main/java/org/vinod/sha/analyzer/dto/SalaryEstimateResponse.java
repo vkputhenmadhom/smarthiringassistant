@@ -1,19 +1,15 @@
 package org.vinod.sha.analyzer.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class SalaryEstimateResponse {
-    private Integer min;
-    private Integer max;
-    private String currency;
-    private Double confidence;
-    private String rationale;
+/**
+ * Java 21 Record: Response containing salary estimation result.
+ * Immutable data transfer object with automatic equals, hashCode, and toString.
+ */
+public record SalaryEstimateResponse(
+        Integer min,
+        Integer max,
+        String currency,
+        Double confidence,
+        String rationale
+) {
 }
 
