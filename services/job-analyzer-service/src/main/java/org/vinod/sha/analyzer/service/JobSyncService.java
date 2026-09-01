@@ -36,6 +36,13 @@ import java.util.UUID;
  *
  * Deduplication: each imported job carries an externalId ("SOURCE:id").
  * A job is skipped if that id already exists in the collection.
+ * 
+ * Java 21 Modernizations:
+ * - Virtual threads for parallel job syncing from multiple sources
+ * - Text blocks for multi-line URL formatting
+ * - Enhanced switch expressions for employment type mapping
+ * - Pattern matching with instanceof for type conversions
+ * - Stream.toList() for immutable collection results
  */
 @Slf4j
 @Service
@@ -83,53 +90,79 @@ public class JobSyncService {
     // ── Public API (manual trigger + status) ─────────────────────────────────
 
     public Map<String, Object> triggerSync() {
-        int total = 0;
-        List<String> summary = new ArrayList<>();
+        var summary = new ArrayList<String>();
         lastError = null;
 
         try {
+            // Java 21: Use virtual threads for parallel job syncing
+            var threads = new ArrayList<Thread>();
+            var results = new java.util.concurrent.ConcurrentHashMap<String, Integer>();
+            
             // ── Global (US/default) sources ───────────────────────────────────
             if (hasJSearchKey()) {
-                int n = syncFromJSearch();
-                total += n;
-                summary.add("JSearch(US):+" + n);
+                threads.add(Thread.startVirtualThread(() -> 
+                    results.put("jsearch", syncFromJSearch())
+                ));
             }
             if (hasAdzunaCreds()) {
-                int n = syncFromAdzuna();
-                total += n;
-                summary.add("Adzuna(US):+" + n);
+                threads.add(Thread.startVirtualThread(() -> 
+                    results.put("adzuna", syncFromAdzuna())
+                ));
             }
 
             // ── India sources (Adzuna /in/ + JSearch location=India) ──────────
             if (props.getIndia().isEnabled()) {
                 if (hasJSearchKey()) {
-                    int n = syncFromJSearchIndia();
-                    total += n;
-                    summary.add("JSearch(IN):+" + n);
+                    threads.add(Thread.startVirtualThread(() -> 
+                        results.put("jsearch_in", syncFromJSearchIndia())
+                    ));
                 }
                 if (hasAdzunaCreds()) {
-                    int n = syncFromAdzunaIndia();
-                    total += n;
-                    summary.add("Adzuna(IN):+" + n);
+                    threads.add(Thread.startVirtualThread(() -> 
+                        results.put("adzuna_in", syncFromAdzunaIndia())
+                    ));
                 }
             }
+
+            // Wait for all virtual threads to complete
+            for (Thread thread : threads) {
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("Sync thread interrupted: {}", e.getMessage());
+                }
+            }
+            
+            // Collect results and build summary
+            var total = results.values().stream().mapToInt(Integer::intValue).sum();
+            results.forEach((source, count) -> {
+                summary.add(switch(source) {
+                    case "jsearch" -> "JSearch(US):+" + count;
+                    case "adzuna" -> "Adzuna(US):+" + count;
+                    case "jsearch_in" -> "JSearch(IN):+" + count;
+                    case "adzuna_in" -> "Adzuna(IN):+" + count;
+                    default -> source + ":+" + count;
+                });
+            });
 
             if (!hasJSearchKey() && !hasAdzunaCreds()) {
                 summary.add("No API credentials configured – set JSEARCH_API_KEY / ADZUNA_APP_ID / ADZUNA_APP_KEY");
             }
             lastSyncStatus = "OK";
+            lastImported = total;
         } catch (Exception e) {
             lastSyncStatus = "ERROR";
             lastError = e.getMessage();
             log.error("[JobSync] Sync failed: {}", e.getMessage(), e);
+            lastImported = 0;
         }
 
-        lastSyncAt   = LocalDateTime.now();
-        lastImported = total;
+        lastSyncAt = LocalDateTime.now();
 
-        Map<String, Object> result = new LinkedHashMap<>();
+        var result = new LinkedHashMap<String, Object>();
         result.put("status",        lastSyncStatus);
-        result.put("importedCount", total);
+        result.put("importedCount", lastImported);
         result.put("sources",       summary);
         result.put("syncedAt",      lastSyncAt.toString());
         if (lastError != null) result.put("error", lastError);
@@ -137,7 +170,7 @@ public class JobSyncService {
     }
 
     public Map<String, Object> getStatus() {
-        Map<String, Object> s = new LinkedHashMap<>();
+        var s = new LinkedHashMap<String, Object>();
         s.put("status",           lastSyncStatus);
         s.put("lastSyncAt",       lastSyncAt != null ? lastSyncAt.toString() : null);
         s.put("lastImportedCount",lastImported);
@@ -152,33 +185,35 @@ public class JobSyncService {
 
     @SuppressWarnings("unchecked")
     private int syncFromJSearch() {
-        int imported = 0;
-        String apiKey  = props.getJsearch().getApiKey();
-        String baseUrl = props.getJsearch().getBaseUrl();
+        var imported = 0;
+        var apiKey  = props.getJsearch().getApiKey();
+        var baseUrl = props.getJsearch().getBaseUrl();
 
-        for (String keyword : props.getKeywords()) {
+        for (var keyword : props.getKeywords()) {
             if (imported >= props.getMaxPerSync()) break;
             try {
-                String url = baseUrl + "/search"
-                        + "?query="       + encode(keyword)
-                        + "&page=1"
-                        + "&num_pages="   + props.getJsearch().getNumPages()
-                        + "&date_posted=" + props.getJsearch().getDatePosted()
-                        + "&country="     + props.getCountry();
+                var url = """
+                    %s/search?query=%s&page=1&num_pages=%d&date_posted=%s&country=%s
+                    """.formatted(
+                        baseUrl,
+                        encode(keyword),
+                        props.getJsearch().getNumPages(),
+                        props.getJsearch().getDatePosted(),
+                        props.getCountry()
+                    ).replaceAll("\\s+", "");
 
-                HttpHeaders headers = new HttpHeaders();
+                var headers = new HttpHeaders();
                 headers.set("X-RapidAPI-Key",  apiKey);
                 headers.set("X-RapidAPI-Host", "jsearch.p.rapidapi.com");
 
-                ResponseEntity<Map> response = restTemplate.exchange(
+                var response = restTemplate.exchange(
                         url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
 
                 if (response.getBody() == null) continue;
-                List<Map<String, Object>> data =
-                        (List<Map<String, Object>>) response.getBody().get("data");
+                var data = (List<Map<String, Object>>) response.getBody().get("data");
                 if (data == null) continue;
 
-                for (Map<String, Object> job : data) {
+                for (var job : data) {
                     if (imported >= props.getMaxPerSync()) break;
                     if (saveJSearchJob(job)) imported++;
                 }
@@ -471,10 +506,14 @@ public class JobSyncService {
     private String firstNonBlank(String a, String b) { return !blank(a) ? a : b; }
 
     private Integer toInt(Object v) {
+        // Java 21: Pattern matching with instanceof
         if (v instanceof Number n) return n.intValue();
         if (v == null) return null;
-        try { return (int) Math.round(Double.parseDouble(v.toString())); }
-        catch (NumberFormatException ignored) { return null; }
+        try { 
+            return (int) Math.round(Double.parseDouble(v.toString())); 
+        } catch (NumberFormatException ignored) { 
+            return null; 
+        }
     }
 
     private String encode(String s) {
