@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://smarthiringassistant/contracts/events/analytics/analytics-event.schema.json",
+  "title": "AnalyticsEvent",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "eventVersion",
+    "eventTime",
+    "sourceService"
+  ],
+  "properties": {
+    "eventId": { "type": "string" },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "candidate.registered",
+        "candidate.login",
+        "resume.uploaded",
+        "resume.parsed",
+        "resume.parse.failed",
+        "job.published",
+        "candidate.matched",
+        "screening.started",
+        "screening.stage.completed",
+        "screening.completed",
+        "interview.scheduled",
+        "notification.sent"
+      ]
+    },
+    "eventVersion": { "type": "integer", "minimum": 1 },
+    "eventTime": { "type": "string", "format": "date-time" },
+    "sourceService": { "type": "string" },
+    "correlationId": { "type": "string" },
+    "candidateId": { "type": "string" },
+    "jobId": { "type": "string" },
+    "userId": { "type": "string" },
+    "sessionId": { "type": "string" },
+    "portal": { "type": "string", "enum": ["candidate", "hr-admin"] },
+    "status": { "type": "string" },
+    "stage": { "type": "string" },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

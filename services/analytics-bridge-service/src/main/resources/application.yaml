@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: analytics-bridge-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:hiring_user}
+    password: ${RABBITMQ_PASSWORD:hiring_password}
+    virtual-host: ${RABBITMQ_VHOST:/}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+server:
+  port: 8010
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

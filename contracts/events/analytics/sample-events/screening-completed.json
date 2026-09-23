@@ -1,0 +1,21 @@
+{
+  "eventId": "9e97a3b4-5f35-4bcf-a95c-d09c14d8f001",
+  "eventType": "screening.completed",
+  "eventVersion": 1,
+  "eventTime": "2026-09-19T09:30:00Z",
+  "sourceService": "screening-bot-service",
+  "correlationId": "screening-session-123",
+  "candidateId": "42",
+  "jobId": "job-101",
+  "userId": "42",
+  "sessionId": "screening-session-123",
+  "portal": "candidate",
+  "status": "COMPLETED",
+  "stage": "final",
+  "attributes": {
+    "decision": "PASS",
+    "finalScore": 0.82,
+    "totalDurationSeconds": 540,
+    "failureReasons": []
+  }
+}

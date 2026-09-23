@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: analytics-query-service
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:hiring_password}
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:smart_hiring_db}
+    username: ${POSTGRES_USER:hiring_user}
+    password: ${POSTGRES_PASSWORD:hiring_password}
+    driver-class-name: org.postgresql.Driver
+
+server:
+  port: 8011
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
