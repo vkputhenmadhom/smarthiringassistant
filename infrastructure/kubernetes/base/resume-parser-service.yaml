@@ -79,6 +79,11 @@ spec:
                 secretKeyRef:
                   name: smart-hiring-secrets
                   key: jwt-secret
+            - name: RESUME_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: resume-encryption-key
           readinessProbe:
             httpGet:
               path: /api/resumes/actuator/health/readiness

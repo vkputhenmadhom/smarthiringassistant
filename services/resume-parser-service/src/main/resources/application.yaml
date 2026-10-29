@@ -57,7 +57,10 @@ logging:
 
 security:
   encryption:
-    key: ${RESUME_ENCRYPTION_KEY:change-me-with-32-plus-char-secret}
+    # Required, at least 32 characters: `openssl rand -base64 48`. No default: a default would be public.
+    key: ${RESUME_ENCRYPTION_KEY}
+    # Comma-separated older keys, used only to decrypt and to re-encrypt existing data at startup.
+    previous-keys: ${RESUME_ENCRYPTION_PREVIOUS_KEYS:}
 
 jwt:
   secret: ${JWT_SECRET}

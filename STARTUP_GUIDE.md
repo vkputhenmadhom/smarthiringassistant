@@ -21,6 +21,7 @@ alias dc='docker compose -f docker-compose.yml -f docker-compose.apps.yml'
    | Required | Notes |
    |---|---|
    | `JWT_SECRET` | `openssl rand -base64 48` |
+   | `RESUME_ENCRYPTION_KEY` | `openssl rand -base64 48`, and keep a copy. Upgrading with existing resumes? See [SECURITY_SETUP.md](SECURITY_SETUP.md#resume-data-encryption) |
    | `POSTGRES_USER`/`POSTGRES_PASSWORD`, `MONGO_USERNAME`/`MONGO_PASSWORD`, `RABBITMQ_USERNAME`/`RABBITMQ_PASSWORD`, `REDIS_PASSWORD`, `GRAFANA_ADMIN_PASSWORD` | Any values; they are applied when the volumes are first created |
    | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | See [SECURITY_SETUP.md](SECURITY_SETUP.md#google-sign-in) |
    | `BOOTSTRAP_ADMIN_EMAILS` | Your Google email, so you become the first HR admin |
