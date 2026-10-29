@@ -125,7 +125,7 @@ export const MATCHES_FOR_JOB_QUERY = gql`
     matchesForJob(jobId: $jobId, page: $page, size: $size) {
       totalElements
       content {
-        id score status skillMatches skillGaps matchedAt
+        id candidateId score status skillMatches skillGaps matchedAt
         candidate { id name email skills screeningStatus }
       }
     }

@@ -3,6 +3,7 @@ package org.vinod.sha.gateway.graphql;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.graphql.data.method.annotation.*;
+import org.springframework.graphql.execution.ErrorType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -23,7 +24,7 @@ public class ScreeningGraphQLResolver {
 
     private static final String SCREENING_SERVICE_BASE = "http://screening-bot-service:8006/api/screening";
     private static final String JOB_SERVICE_BASE = "http://job-analyzer-service:8005/api/jobs";
-    private static final String MATCHER_SERVICE_BASE = "http://candidate-matcher-service:8003";
+    private static final String MATCHER_SERVICE_BASE = "http://candidate-matcher-service:8003/api/matches";
     private static final String SCREENING_BACKEND = "screening-bot-service";
     private static final String JOB_BACKEND = "job-analyzer-service";
     private static final String MATCHER_BACKEND = "candidate-matcher-service";
@@ -41,24 +42,34 @@ public class ScreeningGraphQLResolver {
 
     // ── Queries ──────────────────────────────────────────────────────────────
 
+    /** HR can open any session; a candidate only their own. */
     @QueryMapping
     @PreAuthorize("isAuthenticated()")
     public Mono<Map<String, Object>> screeningSession(@Argument String id) {
         return requestMap(SCREENING_SERVICE_BASE + "/sessions/" + id)
-                .onErrorResume(e -> {
-                    log.warn("screening-bot-service unreachable: {}", e.getMessage());
-                    return Mono.just(stubSession(id));
-                });
+                .onErrorMap(e -> BackendErrors.read("screening service", "screening " + id, e))
+                .zipWith(Caller.current())
+                .flatMap(sessionAndCaller -> sessionAndCaller.getT2().mayRead(sessionAndCaller.getT1().get("candidateId"))
+                        ? Mono.just(sessionAndCaller.getT1())
+                        : Mono.error(new ClientFacingException(ErrorType.FORBIDDEN, "You can only see your own screenings.")));
     }
 
+    /** HR gets every session; a candidate gets their own (screening-bot filters /sessions/my by the forwarded JWT). */
     @QueryMapping
     @PreAuthorize("hasAnyRole('CANDIDATE','HR_ADMIN','RECRUITER')")
-    public Mono<List<Map<String, Object>>> myScreeningSessions() {
-        return requestList(SCREENING_SERVICE_BASE + "/sessions", SCREENING_BACKEND)
-                .onErrorResume(e -> {
-                    log.warn("screening-bot-service sessions unavailable: {}", e.getMessage());
-                    return Mono.just(List.of(stubSession("session-1")));
-                });
+    public Mono<List<Map<String, Object>>> myScreeningSessions(
+            @ContextValue(name = "Authorization", required = false) String authorization) {
+        return Caller.current().flatMap(caller -> caller.hr()
+                        ? requestList(SCREENING_SERVICE_BASE + "/sessions", SCREENING_BACKEND)
+                        : gatewayResilience.protect(SCREENING_BACKEND,
+                                webClientBuilder.build()
+                                        .get().uri(SCREENING_SERVICE_BASE + "/sessions/my")
+                                        .header("Authorization", authorization != null ? authorization : "")
+                                        .retrieve()
+                                        .bodyToFlux(Map.class)
+                                        .map(this::toStringObjectMap)
+                                        .collectList()))
+                .onErrorMap(e -> BackendErrors.read("screening service", "the screening sessions", e));
     }
 
     @QueryMapping
@@ -212,7 +223,7 @@ public class ScreeningGraphQLResolver {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     static ClientFacingException screeningWriteError(String action, String target, Throwable error) {
-        return BackendWriteErrors.of("screening service", action, target, "Reload the screening", error);
+        return BackendErrors.write("screening service", action, target, "Reload the screening", error);
     }
 
     /** Extract numeric user ID from a Bearer JWT already verified by GraphQLAuthorizationInterceptor. */
@@ -234,20 +245,6 @@ public class ScreeningGraphQLResolver {
             log.debug("Failed to extract user ID from token: {}", e.getMessage());
         }
         return null;
-    }
-
-    private Map<String, Object> stubSession(String id) {
-        Map<String, Object> s = new LinkedHashMap<>();
-        s.put("id", id);
-        s.put("candidateId", "1");
-        s.put("jobId", "job-1");
-        s.put("currentStage", "initial");
-        s.put("status", "IN_PROGRESS");
-        s.put("decision", "PENDING");
-        s.put("finalScore", 0.0);
-        s.put("stageResults", List.of());
-        s.put("failureReasons", List.of());
-        return s;
     }
 
     private Mono<Map<String, Object>> requestMap(String uri) {

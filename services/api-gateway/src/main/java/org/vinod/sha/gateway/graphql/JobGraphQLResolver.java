@@ -141,7 +141,7 @@ public class JobGraphQLResolver {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     static ClientFacingException jobWriteError(String action, String id, Throwable error) {
-        return BackendWriteErrors.of("job service", action, id == null ? "the job" : "job " + id,
+        return BackendErrors.write("job service", action, id == null ? "the job" : "job " + id,
                 "Refresh the job list", error);
     }
 

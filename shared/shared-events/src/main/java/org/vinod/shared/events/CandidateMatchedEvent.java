@@ -38,6 +38,6 @@ public class CandidateMatchedEvent implements Serializable {
     private long matchedAt;
 
     @JsonProperty("status")
-    private String status; // NEW, REVIEWED, ACCEPTED, REJECTED
+    private String status; // a MatchStatus: PENDING, MATCHED, SHORTLISTED, REJECTED, HIRED
 }
 

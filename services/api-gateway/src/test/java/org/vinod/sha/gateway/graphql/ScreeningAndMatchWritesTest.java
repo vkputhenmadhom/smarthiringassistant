@@ -59,7 +59,7 @@ class ScreeningAndMatchWritesTest {
     }
 
     @Test
-    void matchWritesAreReportedAsNotSupportedWithoutCallingTheMatcher() {
+    void triggerMatchingIsReportedAsNotSupportedWithoutCallingTheMatcher() {
         AtomicInteger calls = new AtomicInteger();
         WebClient.Builder counting = WebClient.builder().exchangeFunction(request -> {
             calls.incrementAndGet();
@@ -67,14 +67,9 @@ class ScreeningAndMatchWritesTest {
         });
         CandidateGraphQLResolver resolver = new CandidateGraphQLResolver(counting, resilience());
 
-        ClientFacingException trigger = assertThrows(ClientFacingException.class,
-                () -> resolver.triggerMatching("7", "job-1").block());
-        ClientFacingException update = assertThrows(ClientFacingException.class,
-                () -> resolver.updateMatchStatus("m-1", "SHORTLISTED").block());
+        ClientFacingException e = assertThrows(ClientFacingException.class, () -> resolver.triggerMatching("7", "job-1").block());
 
-        assertEquals(CandidateGraphQLResolver.NOT_SUPPORTED, trigger.getClassification());
-        assertEquals(CandidateGraphQLResolver.NOT_SUPPORTED, update.getClassification());
-        assertEquals("Changing a match's status is not supported yet, so match m-1 was not changed.", update.getMessage());
+        assertEquals(CandidateGraphQLResolver.NOT_SUPPORTED, e.getClassification());
         assertEquals(0, calls.get());
     }
 

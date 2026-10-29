@@ -12,6 +12,10 @@ import org.vinod.sha.matcher.repository.JobRequirementRepository;
 import org.vinod.shared.events.CandidateMatchedEvent;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -133,12 +137,15 @@ public class CandidateMatcherService {
      * Get a specific match
      */
     public CandidateMatch getMatch(String matchId) {
-        return candidateMatchRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new RuntimeException("Match not found: " + matchId));
+        return findMatch(matchId).orElseThrow(() -> new RuntimeException("Match not found: " + matchId));
+    }
+
+    public Optional<CandidateMatch> findMatch(String matchId) {
+        return candidateMatchRepository.findByMatchId(matchId);
     }
 
     /**
-     * Update match status (e.g., REVIEWED, ACCEPTED, REJECTED)
+     * Move a match along the pipeline (e.g. SHORTLISTED, REJECTED, HIRED)
      */
     public CandidateMatch updateMatchStatus(String matchId, MatchStatus status, String comments) {
         CandidateMatch match = getMatch(matchId);
@@ -178,6 +185,8 @@ public class CandidateMatcherService {
                 .skillMatchPercentage(skillScore)
                 .experienceMatchPercentage(experienceScore)
                 .locationMatchPercentage(locationScore)
+                .matchedSkills(skillsIn(requiredSkills, candidateSkills, true))
+                .missingSkills(skillsIn(requiredSkills, candidateSkills, false))
                 .build();
 
         match = candidateMatchRepository.save(match);
@@ -186,6 +195,22 @@ public class CandidateMatcherService {
         publishMatchEvent(match);
 
         return match;
+    }
+
+    /** The required skills the candidate has ({@code present}) or lacks, compared case-insensitively. */
+    static List<String> skillsIn(List<String> requiredSkills, List<String> candidateSkills, boolean present) {
+        if (requiredSkills == null) {
+            return List.of();
+        }
+        Set<String> candidate = candidateSkills == null ? Set.of() : candidateSkills.stream()
+                .filter(Objects::nonNull)
+                .map(s -> s.trim().toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+        return requiredSkills.stream()
+                .filter(Objects::nonNull)
+                .filter(skill -> candidate.contains(skill.trim().toLowerCase(Locale.ROOT)) == present)
+                .distinct()
+                .toList();
     }
 
     private double calculateSkillMatchPercentage(List<String> candidateSkills, List<String> requiredSkills) {

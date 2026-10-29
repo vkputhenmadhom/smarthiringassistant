@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "candidate_matches")
@@ -39,7 +41,19 @@ public class CandidateMatch {
     private Double locationMatchPercentage;
 
     @Enumerated(EnumType.STRING)
-    private MatchStatus status; // NEW, REVIEWED, ACCEPTED, REJECTED
+    private MatchStatus status;
+
+    /** Required skills the candidate has. */
+    @Convert(converter = SkillListConverter.class)
+    @Column(name = "matched_skills", columnDefinition = "TEXT")
+    @Builder.Default
+    private List<String> matchedSkills = new ArrayList<>();
+
+    /** Required skills the candidate lacks. */
+    @Convert(converter = SkillListConverter.class)
+    @Column(name = "missing_skills", columnDefinition = "TEXT")
+    @Builder.Default
+    private List<String> missingSkills = new ArrayList<>();
 
     @Column
     private String reviewerComments;
@@ -54,7 +68,9 @@ public class CandidateMatch {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        status = MatchStatus.NEW;
+        if (status == null) {
+            status = MatchStatus.MATCHED;
+        }
     }
 
     @PreUpdate

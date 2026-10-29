@@ -19,6 +19,12 @@ import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
   standalone: true,
   imports: [CommonModule, RouterLink, MatCardModule, MatChipsModule, MatIconModule, MatButtonModule, MatTableModule, MatDividerModule],
   template: `
+    <div class="error-banner" role="alert" *ngIf="error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+      <button mat-icon-button (click)="error = null" aria-label="Dismiss"><mat-icon>close</mat-icon></button>
+    </div>
+
     <ng-container *ngIf="job$ | async as job">
       <div class="page-header flex justify-between items-center">
         <div>
@@ -55,13 +61,13 @@ import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
       </div>
 
       <!-- Matched candidates -->
-      <mat-card class="panel mt-4" *ngIf="matches$ | async as matchData">
+      <mat-card class="panel mt-4" *ngIf="matchData">
         <mat-card-header><mat-card-title>Matched Candidates ({{ matchData.totalElements }})</mat-card-title></mat-card-header>
         <mat-card-content>
           <table mat-table [dataSource]="matchData.content" class="sha-table">
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef>Candidate</th>
-              <td mat-cell *matCellDef="let m">{{ m.candidate?.name }}</td>
+              <td mat-cell *matCellDef="let m">{{ m.candidate?.name || ('Candidate #' + m.candidateId) }}</td>
             </ng-container>
             <ng-container matColumnDef="score">
               <th mat-header-cell *matHeaderCellDef>Match Score</th>
@@ -83,6 +89,17 @@ import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
               <th mat-header-cell *matHeaderCellDef>Status</th>
               <td mat-cell *matCellDef="let m"><span [class]="matchChip(m.status)">{{ m.status }}</span></td>
             </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let m" class="match-actions">
+                <button mat-stroked-button color="primary" *ngIf="m.status==='MATCHED' || m.status==='PENDING'"
+                        [disabled]="updating===m.id" (click)="setMatchStatus(m, 'SHORTLISTED')">Shortlist</button>
+                <button mat-stroked-button color="primary" *ngIf="m.status==='SHORTLISTED'"
+                        [disabled]="updating===m.id" (click)="setMatchStatus(m, 'HIRED')">Hired</button>
+                <button mat-button color="warn" *ngIf="m.status!=='REJECTED' && m.status!=='HIRED'"
+                        [disabled]="updating===m.id" (click)="setMatchStatus(m, 'REJECTED')">Reject</button>
+              </td>
+            </ng-container>
             <tr mat-header-row *matHeaderRowDef="matchCols"></tr>
             <tr mat-row *matRowDef="let r; columns:matchCols;"></tr>
           </table>
@@ -95,6 +112,8 @@ import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
     .detail-row { padding:.35rem 0; border-bottom:1px solid #f5f5f5; font-size:.9rem; }
     .desc { font-size:.9rem; line-height:1.6; color:#333; white-space:pre-wrap; margin-top:.5rem; }
     .skills-wrap { display:flex; flex-wrap:wrap; gap:.4rem; }
+    .match-actions { white-space:nowrap; text-align:right; }
+    .match-actions button { margin-left:.25rem; }
   `],
 })
 export class JobDetailComponent implements OnInit {
@@ -103,22 +122,48 @@ export class JobDetailComponent implements OnInit {
   private apollo = inject(Apollo);
 
   jobId!: string;
-  matchCols = ['name','score','skills','gaps','status'];
+  matchCols = ['name','score','skills','gaps','status','actions'];
+  matchData: { totalElements: number; content: any[] } | null = null;
+  /** Id of the match whose status change is in flight. */
+  updating: string | null = null;
+  error: string | null = null;
 
   job$ = this.apollo.query<any>({ query: JOB_QUERY, variables: { id: '' } }).pipe(map(r => r.data.job as Job));
-  matches$ = this.apollo.query<any>({ query: MATCHES_FOR_JOB_QUERY, variables: { jobId: '', page: 0, size: 20 } })
-               .pipe(map(r => r.data.matchesForJob));
 
   ngOnInit() {
     this.jobId = this.route.snapshot.paramMap.get('id')!;
     this.job$  = this.apollo.query<any>({ query: JOB_QUERY, variables: { id: this.jobId }, fetchPolicy:'network-only' }).pipe(map(r => r.data.job));
-    this.matches$ = this.apollo.query<any>({ query: MATCHES_FOR_JOB_QUERY, variables: { jobId: this.jobId, page:0, size:20 } }).pipe(map(r => r.data.matchesForJob));
+    this.loadMatches();
     this.store.dispatch(loadJob({ id: this.jobId }));
+  }
+
+  loadMatches() {
+    this.apollo.query<any>({ query: MATCHES_FOR_JOB_QUERY, variables: { jobId: this.jobId, page: 0, size: 20 }, fetchPolicy: 'network-only' })
+      .subscribe({
+        next: r => this.matchData = r.data.matchesForJob,
+        error: err => this.error = err.message,
+      });
+  }
+
+  setMatchStatus(match: any, status: string) {
+    this.updating = match.id;
+    this.apollo.mutate<any>({ mutation: UPDATE_MATCH_STATUS_MUTATION, variables: { matchId: match.id, status } })
+      .subscribe({
+        next: r => {
+          const updated = r.data?.updateMatchStatus;
+          if (this.matchData && updated) {
+            this.matchData = { ...this.matchData,
+              content: this.matchData.content.map(m => m.id === updated.id ? { ...m, status: updated.status } : m) };
+          }
+          this.updating = null;
+        },
+        error: err => { this.error = err.message; this.updating = null; },
+      });
   }
 
   publish(id: string) { this.store.dispatch(publishJob({ id })); }
   statusChip(s: string) { return s==='OPEN'?'chip chip-green':s==='DRAFT'?'chip chip-orange':'chip chip-grey'; }
-  matchChip(s: string)  { return s==='SHORTLISTED'?'chip chip-green':s==='REJECTED'?'chip chip-red':'chip chip-blue'; }
+  matchChip(s: string)  { return s==='SHORTLISTED'||s==='HIRED'?'chip chip-green':s==='REJECTED'?'chip chip-red':'chip chip-blue'; }
   salaryLabel(j: Job)   { return j.salaryMin ? `${j.salaryCurrency??'USD'} ${(j.salaryMin/1000).toFixed(0)}k – ${((j.salaryMax??0)/1000).toFixed(0)}k` : 'Not specified'; }
 }
 

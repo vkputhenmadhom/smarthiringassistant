@@ -9,14 +9,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Turns a failed backend write into a GraphQL error the client can show. Writes must not fall back to a
- * placeholder (a stub job, session or match, or {@code false}): the client would treat the change as made
- * when it was not.
+ * Turns a failed backend call into a GraphQL error the client can show. Calls must not fall back to a
+ * placeholder (a stub job, session or match, or {@code false}): after a write the client would treat the
+ * change as made, and after a read it would show made-up data.
  */
 @Slf4j
-final class BackendWriteErrors {
+final class BackendErrors {
 
-    private BackendWriteErrors() {
+    private BackendErrors() {
     }
 
     /**
@@ -25,7 +25,7 @@ final class BackendWriteErrors {
      * @param target      what it was attempted on, e.g. "the job" or "job 6ae3"
      * @param refreshHint how to check whether a timed-out write went through, e.g. "Refresh the job list"
      */
-    static ClientFacingException of(String service, String action, String target, String refreshHint, Throwable error) {
+    static ClientFacingException write(String service, String action, String target, String refreshHint, Throwable error) {
         if (error instanceof ClientFacingException clientFacing) {
             return clientFacing;
         }
@@ -48,5 +48,29 @@ final class BackendWriteErrors {
         }
         return new ClientFacingException(ErrorType.INTERNAL_ERROR,
                 "Could not " + action + " " + target + ": the " + service + " is unavailable. Please try again shortly.");
+    }
+
+    /**
+     * @param service the backend as users know it, e.g. "screening service"
+     * @param what    what was being loaded, e.g. "screening 6ae3" or "the matches for job 6ae3"
+     */
+    static ClientFacingException read(String service, String what, Throwable error) {
+        if (error instanceof ClientFacingException clientFacing) {
+            return clientFacing;
+        }
+        if (error instanceof WebClientResponseException response && response.getStatusCode().is4xxClientError()) {
+            if (response.getStatusCode().value() == 404) {
+                return new ClientFacingException(ErrorType.NOT_FOUND, capitalize(what) + " was not found.");
+            }
+            return new ClientFacingException(ErrorType.BAD_REQUEST,
+                    "Could not load " + what + ": the " + service + " rejected the request (" + response.getStatusCode().value() + ").");
+        }
+        log.warn("{} read failed for {}: {}", service, what, error.toString());
+        return new ClientFacingException(ErrorType.INTERNAL_ERROR,
+                "Could not load " + what + ": the " + service + " is unavailable. Please try again shortly.");
+    }
+
+    private static String capitalize(String text) {
+        return text.isEmpty() ? text : Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 }
