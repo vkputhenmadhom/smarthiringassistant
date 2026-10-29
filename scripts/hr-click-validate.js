@@ -7,12 +7,16 @@
  * - playwright installed in the environment where this script runs
  */
 
+const { execFileSync } = require('child_process');
 const { chromium } = require('playwright');
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8000';
 const HR_FRONTEND_URL = process.env.HR_FRONTEND_URL || 'http://localhost:4200';
 const LOGIN_PASSWORD = process.env.HR_SMOKE_PASSWORD || 'ClickPass123!';
 const HEADLESS = (process.env.HR_SMOKE_HEADLESS || 'true').toLowerCase() !== 'false';
+// HR accounts need an administrator's approval. The smoke test stands in for the admin
+// by approving its own account in the docker-compose Postgres container.
+const POSTGRES_CONTAINER = process.env.HR_SMOKE_POSTGRES_CONTAINER || 'smart-hiring-postgres';
 
 async function registerUser(baseUrl, suffix) {
   const payload = {
@@ -36,7 +40,30 @@ async function registerUser(baseUrl, suffix) {
     throw new Error(`register failed ${resp.status} ${JSON.stringify(body)}`);
   }
 
-  return { ...payload, token: body.accessToken || '' };
+  if (body.approvalStatus === 'PENDING') {
+    approveViaDatabase(payload.username);
+  }
+  return { ...payload, token: await login(baseUrl, payload.username) };
+}
+
+function approveViaDatabase(username) {
+  execFileSync('docker', [
+    'exec', POSTGRES_CONTAINER, 'psql', '-U', 'hiring_user', '-d', 'smart_hiring_db', '-v', 'ON_ERROR_STOP=1',
+    '-c', `UPDATE hiring.auth_users SET approval_status = 'APPROVED' WHERE username = '${username}'`,
+  ], { stdio: 'inherit' });
+}
+
+async function login(baseUrl, username) {
+  const resp = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password: LOGIN_PASSWORD }),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok || !body.accessToken) {
+    throw new Error(`login failed ${resp.status} ${JSON.stringify(body)}`);
+  }
+  return body.accessToken;
 }
 
 function printResult(results) {

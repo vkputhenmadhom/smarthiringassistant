@@ -116,6 +116,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || contains(needs.detect-changed-apps.outputs.matrix, 'hr-admin-dashboard')
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Job-level so every compose call (start, log dump, teardown) can interpolate the file.
+    env:
+      GOOGLE_CLIENT_ID: ci-google-client-id
+      GOOGLE_CLIENT_SECRET: ci-google-client-secret
+      JWT_SECRET: ci-local-jwt-secret-for-smoke-tests-please-change
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,16 +130,16 @@ jobs:
         with:
           node-version: '20'
 
+      # auth-service reads env_file: .env; CI provides its settings through env instead.
+      - name: Create empty .env
+        run: touch .env
+
       - name: Install Playwright runtime
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
       - name: Start required stack for HR click smoke
-        env:
-          GOOGLE_CLIENT_ID: ci-google-client-id
-          GOOGLE_CLIENT_SECRET: ci-google-client-secret
-          JWT_SECRET: ci-local-jwt-secret-for-smoke-tests-please-change
         run: |
           docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build \
             postgres mongodb rabbitmq redis \
