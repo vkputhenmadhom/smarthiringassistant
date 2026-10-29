@@ -10,7 +10,10 @@ COPY settings.gradle .
 COPY shared shared
 COPY services/notification-service services/notification-service
 
-RUN chmod +x gradlew && ./gradlew :services:notification-service:bootJar -x test --no-daemon
+# The Gradle home (wrapper distribution + dependency cache) is a BuildKit cache mount shared by every
+# service image, so it is downloaded once and reused instead of fetched from scratch per image.
+RUN --mount=type=cache,id=gradle-home,target=/root/.gradle \
+    chmod +x gradlew && ./gradlew :services:notification-service:bootJar -x test --no-daemon
 
 # Runtime: lightweight Alpine image
 FROM eclipse-temurin:21-jre-alpine
@@ -20,4 +23,3 @@ COPY --from=builder /app/services/notification-service/build/libs/*.jar app.jar
 
 EXPOSE 8007
 ENTRYPOINT ["java", "-jar", "app.jar"]
-
