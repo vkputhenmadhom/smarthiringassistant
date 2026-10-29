@@ -6,10 +6,19 @@
 # OAuth2 redirect URI) are published to the host. Every other service is reachable
 # only through the gateway. To publish them for debugging or the scripts/ smoke tests,
 # add: -f docker-compose.debug-ports.yml
+# Applied to every backend service: no privilege escalation and no Linux capabilities. The JVM
+# services run as a non-root user (see their Dockerfiles) and listen on ports above 1024.
+x-app-hardening: &app-hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
 services:
   # Applies the idempotent schema script before the JPA services start (ddl-auto: validate),
   # mirroring the Kubernetes init containers. Runs once per `up` and exits.
   db-migrate:
+    <<: *app-hardening
     image: postgres:16-alpine
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (see .env.example)}
@@ -25,6 +34,7 @@ services:
       - smart-hiring-network
 
   auth-service:
+    <<: *app-hardening
     build:
       context: .
       dockerfile: services/auth-service/Dockerfile
@@ -75,6 +85,7 @@ services:
       start_period: 45s
 
   api-gateway:
+    <<: *app-hardening
     build:
       context: .
       dockerfile: services/api-gateway/Dockerfile
@@ -121,6 +132,7 @@ services:
       - smart-hiring-network
 
   resume-parser-service:
+    <<: *app-hardening
     build:
       context: .
       dockerfile: services/resume-parser-service/Dockerfile
@@ -163,6 +175,7 @@ services:
       - smart-hiring-network
 
   candidate-matcher-service:
+    <<: *app-hardening
     build:
       context: .
       dockerfile: services/candidate-matcher-service/Dockerfile
@@ -208,6 +221,7 @@ services:
       - smart-hiring-network
 
   interview-prep-service:
+    <<: *app-hardening
     build:
       context: .
       dockerfile: services/interview-prep-service/Dockerfile
@@ -251,6 +265,7 @@ services:
       - smart-hiring-network
 
   screening-bot-service:
+    <<: *app-hardening
     build:
       context: .
       dockerfile: services/screening-bot-service/Dockerfile
@@ -294,6 +309,7 @@ services:
       - smart-hiring-network
 
   notification-service:
+    <<: *app-hardening
     build:
       context: .
       dockerfile: services/notification-service/Dockerfile
@@ -380,6 +396,7 @@ services:
       - smart-hiring-network
 
   job-analyzer-service:
+    <<: *app-hardening
     build:
       context: .
       dockerfile: services/job-analyzer-service/Dockerfile
@@ -427,6 +444,7 @@ services:
   # Internal LLM gateway for interview-prep and job-analyzer. No published port; not routed by the
   # API gateway. AI_PROVIDER picks openai (default) or anthropic.
   ai-integration-service:
+    <<: *app-hardening
     build:
       context: .
       dockerfile: services/ai-integration-service/Dockerfile
