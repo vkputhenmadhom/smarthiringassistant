@@ -269,8 +269,7 @@ public class JobAnalyzerService {
             }
         }
 
-        // Use virtual threads for AI extraction to improve scalability
-        var aiSkills = callAiSkillsExtractionAsync(text);
+        var aiSkills = callAiSkillsExtraction(text);
         required.addAll(aiSkills.stream().map(this::normalizeSkill).collect(Collectors.toList()));
 
         var preferred = required.stream()
@@ -278,19 +277,6 @@ public class JobAnalyzerService {
                 .collect(Collectors.toList());
 
         return new SkillsExtractResponse(new ArrayList<>(required), preferred);
-    }
-
-    private List<String> callAiSkillsExtractionAsync(String text) {
-        // Java 21: Use virtual threads for AI integration calls
-        var virtualThread = Thread.startVirtualThread(() -> callAiSkillsExtraction(text));
-        try {
-            virtualThread.join();
-            return callAiSkillsExtraction(text);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.warn("AI skills extraction interrupted: {}", e.getMessage());
-            return List.of();
-        }
     }
 
     public SalaryEstimateResponse estimateSalary(SalaryEstimateRequest request) {
