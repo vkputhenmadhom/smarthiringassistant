@@ -1,8 +1,8 @@
-package org.vinod.ai.repository;
+package org.vinod.sha.ai.repository;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
-import org.vinod.ai.entity.AICache;
+import org.vinod.sha.ai.entity.AICache;
 
 import java.time.LocalDateTime;
 import java.util.List;

@@ -1,8 +1,7 @@
-package org.vinod.ai.service;
+package org.vinod.sha.ai.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -10,20 +9,17 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Sliding one-minute window per user and operation, kept in memory (per instance).
+ */
 @Slf4j
 @Service
 public class RateLimitService {
-
-    private final RedisTemplate<String, Object> redisTemplate;
 
     @Value("${ai.rate-limit.requests-per-minute:60}")
     private int requestsPerMinute;
 
     private final ConcurrentHashMap<String, Deque<Long>> requestWindows = new ConcurrentHashMap<>();
-
-    public RateLimitService(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
-    }
 
     public boolean isAllowed(String userId, String operation) {
         String key = "rate_limit:" + userId + ":" + operation;
