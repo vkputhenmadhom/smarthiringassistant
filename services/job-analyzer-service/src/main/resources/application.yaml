@@ -40,13 +40,13 @@ job-sync:
   enabled: ${JOB_SYNC_ENABLED:false}
   cron: "0 0 */6 * * *"          # every 6 hours
   max-per-sync: 50
-  country: us
+  country: india
   keywords:
-    - "software engineer"
-    - "platform engineer"
-    - "backend engineer"
+    - "technical lead"
+    - "staff software engineer"
+    - "senior backend engineer"
     - "full-stack developer"
-    - "devops engineer"
+    - "principal software engineer"
   jsearch:
     api-key:    ${JSEARCH_API_KEY:}
     base-url:   https://jsearch.p.rapidapi.com

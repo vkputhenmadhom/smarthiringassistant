@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Periodically (or on-demand) pulls open positions from external job portals
@@ -66,6 +67,10 @@ public class JobSyncService {
     private volatile LocalDateTime lastSyncAt     = null;
     private volatile int           lastImported   = 0;
     private volatile String        lastError      = null;
+
+    // ── Java 21 Virtual Thread support ─────────────────────────────────────────
+    private final AtomicBoolean    syncInProgress = new AtomicBoolean(false);
+    private volatile String        currentSyncId  = null;
 
     public JobSyncService(JobAnalysisRepository repository,
                           RestTemplate restTemplate,
@@ -169,11 +174,46 @@ public class JobSyncService {
         return result;
     }
 
+    /**
+     * Java 21 Virtual Thread: Trigger sync asynchronously.
+     * Returns immediately with a sync ID; actual work happens in the background.
+     * 
+     * Uses Thread.startVirtualThread() - efficient lightweight threads from Project Loom.
+     */
+    public String triggerSyncAsync() {
+        // compareAndSet so two concurrent triggers cannot both start a sync
+        if (!syncInProgress.compareAndSet(false, true)) {
+           log.warn("[JobSync] Sync already in progress ({})", currentSyncId);
+           return currentSyncId;
+        }
+
+        String syncId = UUID.randomUUID().toString();
+        currentSyncId = syncId;
+        lastError = null;
+
+        Thread.startVirtualThread(() -> {
+           try {
+               log.info("[JobSync][VirtualThread-{}] Starting async sync", syncId);
+               triggerSync();
+           } catch (Exception e) {
+               log.error("[JobSync][VirtualThread-{}] Sync failed: {}", syncId, e.getMessage(), e);
+               lastError = e.getMessage();
+           } finally {
+               syncInProgress.set(false);
+               log.info("[JobSync][VirtualThread-{}] Sync completed", syncId);
+           }
+        });
+
+        return syncId;
+    }
+
     public Map<String, Object> getStatus() {
         var s = new LinkedHashMap<String, Object>();
         s.put("status",           lastSyncStatus);
         s.put("lastSyncAt",       lastSyncAt != null ? lastSyncAt.toString() : null);
         s.put("lastImportedCount",lastImported);
+        s.put("syncInProgress",   syncInProgress.get());
+        s.put("currentSyncId",    currentSyncId);
         s.put("enabled",          props.isEnabled());
         s.put("indiaEnabled",     props.getIndia().isEnabled());
         s.put("configuredSources", buildSourcesInfo());
