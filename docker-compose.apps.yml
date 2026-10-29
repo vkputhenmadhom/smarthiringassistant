@@ -7,6 +7,23 @@
 # only through the gateway. To publish them for debugging or the scripts/ smoke tests,
 # add: -f docker-compose.debug-ports.yml
 services:
+  # Applies the idempotent schema script before the JPA services start (ddl-auto: validate),
+  # mirroring the Kubernetes init containers. Runs once per `up` and exits.
+  db-migrate:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: hiring_password
+    volumes:
+      - ./infrastructure/db/migrate-all-to-hiring.sql:/migrations/migrate-all-to-hiring.sql:ro
+    command: ["psql", "-h", "postgres", "-U", "hiring_user", "-d", "smart_hiring_db",
+              "-v", "ON_ERROR_STOP=1", "-q", "-f", "/migrations/migrate-all-to-hiring.sql"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - smart-hiring-network
+
   auth-service:
     build:
       context: .
@@ -23,6 +40,8 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: hiring_user
       SPRING_RABBITMQ_PASSWORD: hiring_password
+      # Signs tokens the gateway verifies, so both must get the same value
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (set it in .env)}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required (set it in .env)}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required (set it in .env)}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8001/api/auth/login/oauth2/code/google}
@@ -30,6 +49,8 @@ services:
       OAUTH2_SUCCESS_REDIRECT_URI_HR_ADMIN: ${OAUTH2_SUCCESS_REDIRECT_URI_HR_ADMIN:-http://localhost:4200/auth/callback}
       OAUTH2_FAILURE_REDIRECT_URI: ${OAUTH2_FAILURE_REDIRECT_URI:-http://localhost:5173/login}
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       rabbitmq:
@@ -116,6 +137,8 @@ services:
       SPRING_RABBITMQ_PASSWORD: hiring_password
       JWT_SECRET: ${JWT_SECRET}
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       rabbitmq:
@@ -157,6 +180,8 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PASSWORD: hiring_password
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       rabbitmq:
@@ -199,6 +224,8 @@ services:
       SPRING_RABBITMQ_USERNAME: hiring_user
       SPRING_RABBITMQ_PASSWORD: hiring_password
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       rabbitmq:
@@ -287,6 +314,8 @@ services:
       MANAGEMENT_HEALTH_MAIL_ENABLED: ${MANAGEMENT_HEALTH_MAIL_ENABLED:-false}
       NOTIFICATION_EMAIL_ENABLED: ${NOTIFICATION_EMAIL_ENABLED:-false}
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       rabbitmq:

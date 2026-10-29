@@ -9,6 +9,8 @@ export interface AuthState {
   expiresAt: number | null;
   loading: boolean;
   error: string | null;
+  /** Non-error outcome to show the user, e.g. "awaiting approval". */
+  notice: string | null;
 }
 
 const computeExpiresAt = (expiresIn: number): number => Date.now() + (expiresIn * 1000);
@@ -28,7 +30,7 @@ function buildInitialState(): AuthState {
 
   if (tokenExpired) {
     STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
-    return { user: null, token: null, refreshToken: null, expiresAt: null, loading: false, error: null };
+    return { user: null, token: null, refreshToken: null, expiresAt: null, loading: false, error: null, notice: null };
   }
 
   return {
@@ -38,6 +40,7 @@ function buildInitialState(): AuthState {
     expiresAt:    storedExpiresAt || null,
     loading:      false,
     error:        null,
+    notice:       null,
   };
 }
 
@@ -46,7 +49,9 @@ const initialState: AuthState = buildInitialState();
 export const authReducer = createReducer(
   initialState,
 
-  on(AuthActions.login, AuthActions.register, state => ({ ...state, loading: true, error: null })),
+  on(AuthActions.login, AuthActions.register, state => ({ ...state, loading: true, error: null, notice: null })),
+
+  on(AuthActions.registerPending, (state, { message }) => ({ ...state, loading: false, notice: message })),
 
   on(AuthActions.loginSuccess, AuthActions.registerSuccess, (state, { payload }) => {
     // Prevent candidate users from logging into HR admin dashboard

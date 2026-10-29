@@ -126,7 +126,12 @@ export class AuthEffects {
         this.apollo.mutate<any>({ mutation: REGISTER_MUTATION, variables: { username, email, password, role } }).pipe(
           timeout(APOLLO_TIMEOUT_MS),
           map(res  => AuthActions.registerSuccess({ payload: res.data.register })),
-          catchError(err => of(AuthActions.registerFailure({ error: err.message ?? 'Registration timed out' })))
+          catchError(err => {
+            const pending = err?.graphQLErrors?.find((e: any) => e.extensions?.classification === 'PENDING_APPROVAL');
+            return of(pending
+              ? AuthActions.registerPending({ message: pending.message })
+              : AuthActions.registerFailure({ error: err.message ?? 'Registration timed out' }));
+          })
         )
       )
     )

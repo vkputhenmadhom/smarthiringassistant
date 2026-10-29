@@ -63,6 +63,14 @@ class GatewaySecurityConfigTest {
     }
 
     @Test
+    void restrictsNotificationEndpointsToAdmins() {
+        client.get().uri("/api/notifications/logs").headers(h -> h.setBearerAuth(token(SECRET, 60_000)))
+                .exchange().expectStatus().isForbidden();
+        client.get().uri("/api/notifications/logs").headers(h -> h.setBearerAuth(token(SECRET, "ADMIN", 60_000)))
+                .exchange().expectStatus().isOk();
+    }
+
+    @Test
     void ignoresExpiredTokenOnPublicAuthPath() {
         client.post().uri("/api/auth/login").headers(h -> h.setBearerAuth(token(SECRET, -60_000)))
                 .exchange().expectStatus().isOk();
@@ -80,10 +88,14 @@ class GatewaySecurityConfigTest {
     }
 
     private static String token(String secret, long expiresInMs) {
+        return token(secret, "JOB_SEEKER", expiresInMs);
+    }
+
+    private static String token(String secret, String role, long expiresInMs) {
         Date now = new Date();
         return Jwts.builder()
                 .subject("user")
-                .claims(Map.of("id", 42L, "role", "JOB_SEEKER"))
+                .claims(Map.of("id", 42L, "role", role))
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiresInMs))
                 .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)))
@@ -100,7 +112,7 @@ class GatewaySecurityConfigTest {
     @RestController
     static class StubController {
 
-        @GetMapping({"/api/resumes/1", "/actuator/health", "/actuator/env"})
+        @GetMapping({"/api/resumes/1", "/api/notifications/logs", "/actuator/health", "/actuator/env"})
         String get() {
             return "ok";
         }

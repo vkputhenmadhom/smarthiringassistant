@@ -1,0 +1,32 @@
+{{- $namespace := .Values.global.namespace }}
+{{- range $service, $config := .Values.services }}
+{{- if and $config.enabled $config.hpa.enabled }}
+{{- $svcName := $service | kebabcase }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $svcName }}-hpa
+  namespace: {{ $namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $svcName }}
+  minReplicas: {{ $config.hpa.minReplicas | default 2 }}
+  maxReplicas: {{ $config.hpa.maxReplicas | default 10 }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $config.hpa.targetCPU | default 70 }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ $config.hpa.targetMemory | default 80 }}
+{{- end }}
+{{- end }}

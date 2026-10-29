@@ -4,12 +4,21 @@ import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.vinod.sha.gateway.resilience.GatewayResilience;
 import org.springframework.graphql.data.method.annotation.*;
+import org.springframework.graphql.execution.ErrorType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.*;
 
@@ -66,12 +75,15 @@ public class AuthGraphQLResolver {
                                 .bodyValue(body)
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
-                .map(this::normalizeAuthPayload)
-                .switchIfEmpty(Mono.just(stubAuthPayload(username, role)))
-                .onErrorResume(e -> {
-                    log.warn("auth-service unreachable during register: {}", e.getMessage());
-                    return Mono.just(stubAuthPayload(username, role));
-                });
+                .map(raw -> {
+                    // auth-service sends "accessToken": null for accounts awaiting approval
+                    if (Objects.toString(raw.get("accessToken"), "").isBlank()) {
+                        throw new AuthFlowException(AuthFlowException.PENDING_APPROVAL,
+                                "Account created. An administrator must approve it before you can sign in.");
+                    }
+                    return normalizeAuthPayload(raw);
+                })
+                .onErrorMap(this::toAuthFlowException);
     }
 
     @MutationMapping
@@ -85,11 +97,7 @@ public class AuthGraphQLResolver {
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeAuthPayload)
-                .switchIfEmpty(Mono.just(stubAuthPayload(username, "CANDIDATE")))
-                .onErrorResume(e -> {
-                    log.warn("auth-service unreachable during login: {}", e.getMessage());
-                    return Mono.just(stubAuthPayload(username, "CANDIDATE"));
-                });
+                .onErrorMap(this::toAuthFlowException);
     }
 
     @MutationMapping
@@ -101,8 +109,48 @@ public class AuthGraphQLResolver {
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeAuthPayload)
-                .switchIfEmpty(Mono.just(stubAuthPayload("user", "CANDIDATE")))
-                .onErrorResume(e -> Mono.just(stubAuthPayload("user", "CANDIDATE")));
+                .onErrorMap(this::toAuthFlowException);
+    }
+
+    // ── Account approval (ADMIN only; enforced by GraphQLAuthorizationInterceptor and auth-service) ──
+
+    @QueryMapping
+    public Mono<List<Map<String, Object>>> pendingUsers(
+            @ContextValue(name = "Authorization", required = false) String authorization) {
+        return gatewayResilience.protect(AUTH_BACKEND,
+                        webClientBuilder.build()
+                                .get().uri(AUTH_BASE + "/admin/users?status=PENDING")
+                                .header(HttpHeaders.AUTHORIZATION, authorization)
+                                .retrieve().bodyToFlux(Map.class).collectList())
+                .map(users -> users.stream().map(user -> toGraphqlUser(toStringObjectMap(user))).toList())
+                .onErrorMap(this::toAuthFlowException);
+    }
+
+    @MutationMapping
+    public Mono<Map<String, Object>> approveUser(@Argument String id, @Argument String role,
+                                                 @ContextValue(name = "Authorization", required = false) String authorization) {
+        UriComponentsBuilder uri = UriComponentsBuilder.fromUriString(AUTH_BASE + "/admin/users/{id}/approve");
+        if (role != null) {
+            uri.queryParam("role", toAuthRole(role));
+        }
+        return decideOnUser(uri.buildAndExpand(id).toUriString(), authorization);
+    }
+
+    @MutationMapping
+    public Mono<Map<String, Object>> rejectUser(@Argument String id,
+                                                @ContextValue(name = "Authorization", required = false) String authorization) {
+        return decideOnUser(UriComponentsBuilder.fromUriString(AUTH_BASE + "/admin/users/{id}/reject")
+                .buildAndExpand(id).toUriString(), authorization);
+    }
+
+    private Mono<Map<String, Object>> decideOnUser(String uri, String authorization) {
+        return gatewayResilience.protect(AUTH_BACKEND,
+                        webClientBuilder.build()
+                                .post().uri(uri)
+                                .header(HttpHeaders.AUTHORIZATION, authorization)
+                                .retrieve().bodyToMono(Map.class))
+                .map(user -> toGraphqlUser(toStringObjectMap(user)))
+                .onErrorMap(this::toAuthFlowException);
     }
 
     @QueryMapping
@@ -126,21 +174,6 @@ public class AuthGraphQLResolver {
         return true;
     }
 
-    private Map<String, Object> stubAuthPayload(String username, String role) {
-        Map<String, Object> user = new LinkedHashMap<>();
-        user.put("id", "1");
-        user.put("username", username);
-        user.put("email", username + "@example.com");
-        user.put("role", role);
-
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("token", "stub-jwt-token");
-        payload.put("refreshToken", "stub-refresh-token");
-        payload.put("expiresIn", 3600);
-        payload.put("user", user);
-        return payload;
-    }
-
     @SuppressWarnings("unchecked")
     private Map<String, Object> normalizeAuthPayload(Map<String, Object> raw) {
         Map<String, Object> normalized = new LinkedHashMap<>();
@@ -150,15 +183,71 @@ public class AuthGraphQLResolver {
 
         Object userObj = raw.get("user");
         Map<String, Object> user = userObj instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of();
+        normalized.put("user", toGraphqlUser(user));
+        return normalized;
+    }
+
+    private Map<String, Object> toGraphqlUser(Map<String, Object> user) {
         Map<String, Object> normalizedUser = new LinkedHashMap<>();
         normalizedUser.put("id", String.valueOf(user.getOrDefault("id", "1")));
         String username = String.valueOf(user.getOrDefault("username", "user"));
         normalizedUser.put("username", username);
         normalizedUser.put("email", String.valueOf(user.getOrDefault("email", username + "@example.com")));
         normalizedUser.put("role", toGraphqlRole(String.valueOf(user.getOrDefault("role", "JOB_SEEKER"))));
+        if (user.get("approvalStatus") != null) {
+            normalizedUser.put("approvalStatus", String.valueOf(user.get("approvalStatus")));
+        }
+        toOffsetDateTime(user.get("createdAt")).ifPresent(createdAt -> normalizedUser.put("createdAt", createdAt));
+        return normalizedUser;
+    }
 
-        normalized.put("user", normalizedUser);
-        return normalized;
+    /** auth-service sends LocalDateTime without an offset; its containers run in UTC. */
+    private Optional<OffsetDateTime> toOffsetDateTime(Object value) {
+        if (value == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(LocalDateTime.parse(String.valueOf(value)).atOffset(ZoneOffset.UTC));
+        } catch (DateTimeParseException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Turns auth-service failures into client-facing GraphQL errors: its 4xx messages
+     * (wrong password, pending approval, validation) are shown as-is; anything else means
+     * the service is unavailable.
+     */
+    private Throwable toAuthFlowException(Throwable error) {
+        if (error instanceof AuthFlowException) {
+            return error;
+        }
+        if (error instanceof WebClientResponseException response && response.getStatusCode().is4xxClientError()) {
+            ErrorType type = switch (HttpStatus.valueOf(response.getStatusCode().value())) {
+                case UNAUTHORIZED -> ErrorType.UNAUTHORIZED;
+                case FORBIDDEN -> ErrorType.FORBIDDEN;
+                case NOT_FOUND -> ErrorType.NOT_FOUND;
+                default -> ErrorType.BAD_REQUEST;
+            };
+            return new AuthFlowException(type, readableMessage(response));
+        }
+        log.warn("auth-service call failed: {}", error.toString());
+        return new AuthFlowException(ErrorType.INTERNAL_ERROR, "Authentication service is unavailable. Please try again.");
+    }
+
+    @SuppressWarnings("unchecked")
+    private String readableMessage(WebClientResponseException response) {
+        String body = response.getResponseBodyAsString(StandardCharsets.UTF_8).trim();
+        if (body.startsWith("{")) {
+            try {
+                // Validation errors arrive as {"field": "message", ...}; {"error": "..."} from security handlers
+                Map<String, Object> fields = objectMapper.readValue(body, Map.class);
+                return fields.values().stream().map(String::valueOf).reduce((a, b) -> a + "; " + b).orElse(body);
+            } catch (Exception ignored) {
+                return body;
+            }
+        }
+        return body.isEmpty() ? response.getStatusText() : body;
     }
 
     private long toLong(Object value, long fallback) {

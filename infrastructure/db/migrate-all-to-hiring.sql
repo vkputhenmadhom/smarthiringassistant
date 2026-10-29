@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS hiring.auth_users (
     last_login TIMESTAMP
 );
 
+-- HR accounts need an administrator's approval; existing accounts stay usable.
+ALTER TABLE hiring.auth_users ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) NOT NULL DEFAULT 'APPROVED';
+
 CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
     id BIGSERIAL PRIMARY KEY,
     event_id VARCHAR(255) NOT NULL UNIQUE,
@@ -38,6 +41,32 @@ CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     sent_at TIMESTAMP
+);
+
+-- =========================
+-- Notification-service structures
+-- =========================
+-- Same definitions as infrastructure/db/init.sql, which Kubernetes does not run.
+CREATE TABLE IF NOT EXISTS hiring.notification_logs (
+    id BIGSERIAL PRIMARY KEY,
+    event_type VARCHAR(100) NOT NULL,
+    recipient_email VARCHAR(255),
+    recipient_phone VARCHAR(50),
+    channel VARCHAR(20) NOT NULL,
+    subject VARCHAR(500),
+    status VARCHAR(20) NOT NULL,
+    error_message TEXT,
+    reference_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_reference_id ON hiring.notification_logs(reference_id);
+
+-- Idempotency keys; notification-service prefixes its keys with 'NS:'.
+CREATE TABLE IF NOT EXISTS hiring.processed_events (
+    id BIGSERIAL PRIMARY KEY,
+    event_key VARCHAR(255) NOT NULL UNIQUE,
+    event_type VARCHAR(255) NOT NULL,
+    processed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =========================
