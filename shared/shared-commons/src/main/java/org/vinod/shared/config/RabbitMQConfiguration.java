@@ -1,202 +1,52 @@
 package org.vinod.shared.config;
 
-import org.springframework.amqp.core.*;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
-@Configuration
-public class RabbitMQConfiguration {
+/**
+ * RabbitMQ topology names shared by every service.
+ * <p>
+ * Exchanges and the dead-letter queue are declared for every service by
+ * {@link SharedRabbitAutoConfiguration}. Queues are owned by their consumer: each consuming
+ * service declares and binds its own queue, so every consumer receives every event instead of
+ * competing with other services for messages on a shared queue.
+ */
+public final class RabbitMQConfiguration {
 
     public static final String DEAD_LETTER_EXCHANGE = "events.dlx";
     public static final String DEAD_LETTER_QUEUE = "events.dlq";
 
-    // Auth Service Exchanges and Queues
+    // Auth
     public static final String AUTH_EXCHANGE = "auth.exchange";
-    public static final String USER_REGISTERED_QUEUE = "user.registered.queue";
-    public static final String USER_AUTHENTICATED_QUEUE = "user.authenticated.queue";
     public static final String USER_REGISTERED_ROUTING_KEY = "user.registered";
     public static final String USER_AUTHENTICATED_ROUTING_KEY = "user.authenticated";
+    /** Consumed by notification-service. */
+    public static final String USER_REGISTERED_QUEUE = "user.registered.queue";
 
-    // Resume Parser Exchanges and Queues
+    // Resume parser
     public static final String RESUME_EXCHANGE = "resume.exchange";
-    public static final String RESUME_PARSED_QUEUE = "resume.parsed.queue";
     public static final String RESUME_PARSED_ROUTING_KEY = "resume.parsed";
+    /** Consumed by candidate-matcher-service. */
+    public static final String RESUME_PARSED_QUEUE = "resume.parsed.queue";
 
-    // Candidate Matcher Exchanges and Queues
+    // Candidate matcher
     public static final String MATCHER_EXCHANGE = "matcher.exchange";
-    public static final String CANDIDATE_MATCHED_QUEUE = "candidate.matched.queue";
     public static final String CANDIDATE_MATCHED_ROUTING_KEY = "candidate.matched";
+    public static final String CANDIDATE_MATCHED_SCREENING_QUEUE = "screening.candidate.matched.queue";
+    public static final String CANDIDATE_MATCHED_NOTIFICATION_QUEUE = "notification.candidate.matched.queue";
+    public static final String CANDIDATE_MATCHED_ANALYTICS_QUEUE = "analytics.candidate.matched.queue";
 
-    // Job Analyzer Exchanges and Queues
+    // Job analyzer
     public static final String JOB_EXCHANGE = "job.exchange";
-    public static final String JOB_ANALYZED_QUEUE = "job.analyzed.queue";
     public static final String JOB_ANALYZED_ROUTING_KEY = "job.analyzed";
 
-    // Screening Bot Exchanges and Queues
+    // Screening bot
     public static final String SCREENING_EXCHANGE = "screening.exchange";
-    public static final String SCREENING_COMPLETED_QUEUE = "screening.completed.queue";
     public static final String SCREENING_COMPLETED_ROUTING_KEY = "screening.completed";
-    public static final String SCREENING_COMPENSATION_QUEUE = "screening.compensation.queue";
     public static final String SCREENING_COMPENSATION_ROUTING_KEY = "screening.compensation";
+    public static final String SCREENING_COMPLETED_NOTIFICATION_QUEUE = "notification.screening.completed.queue";
+    public static final String SCREENING_COMPLETED_ANALYTICS_QUEUE = "analytics.screening.completed.queue";
 
-    // Auth Exchange
-    @Bean
-    public TopicExchange authExchange() {
-        return new TopicExchange(AUTH_EXCHANGE, true, false);
-    }
+    // Interview scheduling
+    public static final String INTERVIEW_EXCHANGE = "interview.exchange";
 
-    @Bean
-    public Queue userRegisteredQueue() {
-        return QueueBuilder.durable(USER_REGISTERED_QUEUE)
-                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
-                .build();
-    }
-
-    @Bean
-    public Queue userAuthenticatedQueue() {
-        return QueueBuilder.durable(USER_AUTHENTICATED_QUEUE)
-                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
-                .build();
-    }
-
-    @Bean
-    public Binding userRegisteredBinding(@Qualifier("userRegisteredQueue") Queue userRegisteredQueue,
-                                         @Qualifier("authExchange") TopicExchange authExchange) {
-        return BindingBuilder.bind(userRegisteredQueue)
-                .to(authExchange)
-                .with(USER_REGISTERED_ROUTING_KEY);
-    }
-
-    @Bean
-    public Binding userAuthenticatedBinding(@Qualifier("userAuthenticatedQueue") Queue userAuthenticatedQueue,
-                                            @Qualifier("authExchange") TopicExchange authExchange) {
-        return BindingBuilder.bind(userAuthenticatedQueue)
-                .to(authExchange)
-                .with(USER_AUTHENTICATED_ROUTING_KEY);
-    }
-
-    // Resume Exchange
-    @Bean
-    public TopicExchange resumeExchange() {
-        return new TopicExchange(RESUME_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public Queue resumeParsedQueue() {
-        return QueueBuilder.durable(RESUME_PARSED_QUEUE)
-                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
-                .build();
-    }
-
-    @Bean
-    public Binding resumeParsedBinding(@Qualifier("resumeParsedQueue") Queue resumeParsedQueue,
-                                       @Qualifier("resumeExchange") TopicExchange resumeExchange) {
-        return BindingBuilder.bind(resumeParsedQueue)
-                .to(resumeExchange)
-                .with(RESUME_PARSED_ROUTING_KEY);
-    }
-
-    // Matcher Exchange
-    @Bean
-    public TopicExchange matcherExchange() {
-        return new TopicExchange(MATCHER_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public Queue candidateMatchedQueue() {
-        return QueueBuilder.durable(CANDIDATE_MATCHED_QUEUE)
-                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
-                .build();
-    }
-
-    @Bean
-    public Binding candidateMatchedBinding(@Qualifier("candidateMatchedQueue") Queue candidateMatchedQueue,
-                                           @Qualifier("matcherExchange") TopicExchange matcherExchange) {
-        return BindingBuilder.bind(candidateMatchedQueue)
-                .to(matcherExchange)
-                .with(CANDIDATE_MATCHED_ROUTING_KEY);
-    }
-
-    // Job Analyzer Exchange
-    @Bean
-    public TopicExchange jobExchange() {
-        return new TopicExchange(JOB_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public Queue jobAnalyzedQueue() {
-        return QueueBuilder.durable(JOB_ANALYZED_QUEUE)
-                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
-                .build();
-    }
-
-    @Bean
-    public Binding jobAnalyzedBinding(@Qualifier("jobAnalyzedQueue") Queue jobAnalyzedQueue,
-                                      @Qualifier("jobExchange") TopicExchange jobExchange) {
-        return BindingBuilder.bind(jobAnalyzedQueue)
-                .to(jobExchange)
-                .with(JOB_ANALYZED_ROUTING_KEY);
-    }
-
-    // Screening Exchange
-    @Bean
-    public TopicExchange screeningExchange() {
-        return new TopicExchange(SCREENING_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public Queue screeningCompletedQueue() {
-        return QueueBuilder.durable(SCREENING_COMPLETED_QUEUE)
-                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
-                .build();
-    }
-
-    @Bean
-    public TopicExchange deadLetterExchange() {
-        return new TopicExchange(DEAD_LETTER_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public Queue deadLetterQueue() {
-        return QueueBuilder.durable(DEAD_LETTER_QUEUE).build();
-    }
-
-    @Bean
-    public Binding deadLetterBinding(@Qualifier("deadLetterQueue") Queue deadLetterQueue,
-                                     @Qualifier("deadLetterExchange") TopicExchange deadLetterExchange) {
-        return BindingBuilder.bind(deadLetterQueue)
-                .to(deadLetterExchange)
-                .with("#");
-    }
-
-    @Bean
-    public Binding screeningCompletedBinding(@Qualifier("screeningCompletedQueue") Queue screeningCompletedQueue,
-                                             @Qualifier("screeningExchange") TopicExchange screeningExchange) {
-        return BindingBuilder.bind(screeningCompletedQueue)
-                .to(screeningExchange)
-                .with(SCREENING_COMPLETED_ROUTING_KEY);
-    }
-
-    @Bean
-    public Queue screeningCompensationQueue() {
-        return QueueBuilder.durable(SCREENING_COMPENSATION_QUEUE)
-                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
-                .build();
-    }
-
-    @Bean
-    public Binding screeningCompensationBinding(@Qualifier("screeningCompensationQueue") Queue screeningCompensationQueue,
-                                                @Qualifier("screeningExchange") TopicExchange screeningExchange) {
-        return BindingBuilder.bind(screeningCompensationQueue)
-                .to(screeningExchange)
-                .with(SCREENING_COMPENSATION_ROUTING_KEY);
-    }
-
-    // Rabbit message converter for JSON serialization
-    @Bean
-    public org.springframework.amqp.support.converter.MessageConverter jsonMessageConverter() {
-        return new org.springframework.amqp.support.converter.Jackson2JsonMessageConverter();
+    private RabbitMQConfiguration() {
     }
 }
-

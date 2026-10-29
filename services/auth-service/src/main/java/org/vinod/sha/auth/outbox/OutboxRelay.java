@@ -2,16 +2,12 @@ package org.vinod.sha.auth.outbox;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.core.Message;
-import org.springframework.amqp.core.MessageBuilder;
-import org.springframework.amqp.core.MessageDeliveryMode;
-import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.vinod.shared.messaging.JsonMessages;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -34,7 +30,7 @@ public class OutboxRelay {
         List<OutboxEvent> pending = repository.findTop100ByStatusInOrderByCreatedAtAsc(List.of(OutboxStatus.PENDING, OutboxStatus.FAILED));
         for (OutboxEvent event : pending) {
             try {
-                rabbitTemplate.send(event.getExchangeName(), event.getRoutingKey(), toJsonMessage(event.getPayloadJson()));
+                rabbitTemplate.send(event.getExchangeName(), event.getRoutingKey(), JsonMessages.of(event.getPayloadJson()));
                 event.setStatus(OutboxStatus.SENT);
                 event.setSentAt(LocalDateTime.now());
                 event.setUpdatedAt(LocalDateTime.now());
@@ -48,18 +44,6 @@ public class OutboxRelay {
                 log.warn("Outbox relay failed for eventId={}", event.getEventId(), ex);
             }
         }
-    }
-
-    /**
-     * The payload is already JSON. Sending it as-is with convertAndSend labels it text/plain,
-     * which JSON-converting consumers (notification-service) reject and drop.
-     */
-    private static Message toJsonMessage(String payloadJson) {
-        return MessageBuilder.withBody(payloadJson.getBytes(StandardCharsets.UTF_8))
-                .setContentType(MessageProperties.CONTENT_TYPE_JSON)
-                .setContentEncoding(StandardCharsets.UTF_8.name())
-                .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
-                .build();
     }
 
     @Transactional

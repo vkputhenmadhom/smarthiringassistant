@@ -17,7 +17,7 @@ public class ScreeningCompletedListener {
         this.notificationService = notificationService;
     }
 
-    @RabbitListener(queues = RabbitMQConfiguration.SCREENING_COMPLETED_QUEUE)
+    @RabbitListener(queues = RabbitMQConfiguration.SCREENING_COMPLETED_NOTIFICATION_QUEUE)
     public void onScreeningCompleted(ScreeningCompletedEvent event) {
         try {
             String key = "ScreeningCompletedEvent:" + event.getSessionId();

@@ -3,6 +3,7 @@ package org.vinod.sha.resumeparser.outbox;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.vinod.shared.messaging.JsonMessages;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -65,7 +66,8 @@ public class OutboxRelay {
     private void processClaimedEvent(Long id) {
         repository.findByIdAndStatus(id, OutboxStatus.PROCESSING).ifPresent(event -> {
             try {
-                rabbitTemplate.convertAndSend(event.getExchangeName(), event.getRoutingKey(), event.getPayloadJson());
+                // Payload is already JSON; label it so typed consumers can convert it
+                rabbitTemplate.send(event.getExchangeName(), event.getRoutingKey(), JsonMessages.of(event.getPayloadJson()));
                 event.setStatus(OutboxStatus.SENT);
                 event.setSentAt(LocalDateTime.now());
                 event.setLastError(null);

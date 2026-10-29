@@ -22,6 +22,8 @@ repositories {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
+    // Jackson 3: required by the JSON AMQP converter SharedRabbitAutoConfiguration provides to every service
+    implementation 'tools.jackson.core:jackson-databind'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation "org.projectlombok:lombok:${lombokVersion}"
     
