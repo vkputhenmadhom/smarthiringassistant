@@ -139,6 +139,9 @@ services:
     expose:
       - "8002"
     environment:
+      # Encrypts sensitive resume data; previous keys are only for reading/re-encrypting older data
+      RESUME_ENCRYPTION_KEY: ${RESUME_ENCRYPTION_KEY:?RESUME_ENCRYPTION_KEY is required (see .env.example)}
+      RESUME_ENCRYPTION_PREVIOUS_KEYS: ${RESUME_ENCRYPTION_PREVIOUS_KEYS:-}
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required (see .env.example)}

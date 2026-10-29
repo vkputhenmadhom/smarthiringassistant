@@ -129,6 +129,7 @@ jobs:
       RABBITMQ_PASSWORD: ci-rabbitmq-password
       REDIS_PASSWORD: ci-redis-password
       GRAFANA_ADMIN_PASSWORD: ci-grafana-password
+      RESUME_ENCRYPTION_KEY: ci-resume-encryption-key-for-smoke-tests-only
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -104,6 +104,7 @@ All settings live in `.env` (never committed); `.env.example` lists every variab
 | Variable | Purpose |
 |---|---|
 | `JWT_SECRET` | Signs and verifies tokens (shared by auth-service and the gateway). At least 32 random bytes, e.g. `openssl rand -base64 48`. |
+| `RESUME_ENCRYPTION_KEY` | Encrypts resume files and personal data (AES-GCM). At least 32 characters; back it up. Rotation via `RESUME_ENCRYPTION_PREVIOUS_KEYS`, see [SECURITY_SETUP.md](SECURITY_SETUP.md#resume-data-encryption). |
 | `POSTGRES_*`, `MONGO_*`, `RABBITMQ_*`, `REDIS_PASSWORD`, `GRAFANA_ADMIN_PASSWORD` | Infrastructure credentials, applied when a Docker volume is first created. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in (required by Compose). |
 | `BOOTSTRAP_ADMIN_EMAILS` | Google-verified emails that become approved HR admins on first Google sign-in. |
@@ -203,8 +204,6 @@ docs/              guides, deployment notes, frontend deep dives; docs/archive h
 - **PDF resumes are not parsed yet** (the PDF extractor is a stub); `.txt` and `.docx` work.
 - **Logs and traces are not shipped anywhere yet.** The observability profile provides Prometheus metrics
   and Grafana dashboards; Elasticsearch/Kibana and Jaeger run but services do not send logs or traces to them.
-- **The resume encryption key is not set in Compose.** resume-parser uses its built-in default
-  `RESUME_ENCRYPTION_KEY`; see [SECURITY_SETUP.md](SECURITY_SETUP.md).
 
 ## More documentation
 

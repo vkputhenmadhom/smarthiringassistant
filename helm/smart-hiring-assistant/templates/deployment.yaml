@@ -113,6 +113,13 @@ spec:
                   name: smart-hiring-secrets
                   key: mongodb-uri
             {{- end }}
+            {{- if eq $service "resumeParserService" }}
+            - name: RESUME_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: resume-encryption-key
+            {{- end }}
             {{- if eq $service "authService" }}
             - name: GOOGLE_CLIENT_ID
               valueFrom:

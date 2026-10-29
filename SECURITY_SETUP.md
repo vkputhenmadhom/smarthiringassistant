@@ -13,13 +13,35 @@ by you (`chmod 600 .env`).
 |---|---|
 | `JWT_SECRET` | At least 32 random bytes: `openssl rand -base64 48`. auth-service signs with it and the gateway verifies with it; the HMAC strength (HS256/384/512) follows the key length. Rotating it signs everyone out. |
 | `POSTGRES_PASSWORD`, `MONGO_PASSWORD`, `RABBITMQ_PASSWORD`, `REDIS_PASSWORD`, `GRAFANA_ADMIN_PASSWORD` | Unique random values. Compose refuses to start if any is missing. They are applied when a volume is first created. |
+| `RESUME_ENCRYPTION_KEY` | At least 32 characters: `openssl rand -base64 48`. Encrypts resume data (see below). **Back it up**: data encrypted with a lost key can't be recovered. |
 | `GOOGLE_CLIENT_SECRET` | From Google Cloud Console (below). |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | From the provider's console. Only ai-integration-service receives them. |
 
 In Kubernetes the same values come from the `smart-hiring-secrets` Secret (synced from AWS Secrets Manager
 by External Secrets in the overlays). Keys: `jwt-secret`, `postgres-password`, `rabbitmq-password`,
-`redis-password`, `mongodb-uri`, `google-client-id`, `google-client-secret`, `openai-api-key`, and the
+`redis-password`, `mongodb-uri`, `google-client-id`, `google-client-secret`, `resume-encryption-key`, `openai-api-key`, and the
 mail/Twilio keys. See `infrastructure/kubernetes/base/secret-template.yaml`.
+
+## Resume data encryption
+
+resume-parser encrypts uploaded resume files and the extracted name, email, phone, location and summary
+with AES-256-GCM, using a key derived from `RESUME_ENCRYPTION_KEY`. The service refuses to start without
+a key of at least 32 characters, and rejects the old public default.
+
+**Changing the key** (rotation):
+
+1. Set the new key in `RESUME_ENCRYPTION_KEY` and put the old one in `RESUME_ENCRYPTION_PREVIOUS_KEYS`
+   (comma-separated if several).
+2. Restart resume-parser. At startup it re-encrypts everything still under a previous key and logs, e.g.,
+   `files Result[reEncrypted=11, current=0, unreadable=0]`.
+3. When a restart logs `Nothing is encrypted under a previous key any more`, remove
+   `RESUME_ENCRYPTION_PREVIOUS_KEYS`.
+
+**Upgrading from earlier releases:** they used the public default `change-me-with-32-plus-char-secret`.
+If your database holds resumes from before this change, use that value as the previous key once, as above.
+
+If a stored value can't be decrypted with any configured key, the service logs a warning instead of
+returning garbled data; check that the right previous key is configured.
 
 ## Google sign-in
 
@@ -79,9 +101,6 @@ LinkedIn is configured in auth-service but has no credentials by default.
 
 ## Known gaps
 
-- **Resume encryption key:** resume-parser encrypts sensitive resume fields with `RESUME_ENCRYPTION_KEY`,
-  but Docker Compose doesn't pass it, so local stacks use the built-in default key. Setting a new key
-  needs a migration step for resumes already stored with the old one.
 - **Frontends run nginx as root** (needed to bind port 80); an unprivileged nginx image on port 8080
   would remove that.
 - **Kustomize** doesn't pass `BOOTSTRAP_ADMIN_EMAILS`; Helm does (`services.authService.bootstrapAdminEmails`).
@@ -93,5 +112,5 @@ LinkedIn is configured in auth-service but has no credentials by default.
 - [ ] `APP_CORS_ALLOWED_ORIGINS` lists only your real frontend origins
 - [ ] Google redirect URI points at your production auth host
 - [ ] `BOOTSTRAP_ADMIN_EMAILS` contains only intended administrators
-- [ ] The resume encryption key is set (see Known gaps)
+- [ ] `RESUME_ENCRYPTION_KEY` is a unique random value and is backed up
 - [ ] TLS terminates in front of the gateway and auth-service
