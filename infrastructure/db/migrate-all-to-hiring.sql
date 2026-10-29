@@ -41,6 +41,20 @@ CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
 );
 
 -- =========================
+-- Notification-service structures
+-- =========================
+CREATE TABLE IF NOT EXISTS hiring.notification_log (
+    id BIGSERIAL PRIMARY KEY,
+    reference_id VARCHAR(255) NOT NULL UNIQUE,
+    event_type VARCHAR(255) NOT NULL,
+    status VARCHAR(255) NOT NULL,
+    payload TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_log_reference_id ON hiring.notification_log (reference_id);
+
+-- =========================
 -- Resume-parser structures
 -- =========================
 CREATE TABLE IF NOT EXISTS hiring.resume_parser_parsed_data (

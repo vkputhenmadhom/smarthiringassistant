@@ -48,6 +48,20 @@ data:
     );
 
     -- =========================
+    -- Notification-service structures
+    -- =========================
+    CREATE TABLE IF NOT EXISTS hiring.notification_log (
+        id BIGSERIAL PRIMARY KEY,
+        reference_id VARCHAR(255) NOT NULL UNIQUE,
+        event_type VARCHAR(255) NOT NULL,
+        status VARCHAR(255) NOT NULL,
+        payload TEXT,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_log_reference_id ON hiring.notification_log (reference_id);
+
+    -- =========================
     -- Resume-parser structures
     -- =========================
     CREATE TABLE IF NOT EXISTS hiring.resume_parser_parsed_data (
@@ -313,4 +327,14 @@ data:
     GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA hiring TO hiring_user;
 
     COMMIT;
+
+    -- Optional cleanup after successful service cutover:
+    -- DROP TABLE IF EXISTS public.users;
+    -- DROP TABLE IF EXISTS public.event_outbox;
+    -- DROP TABLE IF EXISTS public.parsed_resume_data;
+    -- DROP TABLE IF EXISTS public.resume_experience;
+    -- DROP TABLE IF EXISTS public.resume_education;
+    -- DROP TABLE IF EXISTS public.resume_skills;
+    -- DROP TABLE IF EXISTS public.resume_certifications;
+    -- DROP TABLE IF EXISTS public.resumes;
 
