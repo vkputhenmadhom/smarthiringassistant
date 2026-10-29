@@ -5,6 +5,7 @@ resources:
   - namespace.yaml
   - db-migration-configmap.yaml
   - api-gateway.yaml
+  - auth-service.yaml
   - resume-parser-service.yaml
   - screening-bot-service.yaml
   - candidate-matcher-service.yaml

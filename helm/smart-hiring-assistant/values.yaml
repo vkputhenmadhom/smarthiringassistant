@@ -2,6 +2,8 @@
 global:
   namespace: smart-hiring
   environment: staging
+  # "docker" profile resolves peers (auth-service, redis, ...) by DNS name, matching these Services
+  springProfile: docker
   imagePullPolicy: IfNotPresent
   domain: staging-hr.smarthiringassistant.com
 image:
@@ -65,6 +67,7 @@ services:
     replicas: 1
     image: auth-service
     port: 8001
+    managementPort: 9001   # actuator runs on a separate port without the /api/auth context path
     resources:
       requests:
         cpu: 200m
@@ -82,11 +85,11 @@ services:
       enabled: true
     probes:
       readiness:
-        path: /api/auth/actuator/health/readiness
+        path: /actuator/health/readiness
         initialDelaySeconds: 30
         periodSeconds: 10
       liveness:
-        path: /api/auth/actuator/health/liveness
+        path: /actuator/health/liveness
         initialDelaySeconds: 75
         periodSeconds: 20
   resumeParserService:

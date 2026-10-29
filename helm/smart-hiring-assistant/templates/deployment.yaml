@@ -61,6 +61,10 @@ spec:
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ $config.port }}
+            {{- if $config.managementPort }}
+            - name: management
+              containerPort: {{ $config.managementPort }}
+            {{- end }}
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: {{ include "smart-hiring-assistant.springProfile" $ }}
@@ -75,20 +79,6 @@ spec:
                 secretKeyRef:
                   name: smart-hiring-secrets
                   key: postgres-password
-            {{- if eq $service "apiGateway" }}
-            - name: SPRING_DATA_REDIS_HOST
-              value: {{ $.Values.redis.host }}
-            - name: SPRING_DATA_REDIS_PORT
-              value: {{ $.Values.redis.port | quote }}
-            {{- end }}
-            {{- if has $service (list "apiGateway" "authService" "resumeParserService" "screeningBotService") }}
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: smart-hiring-secrets
-                  key: jwt-secret
-            {{- end }}
-            {{- if eq $service "notificationService" }}
             - name: SPRING_RABBITMQ_HOST
               value: {{ $.Values.rabbitmq.host }}
             - name: SPRING_RABBITMQ_PORT
@@ -100,6 +90,49 @@ spec:
                 secretKeyRef:
                   name: smart-hiring-secrets
                   key: rabbitmq-password
+            {{- if has $service (list "apiGateway" "candidateMatcherService" "screeningBotService") }}
+            - name: SPRING_DATA_REDIS_HOST
+              value: {{ $.Values.redis.host }}
+            - name: SPRING_DATA_REDIS_PORT
+              value: {{ $.Values.redis.port | quote }}
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: redis-password
+            {{- end }}
+            {{- if has $service (list "interviewPrepService" "jobAnalyzerService" "screeningBotService") }}
+            - name: SPRING_MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: mongodb-uri
+            - name: SPRING_DATA_MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: mongodb-uri
+            {{- end }}
+            {{- if eq $service "authService" }}
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: google-client-id
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: google-client-secret
+            {{- end }}
+            {{- if has $service (list "apiGateway" "authService" "resumeParserService" "screeningBotService") }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: jwt-secret
+            {{- end }}
+            {{- if eq $service "notificationService" }}
             - name: MAIL_HOST
               value: {{ $.Values.mail.host }}
             - name: MAIL_PORT
@@ -134,7 +167,7 @@ spec:
           readinessProbe:
             httpGet:
               path: {{ $config.probes.readiness.path }}
-              port: {{ $config.port }}
+              port: {{ $config.managementPort | default $config.port }}
             initialDelaySeconds: {{ $config.probes.readiness.initialDelaySeconds | default 30 }}
             periodSeconds: {{ $config.probes.readiness.periodSeconds | default 10 }}
             timeoutSeconds: 3
@@ -144,7 +177,7 @@ spec:
           livenessProbe:
             httpGet:
               path: {{ $config.probes.liveness.path }}
-              port: {{ $config.port }}
+              port: {{ $config.managementPort | default $config.port }}
             initialDelaySeconds: {{ $config.probes.liveness.initialDelaySeconds | default 75 }}
             periodSeconds: {{ $config.probes.liveness.periodSeconds | default 20 }}
             timeoutSeconds: 3
