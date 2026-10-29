@@ -11,7 +11,9 @@ import org.vinod.sha.matcher.entity.CandidateMatch;
 import org.vinod.sha.matcher.entity.MatchStatus;
 import org.vinod.sha.matcher.service.CandidateMatcherService;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -122,24 +124,23 @@ public class CandidateMatcherController {
     }
 
     @PutMapping("{matchId}")
-    public ResponseEntity<MatchResponse> updateMatchStatus(
+    public ResponseEntity<?> updateMatchStatus(
             @PathVariable String matchId,
             @RequestBody MatchUpdateRequest request) {
         log.info("Updating match: {} status to: {}", matchId, request.getStatus());
 
+        MatchStatus status;
         try {
-            CandidateMatch match = candidateMatcherService.updateMatchStatus(
-                    matchId,
-                    MatchStatus.valueOf(request.getStatus()),
-                    request.getComments()
-            );
-
-            return ResponseEntity.ok(convertToResponse(match));
-
-        } catch (Exception e) {
-            log.error("Error updating match status", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            status = MatchStatus.valueOf(String.valueOf(request.getStatus()).trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException unknown) {
+            return ResponseEntity.badRequest().body("Unknown match status " + request.getStatus()
+                    + "; use one of " + Arrays.toString(MatchStatus.values()));
         }
+        if (candidateMatcherService.findMatch(matchId).isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        CandidateMatch match = candidateMatcherService.updateMatchStatus(matchId, status, request.getComments());
+        return ResponseEntity.ok(convertToResponse(match));
     }
 
     private MatchResponse convertToResponse(CandidateMatch match) {
@@ -152,6 +153,8 @@ public class CandidateMatcherController {
                 .experienceMatchPercentage(match.getExperienceMatchPercentage())
                 .locationMatchPercentage(match.getLocationMatchPercentage())
                 .status(match.getStatus().toString())
+                .matchedSkills(match.getMatchedSkills())
+                .missingSkills(match.getMissingSkills())
                 .createdAt(match.getCreatedAt().toString())
                 .build();
     }

@@ -9,8 +9,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ScreeningSession } from '../../../shared/models';
-import { loadScreenings, selectScreening } from '../../../store/screening/screening.actions';
-import { selectAllScreenings, selectScreeningLoading } from '../../../store/screening/screening.selectors';
+import { dismissScreeningError, loadScreenings, selectScreening } from '../../../store/screening/screening.actions';
+import { selectAllScreenings, selectScreeningError, selectScreeningLoading } from '../../../store/screening/screening.selectors';
 
 @Component({
   selector: 'sha-screening-list',
@@ -18,6 +18,11 @@ import { selectAllScreenings, selectScreeningLoading } from '../../../store/scre
   imports: [CommonModule, RouterLink, MatTableModule, MatButtonModule, MatIconModule, MatCardModule, MatProgressSpinnerModule],
   template: `
     <div class="page-header"><h1>Screening Sessions</h1><p>Monitor active screening pipelines</p></div>
+    <div class="error-banner" role="alert" *ngIf="error$ | async as error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+      <button mat-icon-button (click)="dismissError()" aria-label="Dismiss"><mat-icon>close</mat-icon></button>
+    </div>
     <mat-card class="panel">
       <mat-card-content>
         <mat-spinner *ngIf="loading$ | async" diameter="40" style="display:block;margin:1rem auto"></mat-spinner>
@@ -76,6 +81,7 @@ export class ScreeningListComponent implements OnInit {
   private store = inject(Store);
   sessions$: Observable<ScreeningSession[]> = this.store.select(selectAllScreenings);
   loading$: Observable<boolean> = this.store.select(selectScreeningLoading);
+  error$: Observable<string | null> = this.store.select(selectScreeningError);
   cols = ['id', 'candidateId', 'stage', 'status', 'decision', 'score', 'actions'];
 
   ngOnInit(): void {
@@ -84,6 +90,10 @@ export class ScreeningListComponent implements OnInit {
 
   select(id: string): void {
     this.store.dispatch(selectScreening({ id }));
+  }
+
+  dismissError(): void {
+    this.store.dispatch(dismissScreeningError());
   }
 
   statusChip(s: string): string {

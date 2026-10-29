@@ -1,5 +1,6 @@
 package org.vinod.sha.gateway.realtime;
 
+import org.vinod.sha.gateway.graphql.MatchViews;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Binding;
@@ -378,8 +379,8 @@ class GatewayRabbitSubscriptionListener {
         payload.put("id", valueOrUuid(event.getMatchId()));
         payload.put("candidateId", String.valueOf(event.getCandidateId()));
         payload.put("jobId", event.getJobId());
-        payload.put("score", normalizeScore(event.getMatchScore()));
-        payload.put("status", toGraphqlMatchStatus(event.getStatus()));
+        payload.put("score", MatchViews.score(event.getMatchScore()));
+        payload.put("status", MatchViews.status(event.getStatus()));
         payload.put("skillMatches", List.of());
         payload.put("skillGaps", List.of());
         payload.put("matchedAt", toIsoTimestamp(event.getMatchedAt()));
@@ -419,27 +420,6 @@ class GatewayRabbitSubscriptionListener {
 
     private String valueOrUuid(String value) {
         return (value == null || value.isBlank()) ? UUID.randomUUID().toString() : value;
-    }
-
-    private double normalizeScore(Double rawScore) {
-        if (rawScore == null) {
-            return 0.0;
-        }
-        double normalized = rawScore > 1.0 ? rawScore / 100.0 : rawScore;
-        return Math.max(0.0, Math.min(1.0, normalized));
-    }
-
-    private String toGraphqlMatchStatus(String status) {
-        if (status == null || status.isBlank()) {
-            return "PENDING";
-        }
-        return switch (status.toUpperCase()) {
-            case "MATCHED" -> "MATCHED";
-            case "REJECTED" -> "REJECTED";
-            case "ACCEPTED" -> "SHORTLISTED";
-            case "HIRED" -> "HIRED";
-            default -> "PENDING";
-        };
     }
 
     private String toIsoTimestamp(long epoch) {

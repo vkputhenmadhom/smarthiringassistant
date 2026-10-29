@@ -3,6 +3,7 @@ package org.vinod.sha.gateway.graphql;
 import graphql.ErrorClassification;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.graphql.data.method.annotation.*;
+import org.springframework.graphql.execution.ErrorType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -17,6 +18,7 @@ public class CandidateGraphQLResolver {
 
     private static final String RESUME_PARSER_BACKEND = "resume-parser-service";
     private static final String MATCHER_BACKEND = "candidate-matcher-service";
+    private static final String MATCHER_BASE = "http://candidate-matcher-service:8003/api/matches";
     static final ErrorClassification NOT_SUPPORTED = ErrorClassification.errorClassification("NOT_SUPPORTED");
 
 
@@ -77,48 +79,28 @@ public class CandidateGraphQLResolver {
 
     @QueryMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
-    public Map<String, Object> matchesForJob(@Argument String jobId,
-                                              @Argument Integer page,
-                                              @Argument Integer size) {
-        int p = page == null ? 0 : page;
-        int s = size == null ? 20 : size;
-        try {
-            return gatewayResilience.protect(MATCHER_BACKEND,
-                            webClientBuilder.build()
-                                    .get().uri("http://candidate-matcher-service:8003/matches/job/" + jobId + "?page=" + p + "&size=" + s)
-                                    .retrieve().bodyToMono(Map.class)
-                                    .map(this::toStringObjectMap))
-                    .block();
-        } catch (Exception e) {
-            return emptyPage();
-        }
+    public Mono<Map<String, Object>> matchesForJob(@Argument String jobId,
+                                                   @Argument Integer page,
+                                                   @Argument Integer size) {
+        return requestMatches(MATCHER_BASE + "/job/" + jobId + "/matches", "the matches for job " + jobId, page, size);
     }
 
+    /** HR can read any candidate's matches; a candidate only their own. */
     @QueryMapping
     @PreAuthorize("isAuthenticated()")
-    public Map<String, Object> matchesForCandidate(@Argument String candidateId,
-                                                    @Argument Integer page,
-                                                    @Argument Integer size) {
-        int p = page == null ? 0 : page;
-        int s = size == null ? 20 : size;
-        try {
-            return gatewayResilience.protect(MATCHER_BACKEND,
-                            webClientBuilder.build()
-                                    .get().uri("http://candidate-matcher-service:8003/matches/candidate/" + candidateId + "?page=" + p + "&size=" + s)
-                                    .retrieve().bodyToMono(Map.class)
-                                    .map(this::toStringObjectMap))
-                    .block();
-        } catch (Exception e) {
-            return emptyPage();
-        }
+    public Mono<Map<String, Object>> matchesForCandidate(@Argument String candidateId,
+                                                         @Argument Integer page,
+                                                         @Argument Integer size) {
+        return Caller.current().flatMap(caller -> caller.mayRead(candidateId)
+                ? requestMatches(MATCHER_BASE + "/candidate/" + candidateId + "/matches",
+                        "the matches for candidate " + candidateId, page, size)
+                : Mono.error(new ClientFacingException(ErrorType.FORBIDDEN, "You can only see your own matches.")));
     }
 
-    // ── Mutations ────────────────────────────────────────────────────────────
-
     /**
-     * Not wired to candidate-matcher yet: the matcher needs the candidate's parsed resume (skills, experience,
+     * Not wired to candidate-matcher: the matcher needs the candidate's parsed resume (skills, experience,
      * location) to score a pair, which this mutation does not have. Matching runs automatically when a resume
-     * is parsed. This used to answer with a made-up 75% match.
+     * is parsed.
      */
     @MutationMapping
     @PreAuthorize("isAuthenticated()")
@@ -129,20 +111,31 @@ public class CandidateGraphQLResolver {
                         + "Candidates are matched to every open job automatically when their resume is parsed."));
     }
 
-    /**
-     * Not wired to candidate-matcher yet: the matcher's statuses (NEW, REVIEWED, ACCEPTED, REJECTED) do not
-     * line up with the GraphQL MatchStatus (PENDING, MATCHED, SHORTLISTED, REJECTED, HIRED). This used to
-     * answer with a stub match, so the change looked saved when it was not.
-     */
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> updateMatchStatus(@Argument String matchId,
                                                        @Argument String status) {
-        return Mono.error(new ClientFacingException(NOT_SUPPORTED,
-                "Changing a match's status is not supported yet, so match " + matchId + " was not changed."));
+        return gatewayResilience.protectWrite(MATCHER_BACKEND,
+                        webClientBuilder.build()
+                                .put().uri(MATCHER_BASE + "/" + matchId)
+                                .bodyValue(Map.of("status", status))
+                                .retrieve().bodyToMono(Map.class))
+                .map(raw -> MatchViews.match(toStringObjectMap(raw)))
+                .onErrorMap(e -> BackendErrors.write("matching service", "update", "match " + matchId,
+                        "Reload the matches", e));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private Mono<Map<String, Object>> requestMatches(String uri, String what, Integer page, Integer size) {
+        return gatewayResilience.protect(MATCHER_BACKEND,
+                        webClientBuilder.build().get().uri(uri)
+                                .retrieve().bodyToFlux(Map.class)
+                                .map(this::toStringObjectMap)
+                                .collectList())
+                .map(matches -> MatchViews.page(matches, page == null ? 0 : page, size == null ? 20 : size))
+                .onErrorMap(e -> BackendErrors.read("matching service", what, e));
+    }
 
     private Map<String, Object> emptyPage() {
         Map<String, Object> m = new LinkedHashMap<>();

@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -18,6 +20,8 @@ public class MatchResponse {
     private Double experienceMatchPercentage;
     private Double locationMatchPercentage;
     private String status;
+    private List<String> matchedSkills;
+    private List<String> missingSkills;
     private String createdAt;
 }
 
