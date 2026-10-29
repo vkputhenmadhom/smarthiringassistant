@@ -201,6 +201,10 @@ resilience4j:
           - org.springframework.web.reactive.function.client.WebClientResponseException$Forbidden
           - org.springframework.web.reactive.function.client.WebClientResponseException$NotFound
           - org.springframework.web.reactive.function.client.WebClientResponseException$Conflict
+      # Writes (GatewayResilience.protectWrite): some run AI analysis and take several seconds.
+      write:
+        baseConfig: default
+        slowCallDurationThreshold: 30s
     instances:
       auth-service:
         baseConfig: default
@@ -245,6 +249,10 @@ resilience4j:
       default:
         timeoutDuration: 2s
         cancelRunningFuture: true
+      # Writes are never retried (GatewayResilience.protectWrite), so give them time to finish.
+      write:
+        baseConfig: default
+        timeoutDuration: 30s
     instances:
       auth-service:
         baseConfig: default

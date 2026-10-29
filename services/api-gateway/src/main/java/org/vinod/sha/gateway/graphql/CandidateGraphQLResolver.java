@@ -118,7 +118,7 @@ public class CandidateGraphQLResolver {
                                                 @Argument String jobId) {
         Map<String, Object> body = Map.of("candidateId", candidateId, "jobId", jobId);
         try {
-            return gatewayResilience.protect(MATCHER_BACKEND,
+            return gatewayResilience.protectWrite(MATCHER_BACKEND,
                             webClientBuilder.build()
                                     .post().uri("http://candidate-matcher-service:8003/matches")
                                     .bodyValue(body)
@@ -136,7 +136,7 @@ public class CandidateGraphQLResolver {
                                                   @Argument String status) {
         Map<String, Object> body = Map.of("status", status);
         try {
-            return gatewayResilience.protect(MATCHER_BACKEND,
+            return gatewayResilience.protectWrite(MATCHER_BACKEND,
                             webClientBuilder.build()
                                     .put().uri("http://candidate-matcher-service:8003/matches/" + matchId + "/status")
                                     .bodyValue(body)

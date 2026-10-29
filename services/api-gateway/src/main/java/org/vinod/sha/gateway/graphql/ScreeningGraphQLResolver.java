@@ -174,7 +174,7 @@ public class ScreeningGraphQLResolver {
     public Mono<Map<String, Object>> startScreening(@Argument String candidateId,
                                                      @Argument String jobId) {
         Map<String, Object> body = Map.of("candidateId", Long.valueOf(candidateId), "jobId", jobId);
-        return gatewayResilience.protect(SCREENING_BACKEND,
+        return gatewayResilience.protectWrite(SCREENING_BACKEND,
                         webClientBuilder.build()
                                 .post().uri(SCREENING_SERVICE_BASE + "/sessions")
                                 .bodyValue(body)
@@ -189,7 +189,7 @@ public class ScreeningGraphQLResolver {
                                                               @Argument String stage,
                                                               @Argument String response) {
         Map<String, Object> body = Map.of("stage", stage, "response", response);
-        return gatewayResilience.protect(SCREENING_BACKEND,
+        return gatewayResilience.protectWrite(SCREENING_BACKEND,
                         webClientBuilder.build()
                                 .post().uri(SCREENING_SERVICE_BASE + "/sessions/" + sessionId + "/responses")
                                 .bodyValue(body)
@@ -201,7 +201,7 @@ public class ScreeningGraphQLResolver {
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> advanceScreening(@Argument String sessionId) {
-        return gatewayResilience.protect(SCREENING_BACKEND,
+        return gatewayResilience.protectWrite(SCREENING_BACKEND,
                         webClientBuilder.build()
                                 .post().uri(SCREENING_SERVICE_BASE + "/sessions/" + sessionId + "/advance")
                                 .retrieve().bodyToMono(Map.class))

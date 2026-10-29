@@ -14,6 +14,10 @@ import reactor.core.publisher.Mono;
 @Component
 public class GatewayResilience {
 
+    /** Resilience4j config (application.yaml) for calls that change data: longer timeout, own breaker. */
+    static final String WRITE_CONFIG = "write";
+    static final String WRITE_SUFFIX = "-write";
+
     private final CircuitBreakerRegistry circuitBreakerRegistry;
     private final RetryRegistry retryRegistry;
     private final TimeLimiterRegistry timeLimiterRegistry;
@@ -29,6 +33,7 @@ public class GatewayResilience {
         this.bulkheadRegistry = bulkheadRegistry;
     }
 
+    /** For reads and other calls that are safe to repeat: time limit, retry and circuit breaker. */
     public <T> Mono<T> protect(String backendName, Mono<T> source) {
         return source
                 .transformDeferred(BulkheadOperator.of(bulkheadRegistry.bulkhead(backendName)))
@@ -36,5 +41,22 @@ public class GatewayResilience {
                 .transformDeferred(RetryOperator.of(retryRegistry.retry(backendName)))
                 .transformDeferred(CircuitBreakerOperator.of(circuitBreakerRegistry.circuitBreaker(backendName)));
     }
-}
 
+    /**
+     * For calls that create or change data. Never retried: a timed-out attempt may still complete in the
+     * backend, so a retry would apply the change twice (e.g. one createJob saving three jobs). The time
+     * limit is longer because some writes run AI analysis, and slow writes use their own circuit breaker
+     * so they don't open the one that guards the backend's reads.
+     */
+    public <T> Mono<T> protectWrite(String backendName, Mono<T> source) {
+        String writeName = backendName + WRITE_SUFFIX;
+        return source
+                .transformDeferred(BulkheadOperator.of(bulkheadRegistry.bulkhead(backendName)))
+                .transformDeferred(TimeLimiterOperator.of(timeLimiterRegistry.getConfiguration(WRITE_CONFIG)
+                        .map(config -> timeLimiterRegistry.timeLimiter(writeName, config))
+                        .orElseGet(() -> timeLimiterRegistry.timeLimiter(writeName))))
+                .transformDeferred(CircuitBreakerOperator.of(circuitBreakerRegistry.getConfiguration(WRITE_CONFIG)
+                        .map(config -> circuitBreakerRegistry.circuitBreaker(writeName, config))
+                        .orElseGet(() -> circuitBreakerRegistry.circuitBreaker(writeName))));
+    }
+}
