@@ -10,7 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { register } from '../../../store/auth/auth.actions';
-import { selectAuthLoading, selectAuthError } from '../../../store/auth/auth.selectors';
+import { selectAuthLoading, selectAuthError, selectAuthNotice } from '../../../store/auth/auth.selectors';
 
 @Component({
   selector: 'sha-register',
@@ -28,6 +28,11 @@ import { selectAuthLoading, selectAuthError } from '../../../store/auth/auth.sel
           <p class="subtitle">Create your account</p>
         </mat-card-header>
         <mat-card-content>
+          <div class="notice-msg" *ngIf="notice$ | async as notice; else registerForm">
+            <mat-icon>hourglass_top</mat-icon>
+            <p>{{ notice }}</p>
+          </div>
+          <ng-template #registerForm>
           <form [formGroup]="form" (ngSubmit)="submit()">
             <mat-form-field appearance="outline" class="w-full">
               <mat-label>Username</mat-label>
@@ -56,7 +61,9 @@ import { selectAuthLoading, selectAuthError } from '../../../store/auth/auth.sel
             <button mat-raised-button color="primary" class="w-full" type="submit" [disabled]="form.invalid || (loading$ | async)">
               Create Account
             </button>
+            <p class="hint">HR Admin and Recruiter accounts need an administrator's approval before first sign-in.</p>
           </form>
+          </ng-template>
         </mat-card-content>
         <mat-card-actions>
           <p class="register-link">Already have an account? <a routerLink="/auth/login">Sign in</a></p>
@@ -70,6 +77,8 @@ import { selectAuthLoading, selectAuthError } from '../../../store/auth/auth.sel
     .brand{display:flex;align-items:center;gap:.6rem;mat-icon{font-size:2rem;color:#3f51b5;}h1{font-size:1.3rem;font-weight:700;}}
     .subtitle{color:#666;font-size:.85rem;margin:.25rem 0 1.5rem;}
     .error-msg{color:#c62828;font-size:.85rem;margin-bottom:.5rem;}
+    .notice-msg{display:flex;gap:.75rem;align-items:flex-start;background:#e8eaf6;border-radius:8px;padding:1rem;margin-bottom:1rem;mat-icon{color:#3f51b5;}p{margin:0;}}
+    .hint{color:#666;font-size:.75rem;margin-top:.75rem;}
     .register-link{text-align:center;font-size:.85rem;}
     mat-form-field{display:block;margin-bottom:.5rem;}
   `],
@@ -79,6 +88,7 @@ export class RegisterComponent {
   private fb    = inject(FormBuilder);
   loading$      = this.store.select(selectAuthLoading);
   error$        = this.store.select(selectAuthError);
+  notice$       = this.store.select(selectAuthNotice);
   hide          = true;
 
   form = this.fb.group({

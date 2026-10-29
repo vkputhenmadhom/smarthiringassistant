@@ -47,6 +47,13 @@ export const appRoutes: Routes = [
         data: { roles: ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN'] },
       },
       {
+        // Approving HR accounts is ADMIN-only (also enforced by the gateway and auth-service)
+        path: 'approvals',
+        loadComponent: () => import('./features/approvals/approvals.component').then(m => m.ApprovalsComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['HR_ADMIN', 'SUPER_ADMIN'] },
+      },
+      {
         path: 'analytics',
         loadComponent: () => import('./features/analytics/analytics.component').then(m => m.AnalyticsComponent),
         canActivate: [roleGuard],

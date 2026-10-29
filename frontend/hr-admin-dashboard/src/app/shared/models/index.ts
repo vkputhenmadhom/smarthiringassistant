@@ -3,10 +3,13 @@ export interface User {
   username: string;
   email: string;
   role: Role;
+  approvalStatus?: ApprovalStatus;
   createdAt?: string;
 }
 
 export type Role = 'CANDIDATE' | 'HR_ADMIN' | 'RECRUITER' | 'SUPER_ADMIN';
+
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface AuthPayload {
   token: string;
