@@ -8,9 +8,11 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 import org.vinod.shared.config.RabbitMQConfiguration;
 import org.vinod.shared.events.JobAnalyzedEvent;
 import org.vinod.sha.analyzer.dto.JobAnalyzeRequest;
@@ -295,7 +297,8 @@ public class JobAnalyzerService {
     }
 
     public JobAnalysis getById(String id) {
-        return repository.findById(id).orElseThrow(() -> new RuntimeException("Analysis not found: " + id));
+        return repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Analysis not found: " + id));
     }
 
     private boolean matchesSource(JobAnalysis job, String source) {

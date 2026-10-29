@@ -6,16 +6,16 @@ import graphql.schema.DataFetchingEnvironment;
 import org.springframework.graphql.execution.DataFetcherExceptionResolverAdapter;
 import org.springframework.stereotype.Component;
 
-/** Surfaces {@link AuthFlowException} messages instead of a generic INTERNAL_ERROR. */
+/** Surfaces {@link ClientFacingException} messages (auth outcomes, job write failures) instead of a generic INTERNAL_ERROR. */
 @Component
-public class AuthFlowExceptionResolver extends DataFetcherExceptionResolverAdapter {
+public class ClientFacingExceptionResolver extends DataFetcherExceptionResolverAdapter {
 
     @Override
     protected GraphQLError resolveToSingleError(Throwable ex, DataFetchingEnvironment env) {
-        if (ex instanceof AuthFlowException authFlow) {
+        if (ex instanceof ClientFacingException clientFacing) {
             return GraphqlErrorBuilder.newError(env)
-                    .errorType(authFlow.getClassification())
-                    .message(authFlow.getMessage())
+                    .errorType(clientFacing.getClassification())
+                    .message(clientFacing.getMessage())
                     .build();
         }
         return null;
