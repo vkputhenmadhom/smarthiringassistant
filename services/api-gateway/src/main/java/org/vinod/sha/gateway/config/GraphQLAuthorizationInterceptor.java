@@ -57,6 +57,9 @@ public class GraphQLAuthorizationInterceptor implements WebGraphQlInterceptor {
     /** auth-service {@code UserRole} values allowed to use HR fields. */
     static final Set<String> HR_ROLES = Set.of("ADMIN", "RECRUITER", "HIRING_MANAGER");
 
+    /** Account approval is reserved for administrators. */
+    static final Set<String> ADMIN_FIELDS = Set.of("pendingUsers", "approveUser", "rejectUser");
+
     private final ReactiveJwtDecoder jwtDecoder;
     private final GraphQLContextInterceptor contextInterceptor;
 
@@ -74,6 +77,7 @@ public class GraphQLAuthorizationInterceptor implements WebGraphQlInterceptor {
         }
         boolean requiresAuthentication = !PUBLIC_FIELDS.containsAll(fields.get());
         boolean requiresHrRole = fields.get().stream().anyMatch(HR_FIELDS::contains);
+        boolean requiresAdminRole = fields.get().stream().anyMatch(ADMIN_FIELDS::contains);
 
         return verifiedJwt(contextInterceptor.resolveAuthorization(request))
                 .map(Optional::of)
@@ -84,7 +88,8 @@ public class GraphQLAuthorizationInterceptor implements WebGraphQlInterceptor {
                                 ? Mono.just(deny(request, ErrorType.UNAUTHORIZED, "Authentication required"))
                                 : chain.next(request);
                     }
-                    if (requiresHrRole && !HR_ROLES.contains(jwt.get().getClaimAsString("role"))) {
+                    String role = jwt.get().getClaimAsString("role");
+                    if ((requiresHrRole && !HR_ROLES.contains(role)) || (requiresAdminRole && !"ADMIN".equals(role))) {
                         return Mono.just(deny(request, ErrorType.FORBIDDEN, "Insufficient role for this operation"));
                     }
                     return GatewaySecurityConfig.jwtAuthenticationConverter().convert(jwt.get())

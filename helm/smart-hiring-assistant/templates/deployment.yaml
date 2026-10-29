@@ -124,6 +124,8 @@ spec:
                 secretKeyRef:
                   name: smart-hiring-secrets
                   key: google-client-secret
+            - name: BOOTSTRAP_ADMIN_EMAILS
+              value: {{ $config.bootstrapAdminEmails | default "" | quote }}
             {{- end }}
             {{- if has $service (list "apiGateway" "authService" "resumeParserService" "screeningBotService") }}
             - name: JWT_SECRET

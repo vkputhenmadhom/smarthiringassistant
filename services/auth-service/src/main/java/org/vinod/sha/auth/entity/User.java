@@ -44,6 +44,11 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private UserRole role;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", nullable = false, length = 20)
+    @Builder.Default
+    private ApprovalStatus approvalStatus = ApprovalStatus.APPROVED;
+
     @Column(nullable = false)
     @Builder.Default
     private Boolean enabled = true;
@@ -103,6 +108,10 @@ public class User implements UserDetails {
     @Override
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public boolean isApproved() {
+        return approvalStatus == ApprovalStatus.APPROVED;
     }
 }
 

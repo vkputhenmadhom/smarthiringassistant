@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS hiring.auth_users (
     last_login TIMESTAMP
 );
 
+-- HR accounts need an administrator's approval; existing accounts stay usable.
+ALTER TABLE hiring.auth_users ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) NOT NULL DEFAULT 'APPROVED';
+
 CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
     id BIGSERIAL PRIMARY KEY,
     event_id VARCHAR(255) NOT NULL UNIQUE,
@@ -39,20 +42,6 @@ CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
     updated_at TIMESTAMP NOT NULL,
     sent_at TIMESTAMP
 );
-
--- =========================
--- Notification-service structures
--- =========================
-CREATE TABLE IF NOT EXISTS hiring.notification_log (
-    id BIGSERIAL PRIMARY KEY,
-    reference_id VARCHAR(255) NOT NULL UNIQUE,
-    event_type VARCHAR(255) NOT NULL,
-    status VARCHAR(255) NOT NULL,
-    payload TEXT,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_log_reference_id ON hiring.notification_log (reference_id);
 
 -- =========================
 -- Resume-parser structures

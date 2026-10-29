@@ -68,6 +68,8 @@ services:
     image: auth-service
     port: 8001
     managementPort: 9001   # actuator runs on a separate port without the /api/auth context path
+    # Google-verified emails that become approved ADMINs on first OAuth2 sign-in
+    bootstrapAdminEmails: ""
     resources:
       requests:
         cpu: 200m

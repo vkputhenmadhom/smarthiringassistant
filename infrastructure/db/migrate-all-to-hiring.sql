@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS hiring.auth_users (
     last_login TIMESTAMP
 );
 
+-- HR accounts need an administrator's approval; existing accounts stay usable.
+ALTER TABLE hiring.auth_users ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) NOT NULL DEFAULT 'APPROVED';
+
 CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
     id BIGSERIAL PRIMARY KEY,
     event_id VARCHAR(255) NOT NULL UNIQUE,

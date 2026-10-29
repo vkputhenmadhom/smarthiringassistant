@@ -111,6 +111,20 @@ class GraphQLAuthorizationInterceptorTest {
     }
 
     @Test
+    void forbidsRecruiterFromAccountApproval() {
+        Outcome outcome = run("{ pendingUsers { id } }", token(SECRET, "RECRUITER", 60_000));
+
+        assertEquals(ErrorType.FORBIDDEN, outcome.errorType());
+    }
+
+    @Test
+    void allowsAdminToApproveAccounts() {
+        Outcome outcome = run("mutation { approveUser(id: \"7\") { id } }", token(SECRET, "ADMIN", 60_000));
+
+        assertTrue(outcome.reachedResolvers());
+    }
+
+    @Test
     void selectsHmacStrengthLikeJjwt() {
         assertEquals(MacAlgorithm.HS256, GatewaySecurityConfig.macAlgorithmFor(new byte[32]));
         assertEquals(MacAlgorithm.HS384, GatewaySecurityConfig.macAlgorithmFor(new byte[62]));
