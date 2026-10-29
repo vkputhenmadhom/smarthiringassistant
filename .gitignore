@@ -41,3 +41,7 @@ target/
 
 ### Node ###
 node_modules/
+
+### Frontend build output ###
+.angular/
+dist/
