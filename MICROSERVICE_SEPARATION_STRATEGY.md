@@ -859,7 +859,7 @@ Week 9-10: Runbooks + monitoring → Operational readiness
 
 ## Related Documents
 
-- `SERVERLESS_MIGRATION_ROADMAP.md` - Which services to migrate to Lambda
+- `docs/archive/SERVERLESS_MIGRATION_ROADMAP.md` - Which services to migrate to Lambda
 - `DATABASE_MIGRATION_GUIDE.md` - Separate databases per service (Phase 4)
 - `EVENT_DRIVEN_ARCHITECTURE.md` - Detailed event schema design
 - `DEPLOYMENT_PROCEDURES.md` - Step-by-step deployment guide

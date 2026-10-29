@@ -378,5 +378,5 @@ kubectl exec -i postgres-0 -n smart-hiring -- \
 For issues or questions:
 - Review logs: `kubectl logs <pod-name> -n smart-hiring`
 - Check events: `kubectl get events -n smart-hiring`
-- Review documentation: See INIT-CONTAINERS-README.md and KUSTOMIZE-FIX-SUMMARY.md
+- Review documentation: See base/INIT-CONTAINERS-README.md and docs/archive/KUSTOMIZE-FIX-SUMMARY.md
 

@@ -42,7 +42,7 @@
   - [x] Network policies included (prod only)
 
 - [x] **Documentation**
-  - [x] KUSTOMIZE-FIX-SUMMARY.md created
+  - [x] KUSTOMIZE-FIX-SUMMARY.md created (now in docs/archive/)
   - [x] DEPLOYMENT-GUIDE.md created
   - [x] validate-overlays.sh created and tested
   - [x] All configuration changes documented
@@ -162,7 +162,7 @@ If issues arise:
 - `infrastructure/kubernetes/base/*deployment.yaml` - Service deployments
 
 ### Documentation Files
-- `infrastructure/kubernetes/KUSTOMIZE-FIX-SUMMARY.md` - Technical details
+- `docs/archive/KUSTOMIZE-FIX-SUMMARY.md` - Technical details
 - `infrastructure/kubernetes/DEPLOYMENT-GUIDE.md` - Step-by-step guide
 - `infrastructure/kubernetes/INIT-CONTAINERS-README.md` - Init container design
 - `infrastructure/kubernetes/validate-overlays.sh` - Validation script
