@@ -54,7 +54,9 @@ public class JobRequirement {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        status = JobStatus.ACTIVE;
+        if (status == null) {
+            status = JobStatus.ACTIVE;
+        }
     }
 
     @PreUpdate

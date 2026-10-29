@@ -36,6 +36,10 @@ public final class RabbitMQConfiguration {
     // Job analyzer
     public static final String JOB_EXCHANGE = "job.exchange";
     public static final String JOB_ANALYZED_ROUTING_KEY = "job.analyzed";
+    /** Job created, updated or deleted (JobPostingChangedEvent). */
+    public static final String JOB_CHANGED_ROUTING_KEY = "job.changed";
+    /** Consumed by candidate-matcher-service to keep its job copy in sync. */
+    public static final String JOB_CHANGED_MATCHER_QUEUE = "matcher.job.changed.queue";
 
     // Screening bot
     public static final String SCREENING_EXCHANGE = "screening.exchange";

@@ -7,6 +7,7 @@ import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.vinod.shared.events.CandidateMatchedEvent;
+import org.vinod.shared.events.JobPostingChangedEvent;
 import org.vinod.shared.events.ResumeParseEvent;
 import org.vinod.shared.events.ScreeningCompletedEvent;
 import org.vinod.shared.messaging.JsonMessages;
@@ -57,6 +58,19 @@ class EventMessagingContractTest {
 
         assertEquals(MessageProperties.CONTENT_TYPE_JSON, message.getMessageProperties().getContentType());
         assertEquals(sent, receive(message, ScreeningCompletedEvent.class));
+    }
+
+    @Test
+    void jobChangedEventFromJobAnalyzerReachesTheMatcher() {
+        JobPostingChangedEvent sent = JobPostingChangedEvent.builder()
+                .jobId("65f0c0ffee").jobTitle("Backend Engineer").companyName("Acme").location("Pune")
+                .requiredSkills(List.of("java", "kafka")).minExperienceYears(3).status("OPEN").changedAt(1_700_000_000_000L)
+                .build();
+
+        // job-analyzer publishes the object itself through the RabbitTemplate's converter
+        Message message = converter.toMessage(sent, new MessageProperties());
+
+        assertEquals(sent, receive(message, JobPostingChangedEvent.class));
     }
 
     private Message outboxMessage(Object event) throws Exception {

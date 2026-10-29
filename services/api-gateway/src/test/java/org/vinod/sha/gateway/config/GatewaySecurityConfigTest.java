@@ -71,6 +71,14 @@ class GatewaySecurityConfigTest {
     }
 
     @Test
+    void restrictsJobSyncOperationsToAdmins() {
+        client.post().uri("/api/jobs/sync/matcher").headers(h -> h.setBearerAuth(token(SECRET, "RECRUITER", 60_000)))
+                .exchange().expectStatus().isForbidden();
+        client.post().uri("/api/jobs/sync/matcher").headers(h -> h.setBearerAuth(token(SECRET, "ADMIN", 60_000)))
+                .exchange().expectStatus().isOk();
+    }
+
+    @Test
     void ignoresExpiredTokenOnPublicAuthPath() {
         client.post().uri("/api/auth/login").headers(h -> h.setBearerAuth(token(SECRET, -60_000)))
                 .exchange().expectStatus().isOk();
@@ -117,7 +125,7 @@ class GatewaySecurityConfigTest {
             return "ok";
         }
 
-        @PostMapping({"/api/auth/login", "/graphql"})
+        @PostMapping({"/api/auth/login", "/graphql", "/api/jobs/sync/matcher"})
         String post() {
             return "ok";
         }
