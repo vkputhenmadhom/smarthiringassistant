@@ -40,6 +40,8 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: hiring_user
       SPRING_RABBITMQ_PASSWORD: hiring_password
+      # Signs tokens the gateway verifies, so both must get the same value
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (set it in .env)}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required (set it in .env)}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required (set it in .env)}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8001/api/auth/login/oauth2/code/google}
