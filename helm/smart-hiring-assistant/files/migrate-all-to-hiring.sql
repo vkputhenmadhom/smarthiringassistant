@@ -330,9 +330,9 @@ SELECT setval('hiring.resume_parser_event_outbox_id_seq', GREATEST(COALESCE((SEL
 -- =========================
 -- Permissions
 -- =========================
-GRANT USAGE ON SCHEMA hiring TO hiring_user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA hiring TO hiring_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA hiring TO hiring_user;
+GRANT USAGE ON SCHEMA hiring TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA hiring TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA hiring TO CURRENT_USER;
 
 COMMIT;
 

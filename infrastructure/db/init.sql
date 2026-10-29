@@ -238,7 +238,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_logs_event_type ON hiring.notificati
 CREATE INDEX IF NOT EXISTS idx_notification_logs_status ON hiring.notification_logs(status);
 
 -- Permissions
-GRANT USAGE ON SCHEMA hiring TO hiring_user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA hiring TO hiring_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA hiring TO hiring_user;
+GRANT USAGE ON SCHEMA hiring TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA hiring TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA hiring TO CURRENT_USER;
 
