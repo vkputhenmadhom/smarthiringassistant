@@ -85,6 +85,23 @@ class GraphQLAuthorizationInterceptorTest {
 
         assertTrue(outcome.reachedResolvers());
         assertTrue(outcome.authorities().contains("ROLE_JOB_SEEKER"));
+        assertTrue(outcome.authorities().contains("ROLE_CANDIDATE"), "GraphQL role for @PreAuthorize(hasRole('CANDIDATE'))");
+    }
+
+    @Test
+    void adminTokenCarriesTheGraphqlHrAdminRoleForResolverChecks() {
+        Outcome outcome = run("mutation { deleteJob(id: \"1\") }", token(SECRET, "ADMIN", 60_000));
+
+        assertTrue(outcome.authorities().containsAll(Set.of("ROLE_ADMIN", "ROLE_HR_ADMIN")), outcome.authorities().toString());
+    }
+
+    @Test
+    void mapsEveryAuthServiceRoleToItsGraphqlRole() {
+        assertEquals(java.util.Optional.of("HR_ADMIN"), GatewaySecurityConfig.graphqlRoleFor("ADMIN"));
+        assertEquals(java.util.Optional.of("HR_ADMIN"), GatewaySecurityConfig.graphqlRoleFor("HIRING_MANAGER"));
+        assertEquals(java.util.Optional.of("RECRUITER"), GatewaySecurityConfig.graphqlRoleFor("RECRUITER"));
+        assertEquals(java.util.Optional.of("CANDIDATE"), GatewaySecurityConfig.graphqlRoleFor("JOB_SEEKER"));
+        assertEquals(java.util.Optional.empty(), GatewaySecurityConfig.graphqlRoleFor("SOMETHING_ELSE"));
     }
 
     @Test
