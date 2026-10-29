@@ -1,5 +1,7 @@
 package org.vinod.sha.analyzer;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -81,7 +83,8 @@ class JobAnalyzerIntegrationTest {
     @Test
     void getAnalysis_failPath_notFound_throws() {
         when(repository.findById("missing-id")).thenReturn(Optional.empty());
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> service.getById("missing-id"));
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> service.getById("missing-id"));
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode(), "the gateway reports a missing job as NOT_FOUND, not as an outage");
         assertTrue(ex.getMessage().contains("Analysis not found"));
     }
 }

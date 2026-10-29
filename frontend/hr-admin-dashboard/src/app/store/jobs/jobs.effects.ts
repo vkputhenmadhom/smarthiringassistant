@@ -56,7 +56,7 @@ export class JobsEffects {
       switchMap(({ id, input }) =>
         this.apollo.mutate<any>({ mutation: UPDATE_JOB_MUTATION, variables: { id, input } }).pipe(
           map(res  => JobsActions.updateJobSuccess({ job: res.data.updateJob })),
-          catchError(() => of(JobsActions.loadJobsFailure({ error: 'Update failed' })))
+          catchError(err => of(JobsActions.jobWriteFailure({ error: err.message || 'Update failed' })))
         )
       )
     )
@@ -67,8 +67,10 @@ export class JobsEffects {
       ofType(JobsActions.deleteJob),
       switchMap(({ id }) =>
         this.apollo.mutate<any>({ mutation: DELETE_JOB_MUTATION, variables: { id } }).pipe(
-          map(() => JobsActions.deleteJobSuccess({ id })),
-          catchError(() => of(JobsActions.loadJobsFailure({ error: 'Delete failed' })))
+          map(res => res.data?.deleteJob === true
+            ? JobsActions.deleteJobSuccess({ id })
+            : JobsActions.jobWriteFailure({ error: 'Delete failed' })),
+          catchError(err => of(JobsActions.jobWriteFailure({ error: err.message || 'Delete failed' })))
         )
       )
     )
@@ -80,7 +82,7 @@ export class JobsEffects {
       switchMap(({ id }) =>
         this.apollo.mutate<any>({ mutation: PUBLISH_JOB_MUTATION, variables: { id } }).pipe(
           map(res  => JobsActions.publishJobSuccess({ job: res.data.publishJob })),
-          catchError(() => of(JobsActions.loadJobsFailure({ error: 'Publish failed' })))
+          catchError(err => of(JobsActions.jobWriteFailure({ error: err.message || 'Publish failed' })))
         )
       )
     )

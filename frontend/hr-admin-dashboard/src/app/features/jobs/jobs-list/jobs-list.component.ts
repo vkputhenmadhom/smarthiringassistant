@@ -12,8 +12,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { loadJobs, deleteJob, publishJob, selectJob } from '../../../store/jobs/jobs.actions';
-import { selectAllJobs, selectJobsLoading, selectJobsTotalCount } from '../../../store/jobs/jobs.selectors';
+import { loadJobs, deleteJob, publishJob, selectJob, dismissJobsError } from '../../../store/jobs/jobs.actions';
+import { selectAllJobs, selectJobsLoading, selectJobsTotalCount, selectJobsBanner } from '../../../store/jobs/jobs.selectors';
 import { Job } from '../../../shared/models';
 
 @Component({
@@ -49,6 +49,12 @@ import { Job } from '../../../shared/models';
           <mat-option value="CLOSED">Closed</mat-option>
         </mat-select>
       </mat-form-field>
+    </div>
+
+    <div class="error-banner" role="alert" *ngIf="error$ | async as error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+      <button mat-icon-button (click)="dismissError()" aria-label="Dismiss"><mat-icon>close</mat-icon></button>
     </div>
 
     <mat-spinner *ngIf="loading$ | async" diameter="40" class="center-spinner"></mat-spinner>
@@ -98,6 +104,9 @@ import { Job } from '../../../shared/models';
     .job-link  { font-weight:500; color:#3f51b5; text-decoration:none; }
     .job-sub   { font-size:.78rem; color:#888; margin-top:.1rem; }
     .center-spinner{ margin:3rem auto; display:block; }
+    .error-banner{ display:flex; align-items:center; gap:.5rem; padding:.25rem .25rem .25rem .75rem; margin-bottom:1rem;
+                   border:1px solid var(--warn); border-radius:8px; color:var(--warn); background:#fdecea; }
+    .error-banner span{ flex:1; }
     table{ margin-bottom:.5rem; }
   `],
 })
@@ -106,6 +115,7 @@ export class JobsListComponent implements OnInit {
   jobs$    = this.store.select(selectAllJobs);
   loading$ = this.store.select(selectJobsLoading);
   total$   = this.store.select(selectJobsTotalCount);
+  error$   = this.store.select(selectJobsBanner);
 
   cols     = ['title','type','status','salary','applicants','actions'];
   search   = '';
@@ -123,6 +133,7 @@ export class JobsListComponent implements OnInit {
   select(id: string) { this.store.dispatch(selectJob({ id })); }
   publish(j: Job)    { this.store.dispatch(publishJob({ id: j.id })); }
   delete(id: string) { if (confirm('Delete this job?')) this.store.dispatch(deleteJob({ id })); }
+  dismissError()     { this.store.dispatch(dismissJobsError()); }
 
   statusChip(s: string) { return s==='OPEN'?'chip chip-green':s==='DRAFT'?'chip chip-orange':'chip chip-grey'; }
   salaryLabel(j: Job)   { return j.salaryMin ? `${j.salaryCurrency??'USD'} ${(j.salaryMin/1000).toFixed(0)}k–${((j.salaryMax??0)/1000).toFixed(0)}k` : '—'; }

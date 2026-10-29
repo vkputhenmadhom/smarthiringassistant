@@ -6,11 +6,15 @@ import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.graphql.execution.ErrorType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.vinod.sha.gateway.resilience.GatewayResilience;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +22,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
+import java.util.concurrent.TimeoutException;
 
 /**
  * GraphQL resolver that acts as a BFF (Backend For Frontend) aggregating
@@ -86,10 +91,7 @@ public class JobGraphQLResolver {
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
-                .onErrorResume(e -> {
-                    log.warn("job-analyzer-service unreachable: {}", e.getMessage());
-                    return Mono.just(emptyJob("new"));
-                });
+                .onErrorMap(e -> jobWriteError("create", null, e));
     }
 
     @MutationMapping
@@ -103,7 +105,7 @@ public class JobGraphQLResolver {
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
-                .onErrorResume(e -> Mono.just(emptyJob(id)));
+                .onErrorMap(e -> jobWriteError("update", id, e));
     }
 
     @MutationMapping
@@ -114,10 +116,7 @@ public class JobGraphQLResolver {
                                 .delete().uri(JOB_SERVICE_BASE + "/jobs/" + id)
                                 .retrieve().toBodilessEntity())
                 .map(ignored -> true)
-                .onErrorResume(e -> {
-                    log.warn("deleteJob failed: {}", e.getMessage());
-                    return Mono.just(false);
-                });
+                .onErrorMap(e -> jobWriteError("delete", id, e));
     }
 
     @MutationMapping
@@ -129,7 +128,7 @@ public class JobGraphQLResolver {
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
-                .onErrorResume(e -> Mono.just(emptyJob(id)));
+                .onErrorMap(e -> jobWriteError("publish", id, e));
     }
 
     @MutationMapping
@@ -141,10 +140,37 @@ public class JobGraphQLResolver {
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
-                .onErrorResume(e -> Mono.just(emptyJob(id)));
+                .onErrorMap(e -> jobWriteError("close", id, e));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Turns a failed job write into a GraphQL error the dashboard can show. Writes must not fall back to a
+     * placeholder job (or {@code false}): the client would treat the change as made when it was not.
+     */
+    static ClientFacingException jobWriteError(String action, String id, Throwable error) {
+        String job = id == null ? "the job" : "job " + id;
+        if (error instanceof WebClientResponseException response && response.getStatusCode().is4xxClientError()) {
+            if (response.getStatusCode().value() == 404) {
+                return new ClientFacingException(ErrorType.NOT_FOUND, "Could not " + action + " " + job + ": it no longer exists.");
+            }
+            String body = response.getResponseBodyAsString(StandardCharsets.UTF_8).trim();
+            // Spring's JSON error documents are not readable to a user; plain-text reasons are.
+            String reason = body.isEmpty() || body.startsWith("{") || body.length() > 300
+                    ? "the job service rejected it (" + response.getStatusCode().value() + ")"
+                    : body;
+            return new ClientFacingException(ErrorType.BAD_REQUEST, "Could not " + action + " " + job + ": " + reason);
+        }
+        log.warn("job {} failed for {}: {}", action, job, error.toString());
+        if (Exceptions.unwrap(error) instanceof TimeoutException || error.getCause() instanceof TimeoutException) {
+            // The request reached job-analyzer and may still complete there; a blind retry could duplicate it.
+            return new ClientFacingException(ErrorType.INTERNAL_ERROR, "The job service did not answer in time, so the "
+                    + action + " may still go through. Refresh the job list before trying again.");
+        }
+        return new ClientFacingException(ErrorType.INTERNAL_ERROR,
+                "Could not " + action + " " + job + ": the job service is unavailable. Please try again shortly.");
+    }
 
     private Mono<Map<String, Object>> requestMap(String uri) {
         return gatewayResilience.protect(JOB_BACKEND,
