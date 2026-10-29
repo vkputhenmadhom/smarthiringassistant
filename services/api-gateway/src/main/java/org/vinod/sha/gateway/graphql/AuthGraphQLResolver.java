@@ -68,7 +68,7 @@ public class AuthGraphQLResolver {
                 "lastName", "User",
                 "role", toAuthRole(role)
         );
-        return gatewayResilience.protect(AUTH_BACKEND,
+        return gatewayResilience.protectWrite(AUTH_BACKEND,
                         webClientBuilder.build()
                                 .post().uri(AUTH_BASE + "/register")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -144,7 +144,7 @@ public class AuthGraphQLResolver {
     }
 
     private Mono<Map<String, Object>> decideOnUser(String uri, String authorization) {
-        return gatewayResilience.protect(AUTH_BACKEND,
+        return gatewayResilience.protectWrite(AUTH_BACKEND,
                         webClientBuilder.build()
                                 .post().uri(uri)
                                 .header(HttpHeaders.AUTHORIZATION, authorization)
