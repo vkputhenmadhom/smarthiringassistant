@@ -76,7 +76,8 @@ public class AuthGraphQLResolver {
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(raw -> {
-                    if (String.valueOf(raw.getOrDefault("accessToken", "")).isBlank()) {
+                    // auth-service sends "accessToken": null for accounts awaiting approval
+                    if (Objects.toString(raw.get("accessToken"), "").isBlank()) {
                         throw new AuthFlowException(AuthFlowException.PENDING_APPROVAL,
                                 "Account created. An administrator must approve it before you can sign in.");
                     }
