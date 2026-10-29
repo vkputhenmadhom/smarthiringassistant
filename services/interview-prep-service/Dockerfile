@@ -12,7 +12,9 @@ COPY services/interview-prep-service services/interview-prep-service
 
 # The Gradle home (wrapper distribution + dependency cache) is a BuildKit cache mount shared by every
 # service image, so it is downloaded once and reused instead of fetched from scratch per image.
-RUN --mount=type=cache,id=gradle-home,target=/root/.gradle \
+# sharing=locked: parallel image builds take turns on the cache instead of racing for Gradle's own
+# lock (which times out after 60 s while the first build fills a cold cache).
+RUN --mount=type=cache,id=gradle-home,target=/root/.gradle,sharing=locked \
     chmod +x gradlew && ./gradlew :services:interview-prep-service:bootJar -x test --no-daemon
 
 # Runtime: lightweight Alpine image, running as an unprivileged user
