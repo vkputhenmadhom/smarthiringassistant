@@ -280,9 +280,9 @@ Use this to explain segregation in interviews:
 
 ## Support
 
-- Full roadmap: `SERVERLESS_MIGRATION_ROADMAP.md`
+- Full roadmap: `docs/archive/SERVERLESS_MIGRATION_ROADMAP.md`
 - Separation strategy: `MICROSERVICE_SEPARATION_STRATEGY.md`
-- Quick reference: `SERVERLESS_SEPARATION_QUICK_REFERENCE.md`
+- Quick reference: `docs/archive/SERVERLESS_SEPARATION_QUICK_REFERENCE.md`
 
 ---
 

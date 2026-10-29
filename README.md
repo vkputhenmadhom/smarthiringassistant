@@ -1,4 +1,4 @@
-# Smart Hiring Assistant - Microservices Architecture
+# Smart Hiring Assistant
 
 [![Backend Services](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/backend-services.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/backend-services.yml)
 [![Frontend Apps](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/frontend-apps.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/frontend-apps.yml)
@@ -6,497 +6,214 @@
 [![Phase 2 AI Integration Lambda](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/deploy-phase2-ai-integration.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/deploy-phase2-ai-integration.yml)
 [![Phase 2 Job Analyzer Lambda](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/deploy-phase2-job-analyzer.yml/badge.svg)](https://github.com/vkputhenmadhom/smarthiringassistant/actions/workflows/deploy-phase2-job-analyzer.yml)
 
-A production-grade, event-driven microservices platform for intelligent recruitment and hiring automation. Built with Java, Spring Boot, and cutting-edge AI/GenAI integration.
+An event-driven hiring platform built as Java 21 / Spring Boot 4 microservices. Candidates upload resumes
+and practise interviews in a React portal; HR staff manage jobs, matches and screening in an Angular
+dashboard. Resumes are parsed and matched to jobs, matches start automated screening sessions, and an
+LLM (OpenAI or Claude, selectable by configuration) powers resume analysis, skill extraction and
+interview questions.
 
-## 🎯 Project Overview
-
-Smart Hiring Assistant is a sophisticated hiring platform designed to streamline the recruitment process through:
-
-- **Resume Parsing & Analysis** - AI-powered resume extraction and skill identification
-- **Intelligent Candidate Matching** - Advanced algorithms to match candidates with job requirements
-- **Interview Preparation** - AI-generated interview questions tailored to the position
-- **Job Description Analysis** - Automated JD parsing and requirement extraction
-- **Automated Screening Bot** - Multi-stage candidate screening with AI evaluation
-- **Event-Driven Architecture** - Asynchronous processing for scalability
-- **Multi-Frontend Support** - Angular dashboard for HR + React portal for candidates
-
-## 🏗️ System Architecture
-
-### Microservices (9 Total)
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      API GATEWAY (8000)                     │
-│            Spring Cloud Gateway - Request Routing           │
-└─────────────────────────────────────────────────────────────┘
+  React candidate portal (5173)      Angular HR dashboard (4200)
+                 │  GraphQL / REST via nginx  │
+                 └────────────┬───────────────┘
+                              ▼
+               API gateway (8000)  ── the only public entry point
+               JWT verification, per-operation GraphQL authorization,
+               Redis rate limiting, Resilience4j, CORS
                               │
-        ┌─────────────────────┼─────────────────────┐
-        │                     │                     │
-   ┌────▼────┐        ┌──────▼──────┐      ┌──────▼──────┐
-   │  Auth   │        │   Resume    │      │  Candidate  │
-   │ Service │        │   Parser    │      │   Matcher   │
-   │ (8001)  │        │   (8002)    │      │   (8003)    │
-   └────┬────┘        └────┬────────┘      └────┬────────┘
-        │                  │                     │
-   ┌────▼────┐        ┌──────▼──────┐      ┌──────▼──────┐
-   │Interview│        │     Job     │      │ Screening   │
-   │  Prep   │        │   Analyzer  │      │    Bot      │
-   │ (8004)  │        │   (8005)    │      │   (8006)    │
-   └─────────┘        └─────────────┘      └─────────────┘
-
-   ┌─────────────────────────────────────────────────────────┐
-   │  AI Integration Service (8008)  │ Notification (8007)   │
-   └─────────────────────────────────────────────────────────┘
+   ┌──────────────┬───────────┼─────────────┬──────────────┬───────────────┐
+   ▼              ▼           ▼             ▼              ▼               ▼
+ auth-service  resume-     candidate-    screening-     job-analyzer   interview-prep
+ (8001, OAuth) parser      matcher       bot            (MongoDB)      (MongoDB)
+ (Postgres)    (Postgres)  (Postgres,    (MongoDB,          │              │
+                           Redis)        Redis)             └──────┬───────┘
+                                                                   ▼
+                                                    ai-integration-service
+                                                    Spring AI: OpenAI | Claude
+   Events (RabbitMQ): auth ─► notification-service · resume-parser ─► candidate-matcher
+                      candidate-matcher ─► screening-bot, notification-service, gateway (live updates)
+                      screening-bot ─► notification-service, gateway
 ```
 
-### Technology Stack
+| Service | Port (internal) | Responsibility | Storage |
+|---|---|---|---|
+| api-gateway | 8000 (published) | Routing, JWT verification, GraphQL API and subscriptions | Redis |
+| auth-service | 8001 (published for the Google OAuth redirect) | Accounts, login, Google OAuth, JWT issuing, HR account approval | PostgreSQL |
+| resume-parser-service | 8002 | Resume upload and parsing (`.txt`, `.docx`) | PostgreSQL |
+| candidate-matcher-service | 8003 | Matches parsed resumes to jobs | PostgreSQL, Redis |
+| interview-prep-service | 8004 | Interview questions and answer feedback | MongoDB |
+| job-analyzer-service | 8005 | Job description analysis, skills, salary estimate, job-board sync | MongoDB |
+| screening-bot-service | 8006 | Multi-stage screening sessions | MongoDB, Redis |
+| notification-service | 8007 | Email/SMS notifications from events | PostgreSQL |
+| ai-integration-service | 8008 | LLM access for the other services (Spring AI) | MongoDB (response cache) |
 
-| Layer | Technology |
-|-------|-----------|
-| **Backend** | Java 21, Spring Boot 4.0.5, Spring Cloud 2025.1.1 |
-| **Communication** | REST, gRPC, GraphQL |
-| **Databases** | PostgreSQL (relational), MongoDB (documents) |
-| **Caching** | Redis |
-| **Messaging** | RabbitMQ (event-driven) |
-| **AI/ML** | OpenAI GPT-4, Claude API (pluggable) |
-| **Frontend** | Angular (admin), React (candidate) |
-| **Monitoring** | Prometheus, Grafana, Elasticsearch, Kibana |
-| **Tracing** | Jaeger |
-| **Containerization** | Docker, Docker Compose |
+Only the gateway, auth-service and the two frontends are published to the host. Everything else is reachable
+only through the gateway or the internal Docker network.
 
-## 🌟 Phase 2 Serverless Showcase
+### Highlights
 
-Phase 2 demonstrates a repeatable serverless pattern with independently deployable artifacts and isolated CI/CD workflows.
+- **Security:** the gateway verifies every JWT's signature and expiry and authorizes GraphQL per operation
+  (public / authenticated / HR role / admin). HR accounts need an administrator's approval before they can
+  sign in. Containers run as a non-root user with all Linux capabilities dropped.
+- **Events:** transactional outbox in each producer; JSON messages; every consumer owns its queue (so each
+  service gets every event); failed messages go to a dead-letter queue.
+- **AI:** one internal AI service behind Spring AI's `ChatClient`. The provider is a configuration switch;
+  the model and output limits are set server-side; responses are cached; per-user rate limiting.
+- **Contracts:** the GraphQL schema is checked against `contracts/` and for breaking changes in CI.
 
-| Lambda | Module | Endpoint | Workflow | Deploy stack |
-|---|---|---|---|---|
-| AI Integration | `serverless/phase2/functions/ai-integration-lambda/` | `POST /ai/generate`, `GET /health` | `.github/workflows/deploy-phase2-ai-integration.yml` | `smart-hiring-phase2-ai-integration` |
-| Job Analyzer | `serverless/phase2/functions/job-analyzer-lambda/` | `POST /job/analyze`, `GET /health` | `.github/workflows/deploy-phase2-job-analyzer.yml` | `smart-hiring-phase2-job-analyzer` |
+## Quick start (Docker)
 
-Why this matters:
-- each Lambda builds, tests, and deploys independently
-- changes in one Phase 2 artifact do not block the other
-- clear deployment paths via dedicated SAM templates and stacks
-
-See `serverless/phase2/README.md` for build, local invoke, and deploy commands.
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Docker & Docker Compose
-- Java 21+
-- Gradle 8.x+
-- Node.js 18+ (for frontends)
-
-### Step 1: Start Infrastructure
+Requirements: Docker Desktop (8 GB memory is enough for the default stack). Java 21 and Node 20 are only
+needed to run or test code outside containers.
 
 ```bash
-cd SmartHiringAssistant
-docker-compose up -d
+cp .env.example .env
+# edit .env (see "Configuration" below), then:
+docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
 ```
 
-This starts:
-- PostgreSQL (5432)
-- MongoDB (27017)
-- RabbitMQ (5672, Management: 15672)
-- Redis (6379)
-- Elasticsearch (9200)
-- Kibana (5601)
-- Prometheus (9090)
-- Grafana (3000)
-- Jaeger (16686)
+The first build downloads Gradle and its dependencies once; later builds reuse a shared cache.
+A one-shot `db-migrate` container applies the database schema before the services start.
 
-### Step 2: Build the Project
+| URL | What |
+|---|---|
+| http://localhost:5173 | Candidate portal |
+| http://localhost:4200 | HR dashboard |
+| http://localhost:8000/graphiql | GraphQL explorer |
+| http://localhost:8000/actuator/health | Gateway health |
+| http://localhost:15672 | RabbitMQ management (credentials from `.env`) |
+
+**Optional services** are behind Compose profiles:
 
 ```bash
-# Build all modules
-./gradlew build
-
-# Build specific service
-./gradlew :services:api-gateway:build
+# Prometheus, Grafana, Alertmanager, Jaeger, Elasticsearch, Kibana
+docker compose -f docker-compose.yml -f docker-compose.apps.yml --profile observability up -d
+# Kafka + Zookeeper (analytics pipeline)
+docker compose -f docker-compose.yml -f docker-compose.apps.yml --profile streaming up -d
 ```
 
-### Step 3: Run Services
+To reach an internal service directly (debugging, the `scripts/smoke-*.sh` scripts), add
+`-f docker-compose.debug-ports.yml`.
 
-Each service can be run individually:
+## Configuration
+
+All settings live in `.env` (never committed); `.env.example` lists every variable.
+
+| Variable | Purpose |
+|---|---|
+| `JWT_SECRET` | Signs and verifies tokens (shared by auth-service and the gateway). At least 32 random bytes, e.g. `openssl rand -base64 48`. |
+| `POSTGRES_*`, `MONGO_*`, `RABBITMQ_*`, `REDIS_PASSWORD`, `GRAFANA_ADMIN_PASSWORD` | Infrastructure credentials, applied when a Docker volume is first created. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in (required by Compose). |
+| `BOOTSTRAP_ADMIN_EMAILS` | Google-verified emails that become approved HR admins on first Google sign-in. |
+| `AI_PROVIDER` | `openai` (default) or `anthropic`. |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Key for the chosen provider. Optional overrides: `OPENAI_MODEL` (default `gpt-5.4-mini`), `ANTHROPIC_MODEL` (default `claude-opus-5-5`). |
+| `MAIL_*`, `NOTIFICATION_EMAIL_ENABLED` | Outgoing email (off by default; notifications are then logged as SKIPPED). |
+
+Without an AI key the platform still works: interview-prep and job-analyzer fall back to built-in heuristics.
+
+## Accounts and roles
+
+- **Candidates** register in the candidate portal (or with Google) and can sign in immediately.
+- **HR accounts** (HR Admin, Recruiter) are created *pending*. They cannot sign in until an administrator
+  approves them on the HR dashboard's **Approvals** page, optionally changing the role, or rejects them.
+- **The first administrator** is created by putting their Google email in `BOOTSTRAP_ADMIN_EMAILS` and
+  signing in to the HR dashboard with Google. Only emails Google has verified are trusted.
+
+## Event flow
+
+| Event | Producer | Consumers (each with its own queue) |
+|---|---|---|
+| `UserRegisteredEvent` | auth-service | notification-service (welcome email) |
+| `ResumeParseEvent` | resume-parser-service | candidate-matcher-service |
+| `CandidateMatchedEvent` | candidate-matcher-service | screening-bot (opens a session for matches ≥ 50%), notification-service, api-gateway (live updates), analytics-bridge |
+| `ScreeningCompletedEvent` | screening-bot-service | notification-service, api-gateway, analytics-bridge |
+| `JobAnalyzedEvent` | job-analyzer-service | (none yet) |
+
+Exchanges and the dead-letter queue are declared for every service by `SharedRabbitAutoConfiguration` in
+`shared/shared-commons`; topology names live in `RabbitMQConfiguration`.
+
+## Development
 
 ```bash
-# Terminal 1: API Gateway
-./gradlew :services:api-gateway:bootRun
-
-# Terminal 2: Auth Service
-./gradlew :services:auth-service:bootRun
-
-# Terminal 3: Resume Parser Service
-./gradlew :services:resume-parser-service:bootRun
-
-# Continue for other services in separate terminals
+./gradlew test                                      # all modules
+./gradlew :services:auth-service:test               # one service
+./gradlew :services:api-gateway:bootRun             # run a service on the host (needs the infra containers and .env values)
 ```
 
-Or use the provided Dockerfile for each service for container deployment.
+Frontends with hot reload (they proxy `/graphql` and `/api` to the gateway on port 8000):
 
-### Step 4: Access Services
-
-- **API Gateway**: http://localhost:8000
-- **Auth Service**: http://localhost:8001
-- **Resume Parser**: http://localhost:8002
-- **Candidate Matcher**: http://localhost:8003
-- **Interview Prep**: http://localhost:8004
-- **Job Analyzer**: http://localhost:8005
-- **Screening Bot**: http://localhost:8006
-- **Notification Service**: http://localhost:8007
-- **AI Integration**: http://localhost:8008
-
-**Admin UIs:**
-- **RabbitMQ Management**: http://localhost:15672 (hiring_user/hiring_password)
-- **Kibana**: http://localhost:5601
-- **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/hiring_password)
-- **Jaeger**: http://localhost:16686
-
-## 📦 Project Structure
-
-```
-SmartHiringAssistant/
-├── shared/
-│   ├── shared-commons/          # Shared DTOs, utilities, exceptions
-│   ├── shared-events/           # Domain events for event-driven architecture
-│   └── grpc-definitions/        # Protocol Buffer definitions for gRPC
-├── services/
-│   ├── api-gateway/             # Spring Cloud Gateway (request routing)
-│   ├── auth-service/            # User authentication & authorization
-│   ├── resume-parser-service/   # Resume parsing & skill extraction
-│   ├── candidate-matcher-service/ # Candidate-job matching algorithms
-│   ├── interview-prep-service/  # Interview question generation
-│   ├── job-analyzer-service/    # JD analysis & salary prediction
-│   ├── screening-bot-service/   # Automated multi-stage screening
-│   ├── ai-integration-service/  # OpenAI/Claude API wrapper
-│   └── notification-service/    # Email & SMS notifications
-├── frontend/
-│   ├── admin-dashboard/         # Angular HR dashboard
-│   └── candidate-portal/        # React candidate portal
-├── infrastructure/
-│   ├── db/                      # Database init scripts
-│   ├── messaging/               # RabbitMQ configuration
-│   ├── monitoring/              # Prometheus configuration
-│   └── kubernetes/              # K8s manifests (optional)
-├── docker-compose.yml           # Local development environment
-└── README.md
-```
-
-## 🔄 Event-Driven Architecture
-
-The system uses RabbitMQ for asynchronous event processing:
-
-### Key Events
-
-1. **ResumeParsedEvent** - Triggered when resume is successfully parsed
-   - Triggers: Candidate Matching
-
-2. **CandidateMatchedEvent** - Triggered when candidate matches a job
-   - Triggers: Notification Service
-
-3. **InterviewScheduledEvent** - Triggered when interview is scheduled
-   - Triggers: Notification Service, Interview Prep Service
-
-### Event Flow Example
-
-```
-Resume Upload
-    ↓
-Resume Parser Service (parses resume)
-    ↓
-ResumeParsedEvent (published to RabbitMQ)
-    ↓
-Candidate Matcher Service (receives event)
-    ↓
-Finds matching jobs
-    ↓
-CandidateMatchedEvent (published)
-    ↓
-Notification Service (receives event)
-    ↓
-Sends email notification to candidate
-```
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    COMPLETE EVENT FLOW                              │
-│                                                                     │
-│  [1] User Registers                                                 │
-│       auth-service ──publishes──► auth.exchange                     │
-│                                        │ user.registered            │
-│                                        ▼                           │
-│                              user.registered.queue                 │
-│                              (notification-service listens)        │
-│                                                                     │
-│  [2] Resume Uploaded                                               │
-│       resume-parser ──publishes──► resume.exchange                 │
-│                                        │ resume.parsed             │
-│                                        ▼                           │
-│                              resume.parsed.queue                   │
-│                              (candidate-matcher listens) ◄─────────┤
-│                                                                     │
-│  [3] Candidate Matched                                             │
-│       candidate-matcher ──publishes──► matcher.exchange            │
-│                                        │ candidate.matched         │
-│                                        ▼                           │
-│                              candidate.matched.queue               │
-│                              (screening-bot listens) ◄─────────────┤
-│                              (notification-service listens) ◄──────┤
-│                                                                     │
-│  [4] Job Analyzed                                                  │
-│       job-analyzer ──publishes──► job.exchange                     │
-│                                        │ job.analyzed              │
-│                                        ▼                           │
-│                              job.analyzed.queue                    │
-│                                                                     │
-│  [5] Screening Completed                                           │
-│       screening-bot ──publishes──► screening.exchange              │
-│                                        │ screening.completed       │
-│                                        ▼                           │
-│                              screening.completed.queue             │
-│                              (notification-service listens) ◄──────┘
-└─────────────────────────────────────────────────────────────────────┘
-
-```
-
-## 🤖 AI/GenAI Features
-
-### Resume Analysis
-- Skill extraction using NLP
-- Experience calculation
-- Resume scoring
-- Keyword matching
-
-### Interview Question Generation
-- Difficulty-based question generation
-- Role-specific questions
-- Behavioral & technical questions
-- Answer evaluation using AI
-
-### Job Analysis
-- Salary range prediction
-- Required skills extraction
-- Experience level categorization
-- Market competitiveness analysis
-
-### Automated Screening
-- Multi-stage screening pipeline
-- Response evaluation
-- Candidate scoring
-- Recommendation generation
-
-## 🔐 Security Features
-
-- **JWT Authentication** - Token-based security
-- **OAuth2 Integration** - Third-party provider support
-- **Role-Based Access Control** - RBAC implementation
-- **Data Encryption** - Sensitive data encryption at rest
-- **API Rate Limiting** - Protection against abuse
-- **CORS Configuration** - Cross-origin request handling
-
-## 📊 Monitoring & Observability
-
-### Logging
-- **Elasticsearch + Kibana** - Centralized log aggregation
-- **Structured Logging** - JSON format with correlation IDs
-
-### Metrics
-- **Prometheus** - Metrics collection
-- **Grafana** - Metrics visualization
-- **Custom Dashboards** - Service-specific metrics
-- **Prometheus Alerts + Alertmanager** - Service health and SLO-like alerting
-
-See `docs/deployment/monitoring-alerting.md` for setup, scrape targets, alert rules, and dashboard provisioning.
-Use `docker-compose.monitoring-staging.yml` when you want staging-specific alert thresholds locally.
-
-### Tracing
-- **Jaeger** - Distributed tracing
-- **Request Correlation** - End-to-end request tracking
-
-## 📝 API Documentation
-
-### OpenAPI/Swagger
-- Available at: http://localhost:8000/swagger-ui.html
-- OpenAPI spec: http://localhost:8000/api-docs
-
-### GraphQL
-- Endpoint: http://localhost:8000/graphql
-- GraphQL Playground: http://localhost:8000/graphql/playground
-
-## 🧪 Testing
-
-### Run All Tests
 ```bash
-./gradlew test
+cd frontend/hr-admin-dashboard && npm ci && npm start      # http://localhost:4200
+cd frontend/candidate-portal   && npm ci && npm run dev    # http://localhost:5173
 ```
 
-### Run Specific Service Tests
-```bash
-./gradlew :services:resume-parser-service:test
-```
-
-### Integration Tests
-```bash
-./gradlew integrationTest
-```
-
-### Frontend HR Click Smoke (CI + Local)
-
-This smoke validates HR dashboard click paths and analytics wiring:
-`login -> dashboard -> jobs -> screening -> analytics`.
+HR dashboard click-path smoke test (Playwright; also runs in CI):
 
 ```bash
 node scripts/hr-click-validate.js
 ```
 
-Optional (visible browser + explicit URLs):
+See [DEVELOPMENT.md](DEVELOPMENT.md) for more, [STARTUP_GUIDE.md](STARTUP_GUIDE.md) for running and
+troubleshooting the stack, and [SECURITY_SETUP.md](SECURITY_SETUP.md) for secrets and OAuth setup.
 
-```bash
-GATEWAY_URL=http://localhost:8000 HR_FRONTEND_URL=http://localhost:4200 HR_SMOKE_HEADLESS=false node scripts/hr-click-validate.js
+### Branches
+
+Work happens on feature branches with pull requests into `dev-working`, the integration branch where
+features are tested together. `dev-working` is merged into `main` once it has been tested.
+
+## CI and deployment
+
+| Workflow | What it does |
+|---|---|
+| `backend-services.yml` | Builds and tests changed services, coverage, SonarQube quality gate; manual deploy (Kubernetes or CodeDeploy) |
+| `frontend-apps.yml` | Builds both frontends; HR click-path smoke test against the Docker stack |
+| `contracts.yml` | Checks the GraphQL schema matches `contracts/` and has no breaking changes |
+| `deploy-phase2-*.yml`, `serverless-phase1.yml` | Build, test and deploy the AWS Lambda functions |
+
+- **Kubernetes:** Helm chart in [`helm/smart-hiring-assistant`](helm/smart-hiring-assistant/README.md)
+  (`values-staging.yaml`, `values-prod.yaml`), and Kustomize overlays in `infrastructure/kubernetes/overlays`,
+  which the CI deploy job applies. See [docs/deployment/kubernetes-autoscaling.md](docs/deployment/kubernetes-autoscaling.md).
+- **Serverless:** Quarkus Lambdas for resume parsing, AI integration and job analysis, deployed with SAM.
+  See [serverless/phase2/README.md](serverless/phase2/README.md).
+- **AWS CI/CD:** [docs/deployment/aws-cicd.md](docs/deployment/aws-cicd.md).
+
+## Project structure
+
+```
+services/          Spring Boot microservices (one directory each, with its own Dockerfile)
+shared/            shared-commons (Rabbit config, JSON messaging), shared-events (event classes),
+                   analytics-events, grpc-definitions
+frontend/          hr-admin-dashboard (Angular 17), candidate-portal (React 18 + Vite)
+contracts/         GraphQL, AsyncAPI and gRPC contracts
+infrastructure/    db (schema scripts), messaging, monitoring (Prometheus, Grafana), kubernetes (Kustomize)
+helm/              Helm chart
+serverless/        AWS Lambda functions (Quarkus) and SAM templates
+streaming/, batch/, pipelines/   Flink, Spark and Beam analytics jobs
+scripts/           smoke tests and the HR click-path validation
+docs/              guides, deployment notes, frontend deep dives; docs/archive holds past reports
 ```
 
-## 📦 Dependencies Management
+## Known limitations
 
-All dependencies are managed at the root `build.gradle` level using the Spring Dependency Management plugin. This ensures version consistency across all services.
+- **Matching needs job data in the matcher's database.** Jobs live in job-analyzer's MongoDB and are not
+  yet synced to candidate-matcher, so uploaded resumes only produce matches for jobs present in
+  `hiring.job_requirements`.
+- **PDF resumes are not parsed yet** (the PDF extractor is a stub); `.txt` and `.docx` work.
+- **Logs and traces are not shipped anywhere yet.** The observability profile provides Prometheus metrics
+  and Grafana dashboards; Elasticsearch/Kibana and Jaeger run but services do not send logs or traces to them.
+- **The resume encryption key is not set in Compose.** resume-parser uses its built-in default
+  `RESUME_ENCRYPTION_KEY`; see [SECURITY_SETUP.md](SECURITY_SETUP.md).
 
-### Key Libraries
-- Spring Boot 4.0.5
-- Spring Cloud 2025.1.1
-- gRPC 1.60.0
-- Protobuf 3.24.4
-- OpenAI Java SDK 0.15.0
-- RabbitMQ AMQP Client
+## More documentation
 
-## 🌐 Frontend Setup
+- [STARTUP_GUIDE.md](STARTUP_GUIDE.md): running, stopping, resetting and troubleshooting the stack
+- [DEVELOPMENT.md](DEVELOPMENT.md): local development, tests, debugging
+- [SECURITY_SETUP.md](SECURITY_SETUP.md): secrets, OAuth, accounts, hardening
+- [docs/](docs/): architecture flow, deployment, monitoring, frontend deep dives, interview kits
+- [docs/archive/](docs/archive/README.md): past reports and plans (not maintained)
 
-### Admin Dashboard (Angular)
-```bash
-cd frontend/admin-dashboard
-npm install
-npm start
-```
+## Author
 
-### Candidate Portal (React)
-```bash
-cd frontend/candidate-portal
-npm install
-npm start
-```
-
-## 📈 Performance Tuning
-
-### Database
-- Connection pooling (HikariCP)
-- Query optimization
-- Index creation for frequently accessed fields
-
-### Caching
-- Redis caching for AI responses
-- Candidate match results caching
-- Job requirements caching (LRU policy)
-
-### Asynchronous Processing
-- Event-driven architecture
-- Background job processing
-- Dead letter queue handling
-
-## 🔄 CI/CD Pipeline
-
-Backend CI/CD is configured in `.github/workflows/backend-services.yml` with:
-- Changed-service backend build matrix
-- Full backend tests + JaCoCo coverage reports
-- SonarQube analysis with quality gate enforcement
-- Manual AWS CodeDeploy deployment (`workflow_dispatch`)
-
-This is the single authoritative backend workflow.
-
-See `docs/deployment/aws-cicd.md` for setup details, required secrets, and AWS deployment prerequisites.
-For initial container orchestration with health checks and scaling, see `docs/deployment/docker-compose-scaling.md`.
-
-## 🚢 Deployment
-
-### Docker Deployment
-```bash
-# Build images
-docker-compose -f docker-compose.prod.yml build
-
-# Deploy
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-### Kubernetes Deployment
-```bash
-# Apply staging overlay (or use overlays/prod)
-kubectl apply -k infrastructure/kubernetes/overlays/staging
-
-# Check status
-kubectl -n smart-hiring get deploy,svc,hpa,pdb,ingress,networkpolicy
-```
-
-See `docs/deployment/kubernetes-autoscaling.md` for probe paths, per-service config maps, External Secrets setup, AWS ALB ingress, and scaling details.
-
-### Environment Variables
-
-Create `.env` file:
-```env
-OPENAI_API_KEY=sk-your-key-here
-MAIL_HOST=smtp.gmail.com
-MAIL_USERNAME=your-email@gmail.com
-MAIL_PASSWORD=your-password
-TWILIO_ACCOUNT_SID=your-account-sid
-TWILIO_AUTH_TOKEN=your-token
-TWILIO_FROM_NUMBER=+1234567890
-```
-
-## 📚 Development Phases
-
-| Phase | Duration | Focus |
-|-------|----------|-------|
-| 1 | Weeks 1-2 | Foundation & Architecture |
-| 2 | Weeks 3-4 | Microservices Core Infrastructure |
-| 3 | Weeks 5-7 | AI & Core Business Logic |
-| 4 | Weeks 8-10 | Event-Driven System & Data Models |
-| 5 | Weeks 11-13 | Frontend Development |
-| 6 | Weeks 14-16 | Security, Testing & Deployment |
-
-## 🤝 Contributing
-
-1. Create a feature branch
-2. Commit changes
-3. Push to branch
-4. Create Pull Request
-
-### Code Standards
-- Java 21+ features
-- Lombok for boilerplate reduction
-- Clean code principles
-- Comprehensive Javadoc
-- Unit test coverage > 80%
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
-## 👥 Authors
-
-- Vinod Puthenmadhom
-
-## 🎓 Learning Resources
-
-- [Spring Cloud Gateway Documentation](https://spring.io/projects/spring-cloud-gateway)
-- [gRPC Java Guide](https://grpc.io/docs/languages/java/)
-- [Event-Driven Architecture Patterns](https://www.confluent.io/blog/event-driven-architecture/)
-- [OpenAI API Documentation](https://platform.openai.com/docs)
-- [RabbitMQ Tutorials](https://www.rabbitmq.com/getstarted.html)
-
-## 📞 Support
-
-For issues, questions, or suggestions, please open an GitHub issue or contact the development team.
-
----
-
-**Built with ❤️ for the modern hiring industry**
-
+Vinod Puthenmadhom

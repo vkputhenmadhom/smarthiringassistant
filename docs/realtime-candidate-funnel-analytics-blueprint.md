@@ -32,10 +32,10 @@ This blueprint turns the phased analytics plan into concrete repo modules for Sm
 
 ## Bridge inputs
 
-Initial RabbitMQ source queues:
+Initial RabbitMQ source queues (owned by analytics-bridge, bound to the matcher and screening exchanges):
 
-- `candidate.matched.queue`
-- `screening.completed.queue`
+- `analytics.candidate.matched.queue`
+- `analytics.screening.completed.queue`
 
 Near-term additions:
 

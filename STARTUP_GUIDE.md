@@ -1,318 +1,137 @@
-# Smart Hiring Assistant - Full Stack Startup Guide
+# Startup Guide
 
-## 🚀 Starting the Full Stack
+How to run, inspect, reset and troubleshoot the Smart Hiring Assistant stack with Docker Compose.
+For an overview of the system, see the [README](README.md).
 
-### Step 1: Ensure Docker is Running
-```bash
-# On macOS, Docker Desktop should be running
-# If not started, launch it from Applications or use:
-open -a Docker
-```
-
-### Step 2: Start the Complete Stack
-From the project root directory:
+All commands are run from the repository root. They use both Compose files; to save typing:
 
 ```bash
-# Full stack with infrastructure and applications
-docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
-
-# Alternative: With staging monitoring overrides
-docker compose -f docker-compose.yml -f docker-compose.apps.yml -f docker-compose.monitoring-staging.yml up -d --build
+alias dc='docker compose -f docker-compose.yml -f docker-compose.apps.yml'
 ```
 
-### Step 3: Monitor the Build Progress
-```bash
-# Watch services starting up
-docker compose -f docker-compose.yml -f docker-compose.apps.yml logs -f
+## 1. First-time setup
 
-# Check specific service logs
-docker compose -f docker-compose.yml -f docker-compose.apps.yml logs -f api-gateway
-docker compose -f docker-compose.yml -f docker-compose.apps.yml logs -f candidate-portal
+1. Start Docker Desktop. The default stack fits in 8 GB of Docker memory.
+2. Create your environment file and fill in the values:
 
-# View running containers
-docker compose -f docker-compose.yml -f docker-compose.apps.yml ps
-```
+   ```bash
+   cp .env.example .env
+   ```
 
-## 📋 Services & Ports
+   | Required | Notes |
+   |---|---|
+   | `JWT_SECRET` | `openssl rand -base64 48` |
+   | `POSTGRES_USER`/`POSTGRES_PASSWORD`, `MONGO_USERNAME`/`MONGO_PASSWORD`, `RABBITMQ_USERNAME`/`RABBITMQ_PASSWORD`, `REDIS_PASSWORD`, `GRAFANA_ADMIN_PASSWORD` | Any values; they are applied when the volumes are first created |
+   | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | See [SECURITY_SETUP.md](SECURITY_SETUP.md#google-sign-in) |
+   | `BOOTSTRAP_ADMIN_EMAILS` | Your Google email, so you become the first HR admin |
 
-### Infrastructure Services
-| Service | Port | URL |
-|---------|------|-----|
-| PostgreSQL | 5432 | `localhost:5432` |
-| MongoDB | 27017 | `localhost:27017` |
-| RabbitMQ Management | 15672 | `http://localhost:15672` |
-| Redis | 6379 | `localhost:6379` |
-| Prometheus | 9090 | `http://localhost:9090` |
-| Grafana | 3000 | `http://localhost:3000` |
-| Elasticsearch | 9200 | `http://localhost:9200` |
-| Kibana | 5601 | `http://localhost:5601` |
-| Jaeger | 16686 | `http://localhost:16686` |
+   Optional: `OPENAI_API_KEY` (or `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY`) for AI features, and
+   `MAIL_*` + `NOTIFICATION_EMAIL_ENABLED=true` for real email.
 
-### Application Services
-| Service | Port | URL |
-|---------|------|-----|
-| API Gateway | 8000 | `http://localhost:8000` |
-| Resume Parser | 8002 | `http://localhost:8002` |
-| Candidate Matcher | 8003 | `http://localhost:8003` |
-| Interview Prep | 8004 | `http://localhost:8004` |
-| Screening Bot | 8006 | `http://localhost:8006` |
-| Notification Service | 8007 | `http://localhost:8007` |
+3. Build and start everything:
 
-### Frontend Portals
-| Application | Port | URL |
-|---------|------|-----|
-| **HR Admin Dashboard** | 4200 | `http://localhost:4200` |
-| **Candidate Portal** | 5173 | `http://localhost:5173` |
+   ```bash
+   dc up -d --build
+   ```
 
-## 🌐 Accessing the Application
+   - The first build downloads Gradle and the dependencies once (a few minutes). Later image builds
+     reuse a shared BuildKit cache, so a service rebuild takes about 20 s.
+   - `db-migrate` runs the database schema script and exits; the Postgres-backed services wait for it.
+   - Services report healthy after 30–60 s.
 
-### After Everything is Running:
+4. Sign in to the HR dashboard (http://localhost:4200) with Google using the email from
+   `BOOTSTRAP_ADMIN_EMAILS`. You are now an approved admin and can approve other HR sign-ups on the
+   **Approvals** page.
 
-1. **HR Admin Dashboard** (Angular)
-   - Open: `http://localhost:4200`
-   - Default credentials: (Check documentation)
+## 2. What runs where
 
-2. **Candidate Portal** (React)
-   - Open: `http://localhost:5173`
-   - For candidates to register and apply
+**Published to your machine**
 
-3. **API Gateway**
-   - Swagger UI: `http://localhost:8000/swagger-ui.html`
-   - Health Check: `http://localhost:8000/actuator/health`
+| URL / port | Service |
+|---|---|
+| http://localhost:5173 | Candidate portal (nginx, proxies `/graphql` and `/api` to the gateway) |
+| http://localhost:4200 | HR dashboard (nginx, same proxying) |
+| http://localhost:8000 | API gateway: `/graphql`, `/graphql-ws`, `/graphiql`, `/api/**`, `/actuator/health` |
+| http://localhost:8001 | auth-service (published only for the Google OAuth redirect) |
+| 5432, 27017, 5672 / 15672, 6379 | Postgres, MongoDB, RabbitMQ (+ management UI), Redis |
 
-4. **Monitoring & Logs**
-   - Grafana: `http://localhost:3000` (Dashboards & Alerts)
-   - Prometheus: `http://localhost:9090` (Metrics)
-   - Kibana: `http://localhost:5601` (Logs)
-   - Jaeger: `http://localhost:16686` (Distributed Tracing)
-   - RabbitMQ: `http://localhost:15672` (Message Broker UI)
-
-## 🔧 Useful Commands
-
-### Stop All Services
-```bash
-docker compose -f docker-compose.yml -f docker-compose.apps.yml down
-```
-
-### Remove All Data (Reset Everything)
-```bash
-docker compose -f docker-compose.yml -f docker-compose.apps.yml down -v
-```
-
-### View Service Status
-```bash
-docker compose -f docker-compose.yml -f docker-compose.apps.yml ps
-```
-
-### Restart a Specific Service
-> ⚠️ **Always use both `-f docker-compose.yml -f docker-compose.apps.yml`** for any application service.  
-> Using only `docker compose` (single file) will return `no such service` for auth-service, api-gateway, hr-admin-dashboard, etc.
+**Internal only:** resume-parser (8002), candidate-matcher (8003), interview-prep (8004),
+job-analyzer (8005), screening-bot (8006), notification (8007), ai-integration (8008).
+To publish them for debugging, add the overlay:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.apps.yml restart <service-name>
+docker compose -f docker-compose.yml -f docker-compose.apps.yml -f docker-compose.debug-ports.yml up -d
 ```
 
-### Start a Specific Service
+**Optional profiles**
 
-For application services declared in `docker-compose.apps.yml`, use both compose files:
+| Profile | Services | URLs |
+|---|---|---|
+| `observability` | Prometheus, Alertmanager, Grafana, Jaeger, Elasticsearch, Kibana | Grafana http://localhost:3000, Prometheus http://localhost:9090 |
+| `streaming` | Zookeeper, Kafka | Kafka `localhost:9094` |
+| `mailhog` | MailHog (local SMTP) | http://localhost:8025 |
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d <service-name>
+dc --profile observability up -d
+COMPOSE_PROFILES=observability,streaming dc up -d
 ```
 
-Examples:
+## 3. Everyday commands
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d auth-service
-docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d api-gateway
-docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d interview-prep-service
-docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d candidate-portal
+dc ps                                     # status and health
+dc logs --tail=100 <service>              # recent logs of one service
+dc logs --follow                          # follow everything
+dc up -d --build <service>                # rebuild and restart one service
+dc restart <service>
+dc stop                                   # stop, keep containers and data
+dc down                                   # remove containers, keep data
+dc down -v                                # remove containers AND data volumes
 ```
 
-For infrastructure-only services declared in `docker-compose.yml`, use the base compose file:
+`dc build --no-cache` ignores the shared Gradle cache and downloads everything again; plain
+`dc build` is normally what you want.
+
+### Data persistence
+
+| Command | Containers | Data volumes | Schema / init scripts re-run? |
+|---|---|---|---|
+| `dc stop` | kept | kept | no |
+| `dc down` | removed | kept | `db-migrate` re-runs (idempotent) |
+| `dc down -v` | removed | **deleted** | yes, `init.sql` / `mongo-init.js` on next `up` |
+
+Infrastructure credentials from `.env` are applied only when a volume is created. To change them later,
+either keep the old values or recreate the volumes with `dc down -v`.
+
+### Email testing with MailHog
 
 ```bash
-docker compose -f docker-compose.yml up -d postgres
-docker compose -f docker-compose.yml up -d rabbitmq
-docker compose -f docker-compose.yml up -d redis
+COMPOSE_PROFILES=mailhog NOTIFICATION_SPRING_PROFILES_ACTIVE=docker,mailhog dc up -d --build notification-service mailhog
 ```
 
-If you want Docker to rebuild the service image before starting it:
+Then open http://localhost:8025.
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build <service-name>
-```
+## 4. Smoke tests
 
-### Start Notification Service with MailHog (Local Email Testing)
+| Command | Checks | Needs |
+|---|---|---|
+| `node scripts/hr-click-validate.js` | HR dashboard: login → dashboard → jobs → screening → analytics (browser, Playwright) | default stack |
+| `./scripts/smoke-auth-e2e.sh` | register → login → JWT → protected resume parse | `-f docker-compose.debug-ports.yml` (calls resume-parser on 8002) |
+| `./scripts/linkedin-demo.sh` | register → resume → matching → screening → decision | `-f docker-compose.debug-ports.yml`; see [docs/demo/linkedin-demo.md](docs/demo/linkedin-demo.md) |
+| `AUTH_TOKEN=… USER_ID=… ./scripts/smoke-ws-auth-init.sh` | GraphQL WebSocket auth | default stack |
+| `./scripts/serverless-phase1-smoke.sh` | Phase 1 Lambda build and local invoke (SAM) | see [serverless/phase1/README.md](serverless/phase1/README.md) |
 
-Use this mode when you want email testing without real SMTP credentials:
+The HR click test approves its own recruiter account directly in Postgres, standing in for an admin.
 
-```bash
-COMPOSE_PROFILES=mailhog NOTIFICATION_SPRING_PROFILES_ACTIVE=docker,mailhog docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build notification-service mailhog
-```
+## 5. Troubleshooting
 
-MailHog Web UI:
-
-- `http://localhost:8025`
-
-### One-Command Auth E2E Smoke Test
-
-This validates: `register -> login -> JWT -> protected resume parse`.
-
-Prerequisites:
-
-- Services running (`auth-service` and `resume-parser-service` up)
-- `JWT_SECRET` set in `.env` (already included in project template)
-
-```bash
-chmod +x scripts/smoke-auth-e2e.sh
-./scripts/smoke-auth-e2e.sh
-```
-
-Optional custom endpoints:
-
-```bash
-AUTH_BASE_URL=http://localhost:8001/api/auth RESUME_BASE_URL=http://localhost:8002/api/resumes ./scripts/smoke-auth-e2e.sh
-```
-
-### One-Command LinkedIn Demo Flow (PASS/FAIL Summary)
-
-Runs full demo path: register -> login -> JWT validate -> resume parse -> matching -> screening -> decision.
-
-```bash
-chmod +x scripts/linkedin-demo.sh
-./scripts/linkedin-demo.sh
-```
-
-Detailed doc: `docs/demo/linkedin-demo.md`
-
-### One-Command HR Admin Click-Path Validation (PASS/FAIL Summary)
-
-Runs an automated browser validation for HR flows:
-`login -> dashboard -> jobs -> screening -> analytics` (nav + direct routes),
-plus a GraphQL backend check for analytics metrics.
-
-```bash
-chmod +x scripts/hr-click-validate.js
-node scripts/hr-click-validate.js
-```
-
-Optional overrides:
-
-```bash
-GATEWAY_URL=http://localhost:8000 HR_FRONTEND_URL=http://localhost:4200 HR_SMOKE_HEADLESS=false node scripts/hr-click-validate.js
-```
-
-### One-Command Phase-1 Serverless Smoke (Quarkus Lambda + SAM)
-
-Use this to validate the new serverless starter independently from Docker Compose.
-
-```bash
-cd /Users/vinodputhenmadhom/Downloads/JavaProjects/SmartHiringAssistant
-chmod +x scripts/serverless-phase1-smoke.sh
-./scripts/serverless-phase1-smoke.sh
-```
-
-If Docker is not running yet:
-
-```bash
-SKIP_LOCAL_INVOKE=true ./scripts/serverless-phase1-smoke.sh
-```
-
-Reference docs: `serverless/phase1/README.md`
-
-### Phase-1 Serverless Deploy (First Time + Repeat)
-
-```bash
-cd /Users/vinodputhenmadhom/Downloads/JavaProjects/SmartHiringAssistant
-chmod +x scripts/serverless-phase1-deploy.sh
-./scripts/serverless-phase1-deploy.sh --guided --stack-name smart-hiring-phase1-deploy --region us-east-1
-```
-
-For repeat deploys:
-
-```bash
-./scripts/serverless-phase1-deploy.sh --non-guided --config-env default
-```
-
-### View Logs for All Services
-```bash
-docker compose -f docker-compose.yml -f docker-compose.apps.yml logs --follow
-```
-
-### View Logs for a Specific Service (Last 100 lines)
-```bash
-docker compose -f docker-compose.yml -f docker-compose.apps.yml logs --tail=100 <service-name>
-```
-
-## 💾 Data Persistence Matrix
-
-| Command | Containers | Named Volumes (e.g., `postgres_data`) | DB Data | `init.sql` / `mongo-init.js` Re-run? |
-|---------|------------|-----------------------------------------|---------|--------------------------------------|
-| `docker compose stop` | Stopped (kept) | Kept | Kept | No |
-| `docker compose down` | Removed | Kept | Kept | No |
-| `docker compose down -v` | Removed | Removed | Deleted | Yes, on next `up` |
-| `docker compose restart <service>` | Recreated/Restarted service container | Kept | Kept | No |
-| `docker compose up -d` (existing volumes) | Started/Recreated as needed | Kept | Kept | No |
-
-> Postgres and Mongo init scripts under `/docker-entrypoint-initdb.d` run only when the data directory is initialized for the first time (or after volume deletion).
-
-## ✅ Health Checks
-
-Once everything is running, verify services are healthy:
-
-```bash
-# Check all service health
-docker compose -f docker-compose.yml -f docker-compose.apps.yml ps
-
-# API Gateway health
-curl http://localhost:8000/actuator/health
-
-# Database connectivity
-curl http://localhost:9200/_cluster/health  # Elasticsearch
-```
-
-## 🛑 Troubleshooting
-
-### If Services Won't Start
-1. **Check Docker Daemon**: Ensure Docker Desktop is running
-2. **Check Logs**: `docker compose logs <service-name>`
-3. **Check Disk Space**: Ensure sufficient disk space for images
-4. **Check Ports**: Ensure ports are not in use
-
-### Common Issues
-- **Port Already in Use**: Kill process using `lsof -i :<port>` or change Docker Desktop port settings
-- **Out of Memory**: Increase Docker memory in Settings → Resources
-- **Build Failures**: Check internet connection or image registry availability
-
-## 📝 Database Credentials
-
-```
-PostgreSQL:
-  User: hiring_user
-  Password: hiring_password
-  Database: smart_hiring_db
-
-MongoDB:
-  User: hiring_user
-  Password: hiring_password
-  Database: smart_hiring_db
-
-RabbitMQ:
-  User: hiring_user
-  Password: hiring_password
-
-Redis:
-  Password: hiring_password
-```
-
-## 🎯 Expected Startup Time
-- **Full Build**: 10-20 minutes (first time)
-- **Subsequent Starts**: 2-5 minutes
-- **All Services Ready**: 5 additional minutes (waiting for health checks)
-
----
-
-**Last Updated**: March 29, 2026
-**Build Status**: ✅ Docker Compose v2 Commands Updated
-
+| Symptom | Cause / fix |
+|---|---|
+| `required variable … is missing a value` | A variable from `.env.example` is missing in `.env`. |
+| A service is `unhealthy` | `dc logs --tail=200 <service>`. Typical causes: wrong credentials after changing `.env` on existing volumes, or the AI service without an API key (callers still work, using heuristics). |
+| `password authentication failed` / `role … does not exist` | `.env` credentials differ from the ones the volume was created with: restore them or `dc down -v`. |
+| Gradle download timeouts during `dc build` | Slow connection to services.gradle.org; the wrapper waits 60 s. Retry; once the cache is warm, builds don't download again. |
+| AI calls return 503 | Check `dc logs ai-integration-service`. `429 … no credits` means the OpenAI account needs credit; `401` means a wrong key. |
+| HR sign-up can't log in | The account is pending; an admin must approve it on the **Approvals** page. |
+| Uploaded resume produces no matches | The matcher only matches against jobs in `hiring.job_requirements` (see Known limitations in the README). |
+| Port already in use | `lsof -i :<port>` and stop the other process. |

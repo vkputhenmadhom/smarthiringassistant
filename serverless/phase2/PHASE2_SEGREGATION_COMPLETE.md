@@ -352,7 +352,7 @@ aws lambda get-function --function-name sha-phase2-ai-integration --region us-ea
 
 ## Next Steps (Following Your Architecture Roadmap)
 
-From `SERVERLESS_MIGRATION_ROADMAP.md`:
+From `docs/archive/SERVERLESS_MIGRATION_ROADMAP.md`:
 
 - ✅ **Phase 1**: Resume Parser Lambda (complete)
 - ✅ **Phase 2**: AI Integration Lambda (just completed)
