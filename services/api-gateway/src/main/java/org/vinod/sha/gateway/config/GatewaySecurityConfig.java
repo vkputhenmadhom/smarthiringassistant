@@ -64,6 +64,8 @@ public class GatewaySecurityConfig {
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .pathMatchers(PUBLIC_PATHS).permitAll()
+                        // Notification logs hold recipients' contact details and send-test sends mail
+                        .pathMatchers("/api/notifications/**").hasRole("ADMIN")
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .bearerTokenConverter(bearerTokenConverterSkippingPublicPaths())
