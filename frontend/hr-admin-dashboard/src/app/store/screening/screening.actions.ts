@@ -37,6 +37,8 @@ export const advanceScreeningFailure = createAction(
   props<{ error: string }>()
 );
 
+export const dismissScreeningError = createAction('[Screening] Dismiss Error');
+
 export const selectScreening = createAction(
   '[Screening] Select',
   props<{ id: string | null }>()

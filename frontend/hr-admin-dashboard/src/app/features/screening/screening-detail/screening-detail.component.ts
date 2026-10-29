@@ -13,10 +13,11 @@ import { takeUntil } from 'rxjs/operators';
 import { ScreeningSession } from '../../../shared/models';
 import {
   advanceScreening,
+  dismissScreeningError,
   loadScreeningSession,
   selectScreening,
 } from '../../../store/screening/screening.actions';
-import { selectSelectedScreening } from '../../../store/screening/screening.selectors';
+import { selectScreeningError, selectSelectedScreening } from '../../../store/screening/screening.selectors';
 
 const SCREENING_UPDATED_SUBSCRIPTION = gql`
   subscription ScreeningUpdated($sessionId: ID!) {
@@ -41,6 +42,12 @@ const SCREENING_UPDATED_SUBSCRIPTION = gql`
   standalone: true,
   imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatDividerModule],
   template: `
+    <div class="error-banner" role="alert" *ngIf="error$ | async as error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+      <button mat-icon-button (click)="dismissError()" aria-label="Dismiss"><mat-icon>close</mat-icon></button>
+    </div>
+
     <ng-container *ngIf="session$ | async as s">
       <div class="page-header flex justify-between items-center">
         <div>
@@ -115,6 +122,7 @@ export class ScreeningDetailComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   session$!: Observable<ScreeningSession | null>;
+  error$ = this.store.select(selectScreeningError);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -131,6 +139,10 @@ export class ScreeningDetailComponent implements OnInit, OnDestroy {
 
   advance(sessionId: string): void {
     this.store.dispatch(advanceScreening({ sessionId }));
+  }
+
+  dismissError(): void {
+    this.store.dispatch(dismissScreeningError());
   }
 
   statusChip(s: string): string {

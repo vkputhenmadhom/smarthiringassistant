@@ -1,5 +1,7 @@
 package org.vinod.sha.screening;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -94,7 +96,8 @@ class ScreeningBotIntegrationTest {
     @Test
     void getSession_failPath_notFound_throws() {
         when(repository.findById("missing-session")).thenReturn(Optional.empty());
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> service.getSession("missing-session"));
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> service.getSession("missing-session"));
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode(), "the gateway reports a missing session as NOT_FOUND, not as an outage");
         assertTrue(ex.getMessage().contains("not found"));
     }
 }
