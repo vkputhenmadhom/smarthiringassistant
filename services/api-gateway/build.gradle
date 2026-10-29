@@ -36,8 +36,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
     // Resilience4j for downstream WebClient protection
-    implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
-    implementation 'io.github.resilience4j:resilience4j-reactor:2.2.0'
+    implementation 'io.github.resilience4j:resilience4j-spring-boot4:2.4.0'
+    implementation 'io.github.resilience4j:resilience4j-reactor:2.4.0'
 
     // Logging & Observability (versions managed by Spring Boot BOM)
     implementation 'io.micrometer:micrometer-tracing-bridge-brave'
@@ -56,7 +56,7 @@ dependencies {
     implementation 'com.auth0:java-jwt:4.4.0'
 
     // OpenAPI documentation (WebFlux variant – not webmvc)
-    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.0.2'
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:3.1.1'
 
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
