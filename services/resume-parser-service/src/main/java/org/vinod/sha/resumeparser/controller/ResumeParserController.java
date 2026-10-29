@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.vinod.sha.resumeparser.security.AuthenticatedUser;
 import org.vinod.sha.resumeparser.dto.ResumeParseResponse;
 import org.vinod.sha.resumeparser.dto.ResumeStatusResponse;
 import org.vinod.sha.resumeparser.entity.Resume;
@@ -137,10 +138,12 @@ public class ResumeParserController {
         }
     }
 
+    /** The resume belongs to the caller identified by the verified JWT (set by JwtAuthenticationFilter). */
     private Long extractUserIdFromAuth(Authentication authentication) {
-        // In a real scenario, extract from JWT token or UserDetails
-        // For now, return a dummy value
-        return 1L;
+        if (authentication.getPrincipal() instanceof AuthenticatedUser user && user.id() != null) {
+            return user.id();
+        }
+        throw new IllegalStateException("Authenticated request carries no user id");
     }
 
     @ExceptionHandler(Exception.class)

@@ -17,13 +17,13 @@ public class AnalyticsRabbitBridgeListener {
     private final AnalyticsEventMapper mapper;
     private final AnalyticsKafkaPublisher publisher;
 
-    @RabbitListener(queues = RabbitMQConfiguration.CANDIDATE_MATCHED_QUEUE)
+    @RabbitListener(queues = RabbitMQConfiguration.CANDIDATE_MATCHED_ANALYTICS_QUEUE)
     public void onCandidateMatched(CandidateMatchedEvent event) {
         AnalyticsEvent analyticsEvent = mapper.fromCandidateMatched(event);
         publisher.publishRaw(keyFor(analyticsEvent.getCandidateId(), analyticsEvent.getJobId()), analyticsEvent);
     }
 
-    @RabbitListener(queues = RabbitMQConfiguration.SCREENING_COMPLETED_QUEUE)
+    @RabbitListener(queues = RabbitMQConfiguration.SCREENING_COMPLETED_ANALYTICS_QUEUE)
     public void onScreeningCompleted(ScreeningCompletedEvent event) {
         AnalyticsEvent analyticsEvent = mapper.fromScreeningCompleted(event);
         String key = analyticsEvent.getSessionId() != null ? analyticsEvent.getSessionId() : analyticsEvent.getCandidateId();

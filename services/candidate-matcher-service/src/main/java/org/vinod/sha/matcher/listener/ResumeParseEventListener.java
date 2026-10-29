@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.vinod.sha.matcher.entity.ProcessedEvent;
 import org.vinod.sha.matcher.repository.ProcessedEventRepository;
 import org.vinod.sha.matcher.service.CandidateMatcherService;
+import org.vinod.shared.config.RabbitMQConfiguration;
 import org.vinod.shared.events.ResumeParseEvent;
 
 import java.time.LocalDateTime;
@@ -23,7 +24,7 @@ public class ResumeParseEventListener {
         this.processedEventRepository = processedEventRepository;
     }
 
-    @RabbitListener(queues = "resume.parsed.queue")
+    @RabbitListener(queues = RabbitMQConfiguration.RESUME_PARSED_QUEUE)
     public void handleResumeParseEvent(ResumeParseEvent event) {
         log.info("Received ResumeParseEvent for resume: {}", event.getResumeId());
 

@@ -17,7 +17,7 @@ public class CandidateMatchedListener {
         this.notificationService = notificationService;
     }
 
-    @RabbitListener(queues = RabbitMQConfiguration.CANDIDATE_MATCHED_QUEUE)
+    @RabbitListener(queues = RabbitMQConfiguration.CANDIDATE_MATCHED_NOTIFICATION_QUEUE)
     public void onCandidateMatched(CandidateMatchedEvent event) {
         try {
             String key = "CandidateMatchedEvent:" + event.getMatchId();

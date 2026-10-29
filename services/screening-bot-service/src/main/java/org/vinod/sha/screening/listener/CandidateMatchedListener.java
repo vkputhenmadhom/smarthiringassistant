@@ -3,6 +3,7 @@ package org.vinod.sha.screening.listener;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
+import org.vinod.shared.config.RabbitMQConfiguration;
 import org.vinod.shared.events.CandidateMatchedEvent;
 import org.vinod.sha.screening.dto.CreateSessionRequest;
 import org.vinod.sha.screening.entity.ConsumedEvent;
@@ -24,7 +25,7 @@ public class CandidateMatchedListener {
         this.consumedEventRepository = consumedEventRepository;
     }
 
-    @RabbitListener(queues = "candidate.matched.queue")
+    @RabbitListener(queues = RabbitMQConfiguration.CANDIDATE_MATCHED_SCREENING_QUEUE)
     public void onCandidateMatched(CandidateMatchedEvent event) {
         try {
             String eventKey = "CandidateMatchedEvent:" + event.getMatchId();

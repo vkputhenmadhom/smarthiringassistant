@@ -34,6 +34,12 @@ public class JwtTokenProvider {
         return getClaims(token).getSubject();
     }
 
+    /** auth-service puts the numeric user id in the {@code id} claim. */
+    public Long getUserIdFromToken(String token) {
+        Object id = getClaims(token).get("id");
+        return id instanceof Number n ? n.longValue() : null;
+    }
+
     public String getRoleFromToken(String token) {
         return getClaims(token).get("role", String.class);
     }
