@@ -13,7 +13,8 @@ This guide runs a complete, recordable flow with a clean PASS/FAIL summary:
 ## Prerequisites
 
 - Docker Desktop running
-- Services up (`docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build`)
+- Services up with internal ports published, since the script calls services directly:
+  `docker compose -f docker-compose.yml -f docker-compose.apps.yml -f docker-compose.debug-ports.yml up -d --build`
 - `.env` present with `JWT_SECRET` set
 
 ## Run

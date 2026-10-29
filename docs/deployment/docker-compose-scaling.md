@@ -5,9 +5,11 @@ Use `docker-compose.yml` for infrastructure and `docker-compose.apps.yml` for ba
 ## Start infrastructure + app services
 
 ```bash
-cd /Users/vinodputhenmadhom/Downloads/JavaProjects/SmartHiringAssistant
 docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
 ```
+
+Optional infrastructure (Prometheus/Grafana, Kafka, ...) is behind Compose profiles; see the
+[Startup Guide](../../STARTUP_GUIDE.md#2-what-runs-where).
 
 ## Verify service health
 
@@ -15,13 +17,12 @@ docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
 docker compose -f docker-compose.yml -f docker-compose.apps.yml ps
 ```
 
-Health checks call each service health endpoint:
+Each service has a Docker health check that calls its actuator health endpoint from inside the
+container (for example `http://localhost:8002/api/resumes/actuator/health`; auth-service uses its
+management port 9001). `docker compose ps` shows the result.
 
-- `http://localhost:8000/actuator/health` (`api-gateway`)
-- `http://localhost:8002/actuator/health` (`resume-parser-service`)
-- `http://localhost:8004/actuator/health` (`interview-prep-service`)
-- `http://localhost:8006/actuator/health` (`screening-bot-service`)
-- `http://localhost:8007/actuator/health` (`notification-service`)
+From your machine, only the gateway is reachable: `curl http://localhost:8000/actuator/health`.
+Internal services publish no ports; add `-f docker-compose.debug-ports.yml` to reach them directly.
 
 ## Scaling (initial, Docker Compose)
 
@@ -30,10 +31,16 @@ For local Compose scaling, use `--scale` at runtime:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d \
-  --scale api-gateway=3 \
   --scale resume-parser-service=3 \
   --scale screening-bot-service=2
 ```
+
+Internal services scale freely because they publish no host ports; Docker's DNS spreads requests across
+the replicas. Services that publish a fixed host port (api-gateway on 8000, auth-service on 8001) can't
+run more than one replica this way. Put a load balancer in front, or use Kubernetes.
+
+RabbitMQ consumers scale too: replicas of one service share that service's queue, so each event is
+handled once per service.
 
 ## Stop stack
 

@@ -1,5 +1,9 @@
 # Phase 2: Microservices Core Infrastructure - Implementation Summary
 
+> **Note:** this guide was written for Phase 2 (resume parser + candidate matcher) and runs services on the host
+> with `bootRun`. For the current setup (credentials from `.env`, Compose profiles, internal-only service
+> ports) see the [README](README.md) and the [Startup Guide](STARTUP_GUIDE.md).
+
 ## Overview
 Phase 2 successfully implements the foundational microservices layer for the Smart Hiring Assistant application with secure authentication, document processing, intelligent matching, and event-driven architecture.
 
@@ -142,7 +146,7 @@ Configured exchanges, queues, and bindings:
   - Routing key: `resume.parsed`
 
 - **Matcher Exchange** (`matcher.exchange`)
-  - Queue: `candidate.matched.queue`
+  - Queues: one per consumer, e.g. `screening.candidate.matched.queue`, `notification.candidate.matched.queue`
   - Routing key: `candidate.matched`
 
 #### Message Format:
@@ -173,7 +177,7 @@ All events are JSON-serialized using Jackson for compatibility across services.
 ## Technology Stack
 
 ### Core Technologies
-- **Java 21** with Spring Boot 3.4.2
+- **Java 21** with Spring Boot 4.0.5
 - **Spring Cloud 2025.1.1** for service discovery and management
 - **gRPC 1.60.0** for high-performance internal communication
 - **RabbitMQ 3.13** for event-driven architecture
@@ -327,17 +331,17 @@ CREATE TABLE candidate_matches (
 
 ### Start Infrastructure (Docker)
 ```bash
-docker-compose up -d
+docker compose up -d   # core infrastructure; see the Startup Guide for profiles
 ```
 
 Services available:
-- PostgreSQL: `localhost:5432` (hiring_user/hiring_password)
+- PostgreSQL: `localhost:5432` (credentials from `.env`)
 - Redis: `localhost:6379`
-- RabbitMQ: `localhost:5672` (Admin: http://localhost:15672, hiring_user/hiring_password)
+- RabbitMQ: `localhost:5672` (Admin: http://localhost:15672, credentials from `.env`)
 - Elasticsearch: `http://localhost:9200`
 - Kibana: `http://localhost:5601`
 - Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000` (admin/hiring_password)
+- Grafana: `http://localhost:3000` (`admin` / `GRAFANA_ADMIN_PASSWORD`; needs `--profile observability`)
 - Jaeger: `http://localhost:16686`
 
 ### Build the Project
