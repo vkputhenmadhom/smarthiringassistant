@@ -121,6 +121,14 @@ jobs:
       GOOGLE_CLIENT_ID: ci-google-client-id
       GOOGLE_CLIENT_SECRET: ci-google-client-secret
       JWT_SECRET: ci-local-jwt-secret-for-smoke-tests-please-change
+      POSTGRES_USER: ci_user
+      POSTGRES_PASSWORD: ci-postgres-password
+      MONGO_USERNAME: ci_user
+      MONGO_PASSWORD: ci-mongo-password
+      RABBITMQ_USERNAME: ci_user
+      RABBITMQ_PASSWORD: ci-rabbitmq-password
+      REDIS_PASSWORD: ci-redis-password
+      GRAFANA_ADMIN_PASSWORD: ci-grafana-password
     steps:
       - name: Checkout
         uses: actions/checkout@v4

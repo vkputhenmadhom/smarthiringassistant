@@ -17,6 +17,7 @@ const HEADLESS = (process.env.HR_SMOKE_HEADLESS || 'true').toLowerCase() !== 'fa
 // HR accounts need an administrator's approval. The smoke test stands in for the admin
 // by approving its own account in the docker-compose Postgres container.
 const POSTGRES_CONTAINER = process.env.HR_SMOKE_POSTGRES_CONTAINER || 'smart-hiring-postgres';
+const POSTGRES_USER = process.env.POSTGRES_USER || 'hiring_user';
 
 async function registerUser(baseUrl, suffix) {
   const payload = {
@@ -48,7 +49,7 @@ async function registerUser(baseUrl, suffix) {
 
 function approveViaDatabase(username) {
   execFileSync('docker', [
-    'exec', POSTGRES_CONTAINER, 'psql', '-U', 'hiring_user', '-d', 'smart_hiring_db', '-v', 'ON_ERROR_STOP=1',
+    'exec', POSTGRES_CONTAINER, 'psql', '-U', POSTGRES_USER, '-d', 'smart_hiring_db', '-v', 'ON_ERROR_STOP=1',
     '-c', `UPDATE hiring.auth_users SET approval_status = 'APPROVED' WHERE username = '${username}'`,
   ], { stdio: 'inherit' });
 }

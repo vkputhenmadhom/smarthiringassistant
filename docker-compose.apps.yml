@@ -12,10 +12,10 @@ services:
   db-migrate:
     image: postgres:16-alpine
     environment:
-      PGPASSWORD: hiring_password
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (see .env.example)}
     volumes:
       - ./infrastructure/db/migrate-all-to-hiring.sql:/migrations/migrate-all-to-hiring.sql:ro
-    command: ["psql", "-h", "postgres", "-U", "hiring_user", "-d", "smart_hiring_db",
+    command: ["psql", "-h", "postgres", "-U", "${POSTGRES_USER:?POSTGRES_USER is required (see .env.example)}", "-d", "smart_hiring_db",
               "-v", "ON_ERROR_STOP=1", "-q", "-f", "/migrations/migrate-all-to-hiring.sql"]
     depends_on:
       postgres:
@@ -34,12 +34,12 @@ services:
       - .env
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
-      SPRING_DATASOURCE_USERNAME: hiring_user
-      SPRING_DATASOURCE_PASSWORD: hiring_password
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required (see .env.example)}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (see .env.example)}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: hiring_user
-      SPRING_RABBITMQ_PASSWORD: hiring_password
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required (see .env.example)}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required (see .env.example)}
       # Signs tokens the gateway verifies, so both must get the same value
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (set it in .env)}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required (set it in .env)}
@@ -83,14 +83,14 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
-      SPRING_DATASOURCE_USERNAME: hiring_user
-      SPRING_DATASOURCE_PASSWORD: hiring_password
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required (see .env.example)}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (see .env.example)}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: hiring_user
-      SPRING_RABBITMQ_PASSWORD: hiring_password
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required (see .env.example)}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required (see .env.example)}
       SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PASSWORD: hiring_password
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required (see .env.example)}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (set it in .env)}
     depends_on:
       auth-service:
@@ -129,12 +129,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
-      SPRING_DATASOURCE_USERNAME: hiring_user
-      SPRING_DATASOURCE_PASSWORD: hiring_password
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required (see .env.example)}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (see .env.example)}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: hiring_user
-      SPRING_RABBITMQ_PASSWORD: hiring_password
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required (see .env.example)}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required (see .env.example)}
       JWT_SECRET: ${JWT_SECRET}
     depends_on:
       db-migrate:
@@ -171,14 +171,14 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
-      SPRING_DATASOURCE_USERNAME: hiring_user
-      SPRING_DATASOURCE_PASSWORD: hiring_password
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required (see .env.example)}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (see .env.example)}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: hiring_user
-      SPRING_RABBITMQ_PASSWORD: hiring_password
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required (see .env.example)}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required (see .env.example)}
       SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PASSWORD: hiring_password
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required (see .env.example)}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -216,13 +216,13 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
-      SPRING_DATASOURCE_USERNAME: hiring_user
-      SPRING_DATASOURCE_PASSWORD: hiring_password
-      SPRING_MONGODB_URI: mongodb://hiring_user:hiring_password@mongodb:27017/smart_hiring_db?authSource=admin
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required (see .env.example)}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (see .env.example)}
+      SPRING_MONGODB_URI: mongodb://${MONGO_USERNAME:?MONGO_USERNAME is required (see .env.example)}:${MONGO_PASSWORD:?MONGO_PASSWORD is required (see .env.example)}@mongodb:27017/smart_hiring_db?authSource=admin
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: hiring_user
-      SPRING_RABBITMQ_PASSWORD: hiring_password
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required (see .env.example)}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required (see .env.example)}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -258,14 +258,14 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       JWT_SECRET: ${JWT_SECRET}
-      SPRING_MONGODB_URI: mongodb://hiring_user:hiring_password@mongodb:27017/smart_hiring_db?authSource=admin
-      SPRING_DATA_MONGODB_URI: mongodb://hiring_user:hiring_password@mongodb:27017/smart_hiring_db?authSource=admin
+      SPRING_MONGODB_URI: mongodb://${MONGO_USERNAME:?MONGO_USERNAME is required (see .env.example)}:${MONGO_PASSWORD:?MONGO_PASSWORD is required (see .env.example)}@mongodb:27017/smart_hiring_db?authSource=admin
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_USERNAME:?MONGO_USERNAME is required (see .env.example)}:${MONGO_PASSWORD:?MONGO_PASSWORD is required (see .env.example)}@mongodb:27017/smart_hiring_db?authSource=admin
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: hiring_user
-      SPRING_RABBITMQ_PASSWORD: hiring_password
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required (see .env.example)}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required (see .env.example)}
       SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PASSWORD: hiring_password
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required (see .env.example)}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -301,12 +301,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: ${NOTIFICATION_SPRING_PROFILES_ACTIVE:-docker}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
-      SPRING_DATASOURCE_USERNAME: hiring_user
-      SPRING_DATASOURCE_PASSWORD: hiring_password
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required (see .env.example)}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (see .env.example)}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: hiring_user
-      SPRING_RABBITMQ_PASSWORD: hiring_password
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required (see .env.example)}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required (see .env.example)}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
@@ -388,10 +388,10 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: hiring_user
-      SPRING_RABBITMQ_PASSWORD: hiring_password
-      SPRING_DATA_MONGODB_URI: mongodb://hiring_user:hiring_password@mongodb:27017/smart_hiring_db?authSource=admin
-      SPRING_MONGODB_URI: mongodb://hiring_user:hiring_password@mongodb:27017/smart_hiring_db?authSource=admin
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required (see .env.example)}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required (see .env.example)}
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_USERNAME:?MONGO_USERNAME is required (see .env.example)}:${MONGO_PASSWORD:?MONGO_PASSWORD is required (see .env.example)}@mongodb:27017/smart_hiring_db?authSource=admin
+      SPRING_MONGODB_URI: mongodb://${MONGO_USERNAME:?MONGO_USERNAME is required (see .env.example)}:${MONGO_PASSWORD:?MONGO_PASSWORD is required (see .env.example)}@mongodb:27017/smart_hiring_db?authSource=admin
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       JOB_SYNC_ENABLED: "true"
       JOB_SYNC_INDIA_ENABLED: "true"
