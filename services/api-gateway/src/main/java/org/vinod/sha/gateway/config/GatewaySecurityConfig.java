@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -28,8 +30,12 @@ import reactor.core.publisher.Mono;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -83,15 +89,38 @@ public class GatewaySecurityConfig {
                 .build();
     }
 
-    /** Maps the auth-service {@code role} claim (e.g. ADMIN, RECRUITER) to {@code ROLE_*} authorities. */
+    /**
+     * Grants two authorities per token: the auth-service role from the {@code role} claim (ROLE_ADMIN,
+     * ROLE_JOB_SEEKER, ...; used by the REST rules above) and the matching GraphQL role (ROLE_HR_ADMIN,
+     * ROLE_CANDIDATE, ...; used by {@code @PreAuthorize} on the GraphQL resolvers, which speak the
+     * schema's {@code Role} enum).
+     */
     static Converter<Jwt, Mono<AbstractAuthenticationToken>> jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
-        authorities.setAuthoritiesClaimName("role");
-        authorities.setAuthorityPrefix("ROLE_");
+        JwtGrantedAuthoritiesConverter authServiceRoles = new JwtGrantedAuthoritiesConverter();
+        authServiceRoles.setAuthoritiesClaimName("role");
+        authServiceRoles.setAuthorityPrefix("ROLE_");
 
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(authorities);
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            Collection<GrantedAuthority> granted = new ArrayList<>(authServiceRoles.convert(jwt));
+            graphqlRoleFor(jwt.getClaimAsString("role"))
+                    .ifPresent(role -> granted.add(new SimpleGrantedAuthority("ROLE_" + role)));
+            return granted;
+        });
         return new ReactiveJwtAuthenticationConverterAdapter(converter);
+    }
+
+    /** auth-service UserRole -> GraphQL Role, as the frontends and the {@code me} query present it. */
+    static Optional<String> graphqlRoleFor(String authServiceRole) {
+        if (authServiceRole == null) {
+            return Optional.empty();
+        }
+        return switch (authServiceRole.toUpperCase(Locale.ROOT)) {
+            case "ADMIN", "HIRING_MANAGER" -> Optional.of("HR_ADMIN");
+            case "RECRUITER" -> Optional.of("RECRUITER");
+            case "JOB_SEEKER" -> Optional.of("CANDIDATE");
+            default -> Optional.empty();
+        };
     }
 
     /**
