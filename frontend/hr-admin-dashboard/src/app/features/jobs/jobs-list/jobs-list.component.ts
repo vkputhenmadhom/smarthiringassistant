@@ -104,9 +104,6 @@ import { Job } from '../../../shared/models';
     .job-link  { font-weight:500; color:#3f51b5; text-decoration:none; }
     .job-sub   { font-size:.78rem; color:#888; margin-top:.1rem; }
     .center-spinner{ margin:3rem auto; display:block; }
-    .error-banner{ display:flex; align-items:center; gap:.5rem; padding:.25rem .25rem .25rem .75rem; margin-bottom:1rem;
-                   border:1px solid var(--warn); border-radius:8px; color:var(--warn); background:#fdecea; }
-    .error-banner span{ flex:1; }
     table{ margin-bottom:.5rem; }
   `],
 })

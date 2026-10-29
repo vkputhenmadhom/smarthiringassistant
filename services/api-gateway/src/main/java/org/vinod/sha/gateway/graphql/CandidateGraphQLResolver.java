@@ -1,11 +1,13 @@
 package org.vinod.sha.gateway.graphql;
 
+import graphql.ErrorClassification;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.vinod.sha.gateway.resilience.GatewayResilience;
+import reactor.core.publisher.Mono;
 
 import java.util.*;
 
@@ -15,6 +17,7 @@ public class CandidateGraphQLResolver {
 
     private static final String RESUME_PARSER_BACKEND = "resume-parser-service";
     private static final String MATCHER_BACKEND = "candidate-matcher-service";
+    static final ErrorClassification NOT_SUPPORTED = ErrorClassification.errorClassification("NOT_SUPPORTED");
 
 
     private final WebClient.Builder webClientBuilder;
@@ -112,40 +115,31 @@ public class CandidateGraphQLResolver {
 
     // ── Mutations ────────────────────────────────────────────────────────────
 
+    /**
+     * Not wired to candidate-matcher yet: the matcher needs the candidate's parsed resume (skills, experience,
+     * location) to score a pair, which this mutation does not have. Matching runs automatically when a resume
+     * is parsed. This used to answer with a made-up 75% match.
+     */
     @MutationMapping
     @PreAuthorize("isAuthenticated()")
-    public Map<String, Object> triggerMatching(@Argument String candidateId,
-                                                @Argument String jobId) {
-        Map<String, Object> body = Map.of("candidateId", candidateId, "jobId", jobId);
-        try {
-            return gatewayResilience.protectWrite(MATCHER_BACKEND,
-                            webClientBuilder.build()
-                                    .post().uri("http://candidate-matcher-service:8003/matches")
-                                    .bodyValue(body)
-                                    .retrieve().bodyToMono(Map.class)
-                                    .map(this::toStringObjectMap))
-                    .block();
-        } catch (Exception e) {
-            return stubMatch(candidateId, jobId);
-        }
+    public Mono<Map<String, Object>> triggerMatching(@Argument String candidateId,
+                                                     @Argument String jobId) {
+        return Mono.error(new ClientFacingException(NOT_SUPPORTED,
+                "Matching a single candidate to a job on demand is not supported yet. "
+                        + "Candidates are matched to every open job automatically when their resume is parsed."));
     }
 
+    /**
+     * Not wired to candidate-matcher yet: the matcher's statuses (NEW, REVIEWED, ACCEPTED, REJECTED) do not
+     * line up with the GraphQL MatchStatus (PENDING, MATCHED, SHORTLISTED, REJECTED, HIRED). This used to
+     * answer with a stub match, so the change looked saved when it was not.
+     */
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
-    public Map<String, Object> updateMatchStatus(@Argument String matchId,
-                                                  @Argument String status) {
-        Map<String, Object> body = Map.of("status", status);
-        try {
-            return gatewayResilience.protectWrite(MATCHER_BACKEND,
-                            webClientBuilder.build()
-                                    .put().uri("http://candidate-matcher-service:8003/matches/" + matchId + "/status")
-                                    .bodyValue(body)
-                                    .retrieve().bodyToMono(Map.class)
-                                    .map(this::toStringObjectMap))
-                    .block();
-        } catch (Exception e) {
-            return stubMatch(matchId, "");
-        }
+    public Mono<Map<String, Object>> updateMatchStatus(@Argument String matchId,
+                                                       @Argument String status) {
+        return Mono.error(new ClientFacingException(NOT_SUPPORTED,
+                "Changing a match's status is not supported yet, so match " + matchId + " was not changed."));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -183,17 +177,6 @@ public class CandidateGraphQLResolver {
         return c;
     }
 
-    private Map<String, Object> stubMatch(String candidateId, String jobId) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("id", UUID.randomUUID().toString());
-        m.put("candidateId", candidateId);
-        m.put("jobId", jobId);
-        m.put("score", 0.75);
-        m.put("status", "PENDING");
-        m.put("skillMatches", List.of("Java", "Spring Boot"));
-        m.put("skillGaps", List.of("Kubernetes"));
-        return m;
-    }
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> toStringObjectMap(Map<?, ?> raw) {

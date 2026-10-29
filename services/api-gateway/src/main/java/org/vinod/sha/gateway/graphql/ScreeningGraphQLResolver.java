@@ -180,7 +180,7 @@ public class ScreeningGraphQLResolver {
                                 .bodyValue(body)
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
-                .onErrorResume(e -> Mono.just(stubSession(UUID.randomUUID().toString())));
+                .onErrorMap(e -> screeningWriteError("start", "the screening", e));
     }
 
     @MutationMapping
@@ -195,7 +195,7 @@ public class ScreeningGraphQLResolver {
                                 .bodyValue(body)
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
-                .onErrorResume(e -> Mono.just(stubSession(sessionId)));
+                .onErrorMap(e -> screeningWriteError("submit your answer for", "screening " + sessionId, e));
     }
 
     @MutationMapping
@@ -206,10 +206,14 @@ public class ScreeningGraphQLResolver {
                                 .post().uri(SCREENING_SERVICE_BASE + "/sessions/" + sessionId + "/advance")
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
-                .onErrorResume(e -> Mono.just(stubSession(sessionId)));
+                .onErrorMap(e -> screeningWriteError("advance", "screening " + sessionId, e));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    static ClientFacingException screeningWriteError(String action, String target, Throwable error) {
+        return BackendWriteErrors.of("screening service", action, target, "Reload the screening", error);
+    }
 
     /** Extract numeric user ID from a Bearer JWT already verified by GraphQLAuthorizationInterceptor. */
     private Long extractUserIdFromToken(String authorization) {
