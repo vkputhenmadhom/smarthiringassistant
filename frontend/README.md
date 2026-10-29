@@ -159,3 +159,8 @@ npm install
 
 - Frontend Docker nginx configs use Docker DNS re-resolution (`resolver 127.0.0.11`) so gateway container IP changes do not break `/graphql` and `/api` proxying.
 
+## Deep Dive Documentation
+
+For a detailed Angular + React + TypeScript walkthrough of this codebase, see:
+
+- `docs/frontend-angular-react-typescript-guide.md`

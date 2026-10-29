@@ -1,0 +1,25 @@
+# Optional overlay that publishes internal services to the host, bypassing the gateway.
+# For local debugging and the scripts/ smoke tests only; never use it for a shared deployment.
+# docker compose -f docker-compose.yml -f docker-compose.apps.yml -f docker-compose.debug-ports.yml up -d
+services:
+  auth-service:
+    ports:
+      - "9001:9001"   # management/actuator port
+  resume-parser-service:
+    ports:
+      - "8002:8002"
+  candidate-matcher-service:
+    ports:
+      - "8003:8003"
+  interview-prep-service:
+    ports:
+      - "8004:8004"
+  job-analyzer-service:
+    ports:
+      - "8005:8005"
+  screening-bot-service:
+    ports:
+      - "8006:8006"
+  notification-service:
+    ports:
+      - "8007:8007"

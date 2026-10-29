@@ -1,0 +1,14 @@
+{{- /*
+  Mounted by services whose initContainer is enabled. files/migrate-all-to-hiring.sql is a
+  copy of infrastructure/db/migrate-all-to-hiring.sql (Helm cannot read outside the chart).
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-migration-script
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "smart-hiring-assistant.labels" . | nindent 4 }}
+data:
+  migrate-all-to-hiring.sql: |-
+{{ .Files.Get "files/migrate-all-to-hiring.sql" | indent 4 }}

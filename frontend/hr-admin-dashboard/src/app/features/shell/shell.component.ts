@@ -56,11 +56,13 @@ const MARK_NOTIFICATION_READ_MUTATION = gql`
         </div>
 
         <mat-nav-list>
-          <a mat-list-item *ngFor="let item of navItems"
-             [routerLink]="item.route" routerLinkActive="active-link" (click)="closeOnMobile(drawer)">
-            <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-            <span matListItemTitle>{{ item.label }}</span>
-          </a>
+          <ng-container *ngFor="let item of navItems">
+            <a mat-list-item *ngIf="canSee(item, (user$ | async)?.role)"
+               [routerLink]="item.route" routerLinkActive="active-link" (click)="closeOnMobile(drawer)">
+              <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+              <span matListItemTitle>{{ item.label }}</span>
+            </a>
+          </ng-container>
         </mat-nav-list>
       </mat-sidenav>
 
@@ -172,7 +174,12 @@ export class ShellComponent implements OnInit, OnDestroy {
     { label: 'Candidates',  icon: 'people',       route: '/app/candidates' },
     { label: 'Screening',   icon: 'fact_check',   route: '/app/screening'  },
     { label: 'Analytics',   icon: 'bar_chart',    route: '/app/analytics'  },
+    { label: 'Approvals',   icon: 'how_to_reg',   route: '/app/approvals', roles: ['HR_ADMIN', 'SUPER_ADMIN'] },
   ];
+
+  canSee(item: NavItem, role: string | undefined): boolean {
+    return !item.roles || (!!role && item.roles.includes(role));
+  }
 
   ngOnInit() {
     this.user$

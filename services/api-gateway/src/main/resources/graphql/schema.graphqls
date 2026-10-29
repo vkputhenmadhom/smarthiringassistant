@@ -24,7 +24,14 @@ type User {
     username: String!
     email: String!
     role: Role!
+    approvalStatus: ApprovalStatus
     createdAt: DateTime
+}
+
+enum ApprovalStatus {
+    PENDING
+    APPROVED
+    REJECTED
 }
 
 enum Role {
@@ -306,6 +313,9 @@ type Query {
 
     # Notifications
     myNotifications(unreadOnly: Boolean): [Notification!]!
+
+    # Account approval (Admin only)
+    pendingUsers: [User!]!
 }
 
 # ──────────────────────────────────────────────
@@ -339,6 +349,11 @@ type Mutation {
     # Notifications
     markNotificationRead(id: ID!): Notification!
     markAllNotificationsRead: Boolean!
+
+    # Account approval (Admin only); role overrides the requested HR role.
+    # HR registrations and logins of unapproved accounts fail with error code PENDING_APPROVAL or FORBIDDEN.
+    approveUser(id: ID!, role: Role): User!
+    rejectUser(id: ID!): User!
 }
 
 # ──────────────────────────────────────────────

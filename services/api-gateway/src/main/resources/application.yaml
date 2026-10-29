@@ -153,6 +153,10 @@ spring:
 server:
   port: 8000
 
+jwt:
+  # Must match auth-service's JWT_SECRET; the gateway verifies tokens with it.
+  secret: ${JWT_SECRET}
+
 app:
   security:
     cors:
@@ -189,6 +193,14 @@ resilience4j:
         permittedNumberOfCallsInHalfOpenState: 5
         waitDurationInOpenState: 30s
         automaticTransitionFromOpenToHalfOpenEnabled: true
+        # 4xx answers are the caller's mistake (wrong password, pending account): don't retry
+        # them or count them against the backend's health.
+        ignoreExceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException$BadRequest
+          - org.springframework.web.reactive.function.client.WebClientResponseException$Unauthorized
+          - org.springframework.web.reactive.function.client.WebClientResponseException$Forbidden
+          - org.springframework.web.reactive.function.client.WebClientResponseException$NotFound
+          - org.springframework.web.reactive.function.client.WebClientResponseException$Conflict
     instances:
       auth-service:
         baseConfig: default
@@ -208,6 +220,14 @@ resilience4j:
         waitDuration: 200ms
         enableExponentialBackoff: true
         exponentialBackoffMultiplier: 2
+        # 4xx answers are the caller's mistake (wrong password, pending account): don't retry
+        # them or count them against the backend's health.
+        ignoreExceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException$BadRequest
+          - org.springframework.web.reactive.function.client.WebClientResponseException$Unauthorized
+          - org.springframework.web.reactive.function.client.WebClientResponseException$Forbidden
+          - org.springframework.web.reactive.function.client.WebClientResponseException$NotFound
+          - org.springframework.web.reactive.function.client.WebClientResponseException$Conflict
     instances:
       auth-service:
         baseConfig: default

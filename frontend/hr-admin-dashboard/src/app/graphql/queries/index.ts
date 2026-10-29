@@ -239,3 +239,18 @@ export const MARK_NOTIFICATION_READ_MUTATION = gql`
 export const MARK_ALL_READ_MUTATION = gql`
   mutation MarkAllRead { markAllNotificationsRead }
 `;
+
+// ── Account approval (ADMIN only) ────────────────────────────────────────────
+export const PENDING_USERS_QUERY = gql`
+  query PendingUsers { pendingUsers { id username email role approvalStatus createdAt } }
+`;
+
+export const APPROVE_USER_MUTATION = gql`
+  mutation ApproveUser($id: ID!, $role: Role) {
+    approveUser(id: $id, role: $role) { id role approvalStatus }
+  }
+`;
+
+export const REJECT_USER_MUTATION = gql`
+  mutation RejectUser($id: ID!) { rejectUser(id: $id) { id approvalStatus } }
+`;

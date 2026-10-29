@@ -1,0 +1,77 @@
+# Production environment overrides
+global:
+  environment: prod
+  domain: hr.smarthiringassistant.com
+image:
+  tag: prod-latest
+services:
+  apiGateway:
+    replicas: 3
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 12
+  authService:
+    replicas: 3
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 8
+  resumeParserService:
+    replicas: 3
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+  candidateMatcherService:
+    replicas: 3
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+  interviewPrepService:
+    replicas: 3
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 8
+  jobAnalyzerService:
+    replicas: 3
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 8
+  screeningBotService:
+    replicas: 3
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+  notificationService:
+    replicas: 3
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 8
+ingress:
+  enabled: true
+  hosts:
+    - host: hr.smarthiringassistant.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: candidate.smarthiringassistant.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: prod-tls
+      hosts:
+        - hr.smarthiringassistant.com
+        - candidate.smarthiringassistant.com
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+networkPolicies:
+  enabled: true
+  ingressEnabled: true
