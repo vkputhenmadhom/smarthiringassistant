@@ -1,4 +1,4 @@
-package org.vinod.ai.entity;
+package org.vinod.sha.ai.entity;
 
 import lombok.*;
 import org.springframework.data.annotation.Id;
