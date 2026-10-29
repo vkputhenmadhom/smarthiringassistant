@@ -33,6 +33,7 @@ interview questions.
                                                     ai-integration-service
                                                     Spring AI: OpenAI | Claude
    Events (RabbitMQ): auth ─► notification-service · resume-parser ─► candidate-matcher
+                      job-analyzer ─► candidate-matcher (job postings)
                       candidate-matcher ─► screening-bot, notification-service, gateway (live updates)
                       screening-bot ─► notification-service, gateway
 ```
@@ -128,6 +129,7 @@ Without an AI key the platform still works: interview-prep and job-analyzer fall
 |---|---|---|
 | `UserRegisteredEvent` | auth-service | notification-service (welcome email) |
 | `ResumeParseEvent` | resume-parser-service | candidate-matcher-service |
+| `JobPostingChangedEvent` | job-analyzer-service (after every job save or delete) | candidate-matcher-service (keeps `hiring.job_requirements` in step) |
 | `CandidateMatchedEvent` | candidate-matcher-service | screening-bot (opens a session for matches ≥ 50%), notification-service, api-gateway (live updates), analytics-bridge |
 | `ScreeningCompletedEvent` | screening-bot-service | notification-service, api-gateway, analytics-bridge |
 | `JobAnalyzedEvent` | job-analyzer-service | (none yet) |
@@ -198,9 +200,8 @@ docs/              guides, deployment notes, frontend deep dives; docs/archive h
 
 ## Known limitations
 
-- **Matching needs job data in the matcher's database.** Jobs live in job-analyzer's MongoDB and are not
-  yet synced to candidate-matcher, so uploaded resumes only produce matches for jobs present in
-  `hiring.job_requirements`.
+- **Resume parsing is rule-based.** It recognises a fixed list of about 30 common skills and reads
+  experience only when written as "N years of experience", so match scores are coarse.
 - **PDF resumes are not parsed yet** (the PDF extractor is a stub); `.txt` and `.docx` work.
 - **Logs and traces are not shipped anywhere yet.** The observability profile provides Prometheus metrics
   and Grafana dashboards; Elasticsearch/Kibana and Jaeger run but services do not send logs or traces to them.

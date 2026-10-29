@@ -7,7 +7,7 @@ import org.vinod.shared.config.RabbitMQConfiguration;
 
 import static org.vinod.shared.config.SharedRabbitAutoConfiguration.consumerQueue;
 
-/** The queue candidate-matcher consumes parsed resumes from. */
+/** The queues candidate-matcher consumes: parsed resumes and job changes. */
 @Configuration
 public class MatcherRabbitConfig {
 
@@ -15,5 +15,11 @@ public class MatcherRabbitConfig {
     public Declarables resumeParsedQueue() {
         return consumerQueue(RabbitMQConfiguration.RESUME_PARSED_QUEUE,
                 RabbitMQConfiguration.RESUME_EXCHANGE, RabbitMQConfiguration.RESUME_PARSED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Declarables jobChangedQueue() {
+        return consumerQueue(RabbitMQConfiguration.JOB_CHANGED_MATCHER_QUEUE,
+                RabbitMQConfiguration.JOB_EXCHANGE, RabbitMQConfiguration.JOB_CHANGED_ROUTING_KEY);
     }
 }

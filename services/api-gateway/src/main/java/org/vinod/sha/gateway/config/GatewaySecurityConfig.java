@@ -72,6 +72,8 @@ public class GatewaySecurityConfig {
                         .pathMatchers(PUBLIC_PATHS).permitAll()
                         // Notification logs hold recipients' contact details and send-test sends mail
                         .pathMatchers("/api/notifications/**").hasRole("ADMIN")
+                        // Job-board imports spend paid API quota; the matcher backfill re-sends every job
+                        .pathMatchers("/api/jobs/sync/**").hasRole("ADMIN")
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .bearerTokenConverter(bearerTokenConverterSkippingPublicPaths())

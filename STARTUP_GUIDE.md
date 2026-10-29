@@ -104,6 +104,17 @@ dc down -v                                # remove containers AND data volumes
 Infrastructure credentials from `.env` are applied only when a volume is created. To change them later,
 either keep the old values or recreate the volumes with `dc down -v`.
 
+### Syncing jobs to the matcher
+
+Job changes reach candidate-matcher through `JobPostingChangedEvent`. To load jobs that existed before the
+sync, or to refill the matcher after its Postgres data was reset, republish every job (needs an ADMIN token).
+It upserts only; it does not remove matcher rows for jobs that are gone from MongoDB.
+
+```bash
+curl -X POST http://localhost:8000/api/jobs/sync/matcher -H "Authorization: Bearer $ADMIN_TOKEN"
+# {"published": 526}
+```
+
 ### Email testing with MailHog
 
 ```bash

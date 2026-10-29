@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.vinod.sha.analyzer.messaging.JobChangePublisher;
 import org.vinod.sha.analyzer.service.JobSyncService;
 
 import java.util.LinkedHashMap;
@@ -25,9 +26,23 @@ import java.util.Map;
 public class JobSyncController {
 
     private final JobSyncService jobSyncService;
+    private final JobChangePublisher jobChangePublisher;
 
-    public JobSyncController(JobSyncService jobSyncService) {
+    public JobSyncController(JobSyncService jobSyncService, JobChangePublisher jobChangePublisher) {
         this.jobSyncService = jobSyncService;
+        this.jobChangePublisher = jobChangePublisher;
+    }
+
+    /**
+     * Re-sends every job to candidate-matcher (idempotent upserts). Needed once for jobs that existed
+     * before job events were published; new and changed jobs are sent automatically.
+     */
+    @PostMapping("matcher")
+    public ResponseEntity<Map<String, Object>> republishToMatcher() {
+        int published = jobChangePublisher.republishAll();
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("published", published);
+        return ResponseEntity.ok(response);
     }
 
     /**
