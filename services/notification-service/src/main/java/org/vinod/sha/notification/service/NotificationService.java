@@ -14,11 +14,11 @@ import java.time.Instant;
 public class NotificationService {
 
     private final NotificationLogRepository notificationLogRepository;
-    private final ObjectMapper objectMapper;
+    // Spring Boot 4 auto-configures Jackson 3 only, so there is no Jackson 2 ObjectMapper bean to inject.
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
-    public NotificationService(NotificationLogRepository notificationLogRepository, ObjectMapper objectMapper) {
+    public NotificationService(NotificationLogRepository notificationLogRepository) {
         this.notificationLogRepository = notificationLogRepository;
-        this.objectMapper = objectMapper;
     }
 
     public boolean isAlreadyProcessed(String referenceId) {
