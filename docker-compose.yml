@@ -1,4 +1,8 @@
-
+# Infrastructure for local development.
+# Core services (Postgres, MongoDB, RabbitMQ, Redis) always start. Optional groups are behind profiles:
+#   observability: Elasticsearch, Kibana, Jaeger, Prometheus, Alertmanager, Grafana
+#   streaming:     Zookeeper, Kafka (used by the analytics pipeline)
+# Enable with e.g. `docker compose --profile observability up -d` or COMPOSE_PROFILES=observability,streaming.
 services:
   # PostgreSQL Database
   postgres:
@@ -85,6 +89,7 @@ services:
   # Zookeeper for Kafka (optional, for future event streaming)
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
+    profiles: ["streaming"]
     container_name: smart-hiring-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -97,6 +102,7 @@ services:
   # Kafka for Event Streaming (optional, alternative to RabbitMQ)
   kafka:
     image: confluentinc/cp-kafka:7.5.0
+    profiles: ["streaming"]
     container_name: smart-hiring-kafka
     depends_on:
       - zookeeper
@@ -117,6 +123,7 @@ services:
   # Elasticsearch for Logging
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.4
+    profiles: ["observability"]
     container_name: smart-hiring-elasticsearch
     environment:
       - discovery.type=single-node
@@ -137,6 +144,7 @@ services:
   # Kibana for Log Visualization
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.4
+    profiles: ["observability"]
     container_name: smart-hiring-kibana
     ports:
       - "5601:5601"
@@ -154,7 +162,8 @@ services:
 
   # Jaeger for Distributed Tracing
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.76.0
+    profiles: ["observability"]
     container_name: smart-hiring-jaeger
     environment:
       COLLECTOR_ZIPKIN_HOST_PORT: :9411
@@ -173,7 +182,8 @@ services:
 
   # Prometheus for Metrics
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.10.0
+    profiles: ["observability"]
     container_name: smart-hiring-prometheus
     volumes:
       - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -190,7 +200,8 @@ services:
 
   # Alertmanager for Prometheus alert routing
   alertmanager:
-    image: prom/alertmanager:latest
+    image: prom/alertmanager:v0.31.1
+    profiles: ["observability"]
     container_name: smart-hiring-alertmanager
     volumes:
       - ./infrastructure/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
@@ -204,7 +215,8 @@ services:
 
   # Grafana for Metrics Visualization
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.4.2
+    profiles: ["observability"]
     container_name: smart-hiring-grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required (see .env.example)}
