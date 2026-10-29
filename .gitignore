@@ -38,3 +38,6 @@ out/
 .env
 *.log
 target/
+
+### Node ###
+node_modules/
