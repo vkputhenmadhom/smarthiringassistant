@@ -81,6 +81,13 @@ spec:
             - name: SPRING_DATA_REDIS_PORT
               value: {{ $.Values.redis.port | quote }}
             {{- end }}
+            {{- if has $service (list "apiGateway" "authService" "resumeParserService" "screeningBotService") }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: jwt-secret
+            {{- end }}
             {{- if eq $service "notificationService" }}
             - name: SPRING_RABBITMQ_HOST
               value: {{ $.Values.rabbitmq.host }}

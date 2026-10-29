@@ -153,6 +153,10 @@ spring:
 server:
   port: 8000
 
+jwt:
+  # Must match auth-service's JWT_SECRET; the gateway verifies tokens with it.
+  secret: ${JWT_SECRET}
+
 app:
   security:
     cors:

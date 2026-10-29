@@ -211,7 +211,7 @@ public class ScreeningGraphQLResolver {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /** Extract numeric user ID from a Bearer JWT without a full validation library. */
+    /** Extract numeric user ID from a Bearer JWT already verified by GraphQLAuthorizationInterceptor. */
     private Long extractUserIdFromToken(String authorization) {
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             return null;

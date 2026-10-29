@@ -22,6 +22,10 @@ dependencies {
     // Spring Security (WebFlux variant only)
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
+    // Verifies auth-service JWTs at the edge (HMAC, shared JWT_SECRET)
+    implementation 'org.springframework.security:spring-security-oauth2-resource-server'
+    implementation 'org.springframework.security:spring-security-oauth2-jose'
+
     // GraphQL (auto-configures over WebFlux when webflux is present)
     implementation 'org.springframework.boot:spring-boot-starter-graphql'
 
@@ -58,6 +62,10 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'io.projectreactor:reactor-test'
+    // Signs test tokens exactly as auth-service does, to prove the gateway accepts them
+    testImplementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    testRuntimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
+    testRuntimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
 
 }
 

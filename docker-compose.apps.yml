@@ -1,14 +1,18 @@
 # App-layer compose file with health checks and baseline scaling hints.
 # Use together with docker-compose.yml (infra):
 # docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
+#
+# Only the API gateway (8000), the frontends and auth-service (8001, for the Google
+# OAuth2 redirect URI) are published to the host. Every other service is reachable
+# only through the gateway. To publish them for debugging or the scripts/ smoke tests,
+# add: -f docker-compose.debug-ports.yml
 services:
   auth-service:
     build:
       context: .
       dockerfile: services/auth-service/Dockerfile
     ports:
-      - "8001:8001"
-      - "9001:9001"   # management/actuator port
+      - "8001:8001"   # published for the Google OAuth2 redirect URI
     env_file:
       - .env
     environment:
@@ -66,6 +70,7 @@ services:
       SPRING_RABBITMQ_PASSWORD: hiring_password
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PASSWORD: hiring_password
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (set it in .env)}
     depends_on:
       auth-service:
         condition: service_started
@@ -98,8 +103,8 @@ services:
     build:
       context: .
       dockerfile: services/resume-parser-service/Dockerfile
-    ports:
-      - "8002:8002"
+    expose:
+      - "8002"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
@@ -138,8 +143,8 @@ services:
     build:
       context: .
       dockerfile: services/candidate-matcher-service/Dockerfile
-    ports:
-      - "8003:8003"
+    expose:
+      - "8003"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
@@ -181,8 +186,8 @@ services:
     build:
       context: .
       dockerfile: services/interview-prep-service/Dockerfile
-    ports:
-      - "8004:8004"
+    expose:
+      - "8004"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
@@ -221,8 +226,8 @@ services:
     build:
       context: .
       dockerfile: services/screening-bot-service/Dockerfile
-    ports:
-      - "8006:8006"
+    expose:
+      - "8006"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       JWT_SECRET: ${JWT_SECRET}
@@ -264,8 +269,8 @@ services:
     build:
       context: .
       dockerfile: services/notification-service/Dockerfile
-    ports:
-      - "8007:8007"
+    expose:
+      - "8007"
     environment:
       SPRING_PROFILES_ACTIVE: ${NOTIFICATION_SPRING_PROFILES_ACTIVE:-docker}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_hiring_db
@@ -348,8 +353,8 @@ services:
     build:
       context: .
       dockerfile: services/job-analyzer-service/Dockerfile
-    ports:
-      - "8005:8005"
+    expose:
+      - "8005"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_RABBITMQ_HOST: rabbitmq
