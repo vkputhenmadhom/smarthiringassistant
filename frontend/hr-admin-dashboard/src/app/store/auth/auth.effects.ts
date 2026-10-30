@@ -3,7 +3,7 @@ import { Actions, createEffect, ofType, ROOT_EFFECTS_INIT } from '@ngrx/effects'
 import { Router } from '@angular/router';
 import { Apollo } from 'apollo-angular';
 import { Store } from '@ngrx/store';
-import { catchError, map, switchMap, tap, timeout } from 'rxjs/operators';
+import { catchError, filter, map, switchMap, tap, timeout } from 'rxjs/operators';
 import { of } from 'rxjs';
 import * as AuthActions from './auth.actions';
 import { LOGIN_MUTATION, ME_QUERY, REFRESH_TOKEN_MUTATION, REGISTER_MUTATION } from '../../graphql/queries';
@@ -77,7 +77,9 @@ export class AuthEffects {
 
   /**
    * On app boot:
-   * - No stored credentials          → try ME_QUERY (may already have a session cookie).
+   * - No stored credentials          → nothing to restore. Sessions are bearer tokens only (no cookie), so
+   *   ME_QUERY would just fail, and its logout would wipe a session the OAuth callback page stores during
+   *   this same page load: Google sign-in landed back on the login page.
    * - Token present but clearly old  → skip the network call; go straight to logout so the
    *   user reaches the login page without any hanging HTTP request.
    * - Token present and still valid  → schedule the next silent refresh, then load user.
@@ -85,14 +87,12 @@ export class AuthEffects {
   initRefresh$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ROOT_EFFECTS_INIT),
+      // The OAuth callback page brings a new session; restoring an old one there could log it out again.
+      filter(() => !window.location.pathname.startsWith('/auth/callback')),
+      filter(() => !!localStorage.getItem('sha_token') && !!localStorage.getItem('sha_refresh_token')),
       map(() => {
-        const token        = localStorage.getItem('sha_token');
-        const refreshToken = localStorage.getItem('sha_refresh_token');
+        const refreshToken = localStorage.getItem('sha_refresh_token')!;
         const expiresAt    = Number(localStorage.getItem('sha_expires_at') ?? '') || 0;
-
-        if (!token || !refreshToken) {
-          return AuthActions.loadCurrentUser();
-        }
 
         // Token clearly expired (> 30 s in the past) → don't attempt a network refresh;
         // dispatch logout so the guard clears state and sends the user to login instantly.
