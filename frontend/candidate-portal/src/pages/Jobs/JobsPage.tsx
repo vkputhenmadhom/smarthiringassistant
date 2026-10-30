@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Input, Row, Col, Tag, Button, Spin, Empty, Typography, message } from 'antd';
+import { Alert, Card, Input, Row, Col, Tag, Button, Spin, Empty, Typography, message } from 'antd';
 import { SearchOutlined, EnvironmentOutlined, DollarOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useMutation } from '@apollo/client';
@@ -24,7 +24,7 @@ type StartScreeningResponse = {
 const JobsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { items, loading, totalElements } = useSelector((s: RootState) => s.jobs);
+  const { items, loading, totalElements, error } = useSelector((s: RootState) => s.jobs);
   const user = useSelector((s: RootState) => s.auth.user);
   const [search, setSearch]   = useState('');
   const [applied, setApplied] = useState<Set<string>>(new Set());
@@ -86,7 +86,9 @@ const JobsPage: React.FC = () => {
 
       {loading && <Spin size="large" style={{ display:'block', margin:'3rem auto' }} />}
 
-      {!loading && items.length === 0 && <Empty description="No jobs found" />}
+      {!loading && error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
+
+      {!loading && !error && items.length === 0 && <Empty description="No jobs found" />}
 
       <Row gutter={[16, 16]}>
         {items.map((job: Job) => (
@@ -102,7 +104,7 @@ const JobsPage: React.FC = () => {
               ]}
             >
               <div style={{ display:'flex', gap:8, marginBottom:8, color:'#666', fontSize:13 }}>
-                <span><EnvironmentOutlined /> {job.location ?? 'Remote'}</span>
+                <span><EnvironmentOutlined /> {job.location?.trim() || 'Location not specified'}</span>
                 <span>· {job.type}</span>
                 {job.salaryMin && <span><DollarOutlined /> {(job.salaryMin/1000).toFixed(0)}k–{((job.salaryMax??0)/1000).toFixed(0)}k</span>}
               </div>

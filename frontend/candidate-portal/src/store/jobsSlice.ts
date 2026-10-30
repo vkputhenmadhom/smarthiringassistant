@@ -30,7 +30,7 @@ const jobsSlice = createSlice({
   },
   extraReducers: builder => {
     builder
-      .addCase(fetchJobs.pending,   s => { s.loading = true; })
+      .addCase(fetchJobs.pending,   s => { s.loading = true; s.error = null; })
       .addCase(fetchJobs.fulfilled, (s, a) => {
         s.loading = false; s.items = a.payload.content;
         s.totalElements = a.payload.totalElements; s.totalPages = a.payload.totalPages; s.page = a.payload.page;
