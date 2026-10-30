@@ -64,12 +64,16 @@ public class JobAnalyzerService {
     public JobAnalyzerService(JobAnalysisRepository repository,
                               RabbitTemplate rabbitTemplate,
                               RestTemplate restTemplate,
-                              MeterRegistry meterRegistry) {
+                              MeterRegistry meterRegistry,
+                              JobMarket jobMarket) {
         this.repository = repository;
         this.rabbitTemplate = rabbitTemplate;
         this.restTemplate = restTemplate;
         this.meterRegistry = meterRegistry;
+        this.jobMarket = jobMarket;
     }
+
+    private final JobMarket jobMarket;
 
     private DistributionSummary salaryConfidenceSummary;
 
@@ -139,11 +143,13 @@ public class JobAnalyzerService {
     }
 
     public Map<String, Object> listJobs(int page, int size, String status, String search) {
-        return listJobs(page, size, status, search, null);
+        return listJobs(page, size, status, search, null, false);
     }
 
-    public Map<String, Object> listJobs(int page, int size, String status, String search, String source) {
+    /** @param marketOnly only jobs in the configured {@link JobMarket} (what candidates see) */
+    public Map<String, Object> listJobs(int page, int size, String status, String search, String source, boolean marketOnly) {
         List<JobAnalysis> all = repository.findAll().stream()
+                .filter(job -> !marketOnly || jobMarket.includes(job))
                 .sorted(Comparator.comparing(JobAnalysis::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .filter(job -> status == null || status.isBlank() || status.equalsIgnoreCase(defaultIfBlank(job.getStatus(), "DRAFT")))
                 .filter(job -> matchesSearch(job, search))
@@ -224,7 +230,11 @@ public class JobAnalyzerService {
     }
 
     public Map<String, Object> getJobDashboardMetrics() {
-        List<JobAnalysis> jobs = repository.findAll();
+        return getJobDashboardMetrics(false);
+    }
+
+    public Map<String, Object> getJobDashboardMetrics(boolean marketOnly) {
+        List<JobAnalysis> jobs = repository.findAll().stream().filter(job -> !marketOnly || jobMarket.includes(job)).toList();
         long openJobs = jobs.stream().filter(job -> "OPEN".equalsIgnoreCase(defaultIfBlank(job.getStatus(), "DRAFT"))).count();
 
         Map<String, Long> skillCounts = jobs.stream()

@@ -115,6 +115,13 @@ curl -X POST http://localhost:8000/api/jobs/sync/matcher -H "Authorization: Bear
 # {"published": 526}
 ```
 
+### Job market (India only for now)
+
+Compose sets `JOB_MARKET=IN`: candidates see, and are matched against, only India jobs (the JSearch/Adzuna
+India imports and jobs posted in the app). US jobs stay in MongoDB and stay visible to HR. It also sets
+`JOB_SYNC_GLOBAL_ENABLED=false`, which pauses the US import. After changing `JOB_MARKET`, restart
+job-analyzer and republish the jobs (above) so the matcher puts out-of-market jobs on hold or reactivates them.
+
 ### Email testing with MailHog
 
 ```bash

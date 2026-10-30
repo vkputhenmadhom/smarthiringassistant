@@ -34,6 +34,24 @@ class JobRequirementSyncServiceTest {
     }
 
     @Test
+    void anOpenJobOutsideTheJobMarketIsKeptButNeverMatched() {
+        when(repository.findByJobId("us-1")).thenReturn(Optional.empty());
+
+        service.apply(posting("us-1", "OPEN").inMarket(false).build());
+
+        assertEquals(JobStatus.ON_HOLD, saved().getStatus());
+    }
+
+    @Test
+    void eventsFromOlderProducersWithoutTheMarketFlagCountAsInMarket() {
+        when(repository.findByJobId("job-2")).thenReturn(Optional.empty());
+
+        service.apply(posting("job-2", "OPEN").build());
+
+        assertEquals(JobStatus.ACTIVE, saved().getStatus());
+    }
+
+    @Test
     void updatesTheExistingCopyInsteadOfCreatingAnother() {
         JobRequirement existing = new JobRequirement();
         existing.setId(10L);

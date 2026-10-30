@@ -47,7 +47,8 @@ public class JobRequirementSyncService {
         job.setJobDescription(event.getJobDescription());
         job.setRequiredSkills(event.getRequiredSkills() == null ? new ArrayList<>() : new ArrayList<>(event.getRequiredSkills()));
         job.setRequiredYearsExperience(event.getMinExperienceYears() == null ? 0 : Math.max(0, event.getMinExperienceYears()));
-        job.setStatus(toMatcherStatus(event.getStatus()));
+        // Outside the job market (e.g. a US job while the app serves India): keep it, but never match it.
+        job.setStatus(Boolean.FALSE.equals(event.getInMarket()) ? JobStatus.ON_HOLD : toMatcherStatus(event.getStatus()));
         repository.save(job);
     }
 

@@ -36,11 +36,20 @@ job:
 #   Adzuna               – broad job board aggregator
 #     → https://developer.adzuna.com  (free: 250 req/day)
 # ─────────────────────────────────────────────────────────────────────────────
+# Which jobs candidates see and are matched against: blank = every job, IN = India (India imports plus
+# jobs posted in the app). Jobs outside the market are kept and stay visible to HR.
+job-market:
+  region: ${JOB_MARKET:}
+
 job-sync:
   enabled: ${JOB_SYNC_ENABLED:false}
+  # The primary import below is the US/global one; the India import is under job-sync.india.
+  global-enabled: ${JOB_SYNC_GLOBAL_ENABLED:true}
   cron: "0 0 */6 * * *"          # every 6 hours
   max-per-sync: 50
-  country: india
+  # Two-letter ISO code for the primary import. It used to say "india", which JSearch ignores (it returned
+  # US jobs) and which is not a valid Adzuna country; India is imported by job-sync.india instead.
+  country: us
   keywords:
     - "technical lead"
     - "staff software engineer"

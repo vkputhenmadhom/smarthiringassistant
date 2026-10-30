@@ -41,6 +41,7 @@ public class JobGraphQLResolver {
 
     // ── Queries ──────────────────────────────────────────────────────────────
 
+    /** HR sees every job; candidates and visitors only jobs in job-analyzer's configured job market. */
     @QueryMapping
     public Mono<Map<String, Object>> jobs(
             @Argument Integer page,
@@ -52,8 +53,8 @@ public class JobGraphQLResolver {
         int p = page == null ? 0 : page;
         int s = size == null ? 20 : size;
 
-        String uri = buildJobsUri(p, s, status, search, source);
-        return requestMap(uri)
+        return Caller.current()
+                .flatMap(caller -> requestMap(buildJobsUri(p, s, status, search, source, !caller.hr())))
                 .map(this::normalizeJobPage)
                 .defaultIfEmpty(emptyPage())
                 .onErrorResume(e -> {
@@ -153,12 +154,13 @@ public class JobGraphQLResolver {
                 .map(this::toStringObjectMap);
     }
 
-    private String buildJobsUri(int page, int size, String status, String search, String source) {
+    private String buildJobsUri(int page, int size, String status, String search, String source, boolean marketOnly) {
         StringBuilder sb = new StringBuilder(JOB_SERVICE_BASE + "/jobs?page=")
                 .append(page).append("&size=").append(size);
         if (status != null) sb.append("&status=").append(status);
         if (search != null && !search.isBlank()) sb.append("&search=").append(search);
         if (source != null && !source.isBlank()) sb.append("&source=").append(source);
+        if (marketOnly) sb.append("&marketOnly=true");
         return sb.toString();
     }
 

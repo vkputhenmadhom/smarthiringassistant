@@ -33,8 +33,9 @@ public class JobAnalyzerController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String source) {
-        return ResponseEntity.ok(service.listJobs(page, size, status, search, source));
+            @RequestParam(required = false) String source,
+            @RequestParam(defaultValue = "false") boolean marketOnly) {
+        return ResponseEntity.ok(service.listJobs(page, size, status, search, source, marketOnly));
     }
 
     @PostMapping("jobs")
@@ -69,8 +70,8 @@ public class JobAnalyzerController {
     }
 
     @GetMapping("metrics/dashboard")
-    public ResponseEntity<Map<String, Object>> dashboardMetrics() {
-        return ResponseEntity.ok(service.getJobDashboardMetrics());
+    public ResponseEntity<Map<String, Object>> dashboardMetrics(@RequestParam(defaultValue = "false") boolean marketOnly) {
+        return ResponseEntity.ok(service.getJobDashboardMetrics(marketOnly));
     }
 
     @PostMapping("extract-skills")
