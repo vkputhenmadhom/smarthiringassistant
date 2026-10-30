@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Row, Col, Statistic, Tag, List, Typography, Spin } from 'antd';
+import { Alert, Card, Row, Col, Statistic, Tag, List, Typography, Spin } from 'antd';
 import { useQuery } from '@apollo/client';
 import { TrophyOutlined, TeamOutlined, CalendarOutlined, FireOutlined } from '@ant-design/icons';
 import { DASHBOARD_METRICS_QUERY, DashboardMetrics } from '../../graphql';
@@ -7,14 +7,16 @@ import { DASHBOARD_METRICS_QUERY, DashboardMetrics } from '../../graphql';
 const { Title, Text } = Typography;
 
 const DashboardPage: React.FC = () => {
-  const { data, loading } = useQuery<{ dashboardMetrics: DashboardMetrics }>(DASHBOARD_METRICS_QUERY);
-  const m = data?.dashboardMetrics;
+  // The query is myCandidateDashboard; reading data.dashboardMetrics left every number at 0.
+  const { data, loading, error } = useQuery<{ myCandidateDashboard: DashboardMetrics }>(DASHBOARD_METRICS_QUERY);
+  const m = data?.myCandidateDashboard;
 
   if (loading) return <Spin size="large" style={{ display:'block', margin:'4rem auto' }} />;
 
   return (
     <div style={{ width: '100%' }}>
       <Title level={4} style={{ marginBottom: 16 }}>My Dashboard</Title>
+      {error && <Alert type="error" showIcon message={error.message} style={{ marginBottom: 16 }} />}
 
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12} md={6}>
