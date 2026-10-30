@@ -11,7 +11,10 @@ import org.vinod.sha.matcher.repository.CandidateMatchRepository;
 import org.vinod.sha.matcher.repository.JobRequirementRepository;
 import org.vinod.shared.events.CandidateMatchedEvent;
 
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -138,6 +141,16 @@ public class CandidateMatcherService {
      */
     public CandidateMatch getMatch(String matchId) {
         return findMatch(matchId).orElseThrow(() -> new RuntimeException("Match not found: " + matchId));
+    }
+
+    /** Each candidate's best match score (0–100); candidates without matches are left out. */
+    public Map<Long, Double> bestScores(Collection<Long> candidateIds) {
+        Map<Long, Double> best = new LinkedHashMap<>();
+        if (!candidateIds.isEmpty()) {
+            candidateMatchRepository.findBestScores(candidateIds)
+                    .forEach(row -> best.put(((Number) row[0]).longValue(), ((Number) row[1]).doubleValue()));
+        }
+        return best;
     }
 
     public Optional<CandidateMatch> findMatch(String matchId) {
