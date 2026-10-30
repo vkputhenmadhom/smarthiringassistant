@@ -14,6 +14,7 @@ import org.vinod.sha.matcher.service.CandidateMatcherService;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -107,6 +108,14 @@ public class CandidateMatcherController {
             log.error("Error fetching matches for candidate", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    /** Best match score (0–100) per candidate, e.g. {@code ?ids=7,8} → {@code {"7": 82.0}}. */
+    @GetMapping("candidates/best-scores")
+    public ResponseEntity<Map<Long, Double>> bestScores(@RequestParam String ids) {
+        List<Long> candidateIds = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> s.matches("\\d+"))
+                .map(Long::valueOf).distinct().toList();
+        return ResponseEntity.ok(candidateMatcherService.bestScores(candidateIds));
     }
 
     @GetMapping("{matchId}")

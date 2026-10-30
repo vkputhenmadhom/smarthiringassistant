@@ -57,6 +57,13 @@ class MatchStatusUpdateTest {
         verify(service, never()).updateMatchStatus(any(), any(), any());
     }
 
+    @Test
+    void bestScoresIgnoreJunkIdsAndAskOncePerCandidate() {
+        when(service.bestScores(List.of(7L, 8L))).thenReturn(java.util.Map.of(7L, 82.0));
+
+        assertEquals(java.util.Map.of(7L, 82.0), controller.bestScores("7, 8,abc,7").getBody());
+    }
+
     private static CandidateMatch match(MatchStatus status) {
         return CandidateMatch.builder().matchId("m-1").candidateId(7L).jobId("job-1").overallScore(82.0)
                 .skillMatchPercentage(50.0).experienceMatchPercentage(100.0).locationMatchPercentage(100.0)

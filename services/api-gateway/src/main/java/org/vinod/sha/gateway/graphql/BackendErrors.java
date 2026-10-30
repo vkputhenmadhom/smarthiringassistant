@@ -62,6 +62,9 @@ final class BackendErrors {
             if (response.getStatusCode().value() == 404) {
                 return new ClientFacingException(ErrorType.NOT_FOUND, capitalize(what) + " was not found.");
             }
+            if (response.getStatusCode().value() == 401 || response.getStatusCode().value() == 403) {
+                return new ClientFacingException(ErrorType.FORBIDDEN, "You are not allowed to see " + what + ".");
+            }
             return new ClientFacingException(ErrorType.BAD_REQUEST,
                     "Could not load " + what + ": the " + service + " rejected the request (" + response.getStatusCode().value() + ").");
         }
