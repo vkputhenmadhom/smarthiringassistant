@@ -57,10 +57,8 @@ public class JobGraphQLResolver {
                 .flatMap(caller -> requestMap(buildJobsUri(p, s, status, search, source, !caller.hr())))
                 .map(this::normalizeJobPage)
                 .defaultIfEmpty(emptyPage())
-                .onErrorResume(e -> {
-                    log.warn("job-analyzer-service unreachable: {}", e.getMessage());
-                    return Mono.just(emptyPage());
-                });
+                // An empty page would tell the user there are no jobs; say the job service is unavailable instead.
+                .onErrorMap(e -> BackendErrors.read("job service", "the jobs", e));
     }
 
     @QueryMapping
@@ -68,10 +66,7 @@ public class JobGraphQLResolver {
         log.debug("GraphQL job query: id={}", id);
         return requestMap(JOB_SERVICE_BASE + "/jobs/" + id)
                 .map(this::normalizeJob)
-                .onErrorResume(e -> {
-                    log.warn("job-analyzer-service unreachable: {}", e.getMessage());
-                    return Mono.just(emptyJob(id));
-                });
+                .onErrorMap(e -> BackendErrors.read("job service", "job " + id, e));
     }
 
     // ── Mutations ────────────────────────────────────────────────────────────

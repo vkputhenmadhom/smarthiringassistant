@@ -75,17 +75,14 @@ public class ScreeningGraphQLResolver {
     @QueryMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> dashboardMetrics() {
+        // A backend that is down fails the dashboard with a message naming it, rather than showing zeros.
         Mono<Map<String, Object>> jobMetricsMono = requestMap(JOB_SERVICE_BASE + "/metrics/dashboard", JOB_BACKEND)
-                .onErrorReturn(Map.of());
+                .onErrorMap(e -> BackendErrors.read("job service", "the dashboard's job numbers", e));
         Mono<Map<String, Object>> screeningMetricsMono = requestMap(SCREENING_SERVICE_BASE + "/metrics/dashboard", SCREENING_BACKEND)
-                .onErrorReturn(Map.of());
+                .onErrorMap(e -> BackendErrors.read("screening service", "the dashboard's screening numbers", e));
 
         return Mono.zip(jobMetricsMono, screeningMetricsMono)
-                .map(tuple -> mergeDashboardMetrics(tuple.getT1(), tuple.getT2()))
-                .onErrorResume(e -> {
-                    log.warn("dashboard metrics aggregation failed: {}", e.getMessage());
-                    return Mono.just(emptyDashboardMetrics());
-                });
+                .map(tuple -> mergeDashboardMetrics(tuple.getT1(), tuple.getT2()));
     }
 
     /**
@@ -113,18 +110,18 @@ public class ScreeningGraphQLResolver {
                                 .bodyToFlux(Map.class)
                                 .map(this::toStringObjectMap)
                                 .collectList())
-                .onErrorReturn(List.of());
+                .onErrorMap(e -> BackendErrors.read("screening service", "your screenings", e));
 
         // 2. User's match records (applications) from candidate-matcher-service
         Mono<List<Map<String, Object>>> matchesMono = candidateId != null
                 ? requestList(MATCHER_SERVICE_BASE + "/candidate/" + candidateId + "/matches", MATCHER_BACKEND)
-                        .onErrorReturn(List.of())
+                        .onErrorMap(e -> BackendErrors.read("matching service", "your applications", e))
                 : Mono.just(List.of());
 
         // 3. Open jobs count in the job market candidates see (job-analyzer JOB_MARKET)
         Mono<Integer> openJobsMono = requestMap(JOB_SERVICE_BASE + "/metrics/dashboard?marketOnly=true", JOB_BACKEND)
                 .map(m -> intValue(m.get("openJobs"), 0))
-                .onErrorReturn(0);
+                .onErrorMap(e -> BackendErrors.read("job service", "the open jobs count", e));
 
         return Mono.zip(sessionsMono, matchesMono, openJobsMono)
                 .map(tuple -> {
@@ -171,10 +168,6 @@ public class ScreeningGraphQLResolver {
                     metrics.put("topSkillsInDemand", List.of());
                     metrics.put("recentActivity", recentActivity);
                     return metrics;
-                })
-                .onErrorResume(e -> {
-                    log.warn("myCandidateDashboard aggregation failed for user {}: {}", candidateId, e.getMessage());
-                    return Mono.just(emptyDashboardMetrics());
                 });
     }
 
@@ -315,22 +308,6 @@ public class ScreeningGraphQLResolver {
                 return OffsetDateTime.now(ZoneOffset.UTC).toString();
             }
         }
-    }
-
-    private Map<String, Object> emptyDashboardMetrics() {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("totalJobs", 0);
-        m.put("openJobs", 0);
-        m.put("totalCandidates", 0);
-        m.put("activeCandidates", 0);
-        m.put("pendingScreenings", 0);
-        m.put("completedScreenings", 0);
-        m.put("averageMatchScore", 0.0);
-        m.put("hireRate", 0.0);
-        m.put("stagePassRates", List.of());
-        m.put("topSkillsInDemand", List.of());
-        m.put("recentActivity", List.of());
-        return m;
     }
 
     private int intValue(Object value, int fallback) {

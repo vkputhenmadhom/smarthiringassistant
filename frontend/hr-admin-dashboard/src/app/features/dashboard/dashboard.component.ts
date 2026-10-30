@@ -6,7 +6,8 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDividerModule } from '@angular/material/divider';
-import { map } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
+import { EMPTY } from 'rxjs';
 import { DASHBOARD_METRICS_QUERY } from '../../graphql/queries';
 import { DashboardMetrics } from '../../shared/models';
 import { selectCurrentUser } from '../../store/auth/auth.selectors';
@@ -19,6 +20,11 @@ import { selectCurrentUser } from '../../store/auth/auth.selectors';
     <div class="page-header">
       <h1>Welcome back, {{ (user$ | async)?.username }}!</h1>
       <p>Here's what's happening in your hiring pipeline today.</p>
+    </div>
+
+    <div class="error-banner" role="alert" *ngIf="error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
     </div>
 
     <ng-container *ngIf="metrics$ | async as m">
@@ -97,8 +103,12 @@ export class DashboardComponent implements OnInit {
   private store  = inject(Store);
 
   user$    = this.store.select(selectCurrentUser);
+  error: string | null = null;
   metrics$ = this.apollo.query<any>({ query: DASHBOARD_METRICS_QUERY })
-               .pipe(map(r => r.data.dashboardMetrics as DashboardMetrics));
+               .pipe(
+                 map(r => r.data.dashboardMetrics as DashboardMetrics),
+                 // Show why the numbers are missing (e.g. the job service is down) instead of a blank page.
+                 catchError(err => { this.error = err.message; return EMPTY; }));
 
   ngOnInit() {}
 

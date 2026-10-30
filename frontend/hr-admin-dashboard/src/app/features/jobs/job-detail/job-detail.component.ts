@@ -9,7 +9,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { MatDividerModule } from '@angular/material/divider';
-import { map } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
+import { EMPTY } from 'rxjs';
 import { JOB_QUERY, MATCHES_FOR_JOB_QUERY, UPDATE_MATCH_STATUS_MUTATION } from '../../../graphql/queries';
 import { Job } from '../../../shared/models';
 import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
@@ -132,7 +133,8 @@ export class JobDetailComponent implements OnInit {
 
   ngOnInit() {
     this.jobId = this.route.snapshot.paramMap.get('id')!;
-    this.job$  = this.apollo.query<any>({ query: JOB_QUERY, variables: { id: this.jobId }, fetchPolicy:'network-only' }).pipe(map(r => r.data.job));
+    this.job$  = this.apollo.query<any>({ query: JOB_QUERY, variables: { id: this.jobId }, fetchPolicy:'network-only' })
+                   .pipe(map(r => r.data.job), catchError(err => { this.error = err.message; return EMPTY; }));
     this.loadMatches();
     this.store.dispatch(loadJob({ id: this.jobId }));
   }
