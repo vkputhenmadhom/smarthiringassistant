@@ -51,6 +51,10 @@ public class JobPostingChangedEvent implements Serializable {
     @JsonProperty("status")
     private String status;
 
+    /** False when the job is outside the configured job market: the matcher keeps it but never matches it. Null (older producers) means true. */
+    @JsonProperty("in_market")
+    private Boolean inMarket;
+
     @JsonProperty("changed_at")
     private long changedAt;
 }

@@ -1,5 +1,6 @@
 package org.vinod.sha.analyzer.messaging;
 
+import org.vinod.sha.analyzer.service.JobMarket;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ class JobChangePublisherTest {
 
     private final RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
     private final JobAnalysisRepository repository = mock(JobAnalysisRepository.class);
-    private final JobChangePublisher publisher = new JobChangePublisher(rabbitTemplate, repository);
+    private final JobChangePublisher publisher = new JobChangePublisher(rabbitTemplate, repository, new JobMarket("IN"));
 
     @Test
     void publishesAnUpsertWithTheDocumentIdWhenAJobIsSaved() {
@@ -38,6 +39,24 @@ class JobChangePublisherTest {
         assertEquals("OPEN", event.getStatus());
         assertEquals(List.of("java"), event.getRequiredSkills());
         assertEquals(3, event.getMinExperienceYears());
+    }
+
+    @Test
+    void marksJobsOutsideTheJobMarketSoTheMatcherSkipsThem() {
+        publisher.onAfterSave(new AfterSaveEvent<>(JobAnalysis.builder().id("us").source("JSEARCH").status("OPEN").build(),
+                new Document(), "job_analysis"));
+        assertEquals(Boolean.FALSE, sent().getInMarket(), "a US import while the market is India");
+    }
+
+    @Test
+    void indiaImportsAndInAppPostingsAreInTheIndianMarket() {
+        JobMarket india = new JobMarket("IN");
+
+        assertTrue(india.includes(JobAnalysis.builder().source("JSEARCH_IN").build()));
+        assertTrue(india.includes(JobAnalysis.builder().source("adzuna_in").build()));
+        assertTrue(india.includes(JobAnalysis.builder().build()), "posted by HR in the app");
+        assertFalse(india.includes(JobAnalysis.builder().source("JSEARCH").build()));
+        assertTrue(new JobMarket("").includes(JobAnalysis.builder().source("JSEARCH").build()), "blank market = every job");
     }
 
     @Test

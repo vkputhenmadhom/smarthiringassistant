@@ -417,6 +417,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       JOB_SYNC_ENABLED: "true"
       JOB_SYNC_INDIA_ENABLED: "true"
+      # India only for now: candidates see and are matched against India jobs, and the US import is paused.
+      JOB_MARKET: ${JOB_MARKET:-IN}
+      JOB_SYNC_GLOBAL_ENABLED: ${JOB_SYNC_GLOBAL_ENABLED:-false}
       JSEARCH_API_KEY: ${JSEARCH_API_KEY:-}
       ADZUNA_API_KEY: ${ADZUNA_API_KEY:-}
       ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}

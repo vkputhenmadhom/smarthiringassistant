@@ -30,6 +30,11 @@ public class JobSyncProperties {
     /** Max total jobs to import per sync run (across all sources & keywords) */
     private int maxPerSync = 50;
 
+    /**
+     * Runs the primary (US/global) import. Turn off (env JOB_SYNC_GLOBAL_ENABLED=false) to import only the
+     * India sources while the app serves the Indian market.
+     */
+    private boolean globalEnabled = true;
     /** Primary two-letter ISO country code (used as default for US/global searches) */
     private String country = "us";
 

@@ -104,12 +104,12 @@ public class JobSyncService {
             var results = new java.util.concurrent.ConcurrentHashMap<String, Integer>();
             
             // ── Global (US/default) sources ───────────────────────────────────
-            if (hasJSearchKey()) {
+            if (props.isGlobalEnabled() && hasJSearchKey()) {
                 threads.add(Thread.startVirtualThread(() -> 
                     results.put("jsearch", syncFromJSearch())
                 ));
             }
-            if (hasAdzunaCreds()) {
+            if (props.isGlobalEnabled() && hasAdzunaCreds()) {
                 threads.add(Thread.startVirtualThread(() -> 
                     results.put("adzuna", syncFromAdzuna())
                 ));
@@ -215,6 +215,7 @@ public class JobSyncService {
         s.put("syncInProgress",   syncInProgress.get());
         s.put("currentSyncId",    currentSyncId);
         s.put("enabled",          props.isEnabled());
+        s.put("globalEnabled",    props.isGlobalEnabled());
         s.put("indiaEnabled",     props.getIndia().isEnabled());
         s.put("configuredSources", buildSourcesInfo());
         if (lastError != null) s.put("lastError", lastError);
@@ -572,6 +573,7 @@ public class JobSyncService {
 
     private List<String> buildSourcesInfo() {
         List<String> info = new ArrayList<>();
+        info.add("US/global sync       : " + (props.isGlobalEnabled() ? "ENABLED" : "PAUSED – set JOB_SYNC_GLOBAL_ENABLED=true"));
         info.add("JSearch (RapidAPI) US : " + (hasJSearchKey()  ? "CONFIGURED" : "NOT CONFIGURED – set JSEARCH_API_KEY"));
         info.add("Adzuna          US   : " + (hasAdzunaCreds() ? "CONFIGURED" : "NOT CONFIGURED – set ADZUNA_APP_ID + ADZUNA_APP_KEY"));
         info.add("India sync           : " + (props.getIndia().isEnabled() ? "ENABLED (Adzuna/in + JSearch country=in)" : "DISABLED – set JOB_SYNC_INDIA_ENABLED=true"));

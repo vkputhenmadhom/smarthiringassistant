@@ -1,5 +1,6 @@
 package org.vinod.sha.analyzer.messaging;
 
+import org.vinod.sha.analyzer.service.JobMarket;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.springframework.amqp.AmqpException;
@@ -25,15 +26,18 @@ public class JobChangePublisher extends AbstractMongoEventListener<JobAnalysis> 
 
     private final RabbitTemplate rabbitTemplate;
     private final JobAnalysisRepository repository;
+    private final JobMarket jobMarket;
 
-    public JobChangePublisher(RabbitTemplate rabbitTemplate, JobAnalysisRepository repository) {
+    public JobChangePublisher(RabbitTemplate rabbitTemplate, JobAnalysisRepository repository, JobMarket jobMarket) {
         this.rabbitTemplate = rabbitTemplate;
         this.repository = repository;
+        this.jobMarket = jobMarket;
     }
 
     @Override
     public void onAfterSave(AfterSaveEvent<JobAnalysis> event) {
-        publish(toEvent(event.getSource()));
+        JobAnalysis job = event.getSource();
+        publish(toEvent(job, jobMarket.includes(job)));
     }
 
     @Override
@@ -55,7 +59,7 @@ public class JobChangePublisher extends AbstractMongoEventListener<JobAnalysis> 
     public int republishAll() {
         int published = 0;
         for (JobAnalysis job : repository.findAll()) {
-            if (publish(toEvent(job))) {
+            if (publish(toEvent(job, jobMarket.includes(job)))) {
                 published++;
             }
         }
@@ -63,7 +67,8 @@ public class JobChangePublisher extends AbstractMongoEventListener<JobAnalysis> 
         return published;
     }
 
-    static JobPostingChangedEvent toEvent(JobAnalysis job) {
+    /** @param inMarket false keeps the job out of matching (see {@link JobMarket}) */
+    static JobPostingChangedEvent toEvent(JobAnalysis job, boolean inMarket) {
         return JobPostingChangedEvent.builder()
                 .jobId(job.getId())
                 .jobTitle(job.getJobTitle())
@@ -73,6 +78,7 @@ public class JobChangePublisher extends AbstractMongoEventListener<JobAnalysis> 
                 .requiredSkills(job.getRequiredSkills())
                 .minExperienceYears(job.getMinExperienceYears())
                 .status(job.getStatus())
+                .inMarket(inMarket)
                 .changedAt(System.currentTimeMillis())
                 .build();
     }

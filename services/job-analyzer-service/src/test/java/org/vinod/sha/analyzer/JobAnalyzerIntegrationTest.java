@@ -18,6 +18,7 @@ import org.vinod.sha.analyzer.entity.JobAnalysis;
 import org.vinod.sha.analyzer.repository.JobAnalysisRepository;
 import org.vinod.sha.analyzer.service.JobAnalyzerService;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -48,7 +49,8 @@ class JobAnalyzerIntegrationTest {
     @BeforeEach
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
-        service = new JobAnalyzerService(repository, rabbitTemplate, restTemplate, meterRegistry);
+        service = new JobAnalyzerService(repository, rabbitTemplate, restTemplate, meterRegistry,
+                new org.vinod.sha.analyzer.service.JobMarket(""));
 
         ReflectionTestUtils.setField(service, "aiBaseUrl", "http://localhost:8008/api/ai");
         ReflectionTestUtils.setField(service, "salaryConfidenceSummary", salaryConfidenceSummary);
@@ -78,6 +80,20 @@ class JobAnalyzerIntegrationTest {
         assertNotNull(result.getRequiredSkills());
         assertTrue(result.getSalaryMin() > 0);
         assertTrue(result.getSalaryMax() > result.getSalaryMin());
+    }
+
+    @Test
+    void candidatesSeeOnlyTheJobMarketWhileHrSeesEverything() {
+        JobAnalyzerService india = new JobAnalyzerService(repository, rabbitTemplate, restTemplate, meterRegistry,
+                new org.vinod.sha.analyzer.service.JobMarket("IN"));
+        when(repository.findAll()).thenReturn(List.of(
+                JobAnalysis.builder().id("in").source("JSEARCH_IN").status("OPEN").createdAt(java.time.LocalDateTime.now()).build(),
+                JobAnalysis.builder().id("us").source("JSEARCH").status("OPEN").createdAt(java.time.LocalDateTime.now()).build(),
+                JobAnalysis.builder().id("hr").status("OPEN").createdAt(java.time.LocalDateTime.now()).build()));
+
+        assertEquals(2, india.listJobs(0, 20, null, null, null, true).get("totalElements"));
+        assertEquals(3, india.listJobs(0, 20, null, null, null, false).get("totalElements"));
+        assertEquals(2, india.getJobDashboardMetrics(true).get("openJobs"));
     }
 
     @Test

@@ -30,7 +30,7 @@ class JobAnalyzerSkillsExtractionTest {
     @BeforeEach
     void setUp() {
         service = new JobAnalyzerService(mock(JobAnalysisRepository.class), mock(RabbitTemplate.class),
-                restTemplate, new SimpleMeterRegistry());
+                restTemplate, new SimpleMeterRegistry(), new org.vinod.sha.analyzer.service.JobMarket(""));
         ReflectionTestUtils.setField(service, "aiBaseUrl", "http://ai-integration-service:8008/api/ai");
     }
 

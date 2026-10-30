@@ -121,8 +121,8 @@ public class ScreeningGraphQLResolver {
                         .onErrorReturn(List.of())
                 : Mono.just(List.of());
 
-        // 3. Open jobs count (global – same for all users)
-        Mono<Integer> openJobsMono = requestMap(JOB_SERVICE_BASE + "/metrics/dashboard", JOB_BACKEND)
+        // 3. Open jobs count in the job market candidates see (job-analyzer JOB_MARKET)
+        Mono<Integer> openJobsMono = requestMap(JOB_SERVICE_BASE + "/metrics/dashboard?marketOnly=true", JOB_BACKEND)
                 .map(m -> intValue(m.get("openJobs"), 0))
                 .onErrorReturn(0);
 
