@@ -28,6 +28,10 @@ public class ScreeningGraphQLResolver {
     private static final String SCREENING_BACKEND = "screening-bot-service";
     private static final String JOB_BACKEND = "job-analyzer-service";
     private static final String MATCHER_BACKEND = "candidate-matcher-service";
+    private static final String RESUME_SERVICE_BASE = "http://resume-parser-service:8002/api/resumes";
+    private static final String RESUME_BACKEND = "resume-parser-service";
+    /** Items in the HR dashboard's recent activity, and the newest resumes read for it */
+    private static final int RECENT_ACTIVITY = 20;
 
     private final WebClient.Builder webClientBuilder;
     private final GatewayResilience gatewayResilience;
@@ -74,15 +78,55 @@ public class ScreeningGraphQLResolver {
 
     @QueryMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
-    public Mono<Map<String, Object>> dashboardMetrics() {
+    public Mono<Map<String, Object>> dashboardMetrics(
+            @ContextValue(name = "Authorization", required = false) String authorization) {
         // A backend that is down fails the dashboard with a message naming it, rather than showing zeros.
         Mono<Map<String, Object>> jobMetricsMono = requestMap(JOB_SERVICE_BASE + "/metrics/dashboard", JOB_BACKEND)
                 .onErrorMap(e -> BackendErrors.read("job service", "the dashboard's job numbers", e));
         Mono<Map<String, Object>> screeningMetricsMono = requestMap(SCREENING_SERVICE_BASE + "/metrics/dashboard", SCREENING_BACKEND)
                 .onErrorMap(e -> BackendErrors.read("screening service", "the dashboard's screening numbers", e));
+        // Candidates are the people with a resume, as on the Candidates page (resume-parser checks the HR JWT).
+        Mono<Map<String, Object>> candidatesMono = gatewayResilience.protect(RESUME_BACKEND,
+                        webClientBuilder.build()
+                                .get().uri(RESUME_SERVICE_BASE + "/candidates?page=0&size=" + RECENT_ACTIVITY)
+                                .header("Authorization", authorization != null ? authorization : "")
+                                .retrieve().bodyToMono(Map.class))
+                .map(this::toStringObjectMap)
+                .onErrorMap(e -> BackendErrors.read("resume service", "the dashboard's candidate numbers", e));
+        Mono<List<Map<String, Object>>> sessionsMono = requestList(SCREENING_SERVICE_BASE + "/sessions", SCREENING_BACKEND)
+                .onErrorMap(e -> BackendErrors.read("screening service", "the recent applications", e));
 
-        return Mono.zip(jobMetricsMono, screeningMetricsMono)
-                .map(tuple -> mergeDashboardMetrics(tuple.getT1(), tuple.getT2()));
+        return Mono.zip(jobMetricsMono, screeningMetricsMono, candidatesMono, sessionsMono)
+                .flatMap(t -> jobTitles(t.getT4()).map(titles -> {
+                    Map<String, Object> metrics = mergeDashboardMetrics(t.getT1(), t.getT2());
+                    metrics.put("totalCandidates", intValue(t.getT3().get("totalElements"), 0));
+                    List<Map<String, Object>> activity = DashboardActivity.build(listOfMaps(t.getT3().get("content")),
+                            t.getT4(), titles, listOfMaps(t.getT1().get("recentActivity")));
+                    metrics.put("recentActivity", sortedActivity(activity));
+                    return metrics;
+                }));
+    }
+
+    /** Titles of the jobs in the most recent sessions; a job that cannot be read is simply left without a title. */
+    private Mono<Map<String, String>> jobTitles(List<Map<String, Object>> sessions) {
+        List<String> jobIds = sessions.stream()
+                .sorted(Comparator.comparing((Map<String, Object> s) -> String.valueOf(s.getOrDefault("createdAt", ""))).reversed())
+                .map(s -> String.valueOf(s.get("jobId")))
+                .distinct()
+                .limit(RECENT_ACTIVITY)
+                .toList();
+        return reactor.core.publisher.Flux.fromIterable(jobIds)
+                .flatMap(id -> requestMap(JOB_SERVICE_BASE + "/jobs/" + id, JOB_BACKEND)
+                        .map(job -> Map.entry(id, jobLabel(job)))
+                        .onErrorResume(e -> Mono.empty()))
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue);
+    }
+
+    /** "Software Engineer, Accenture" */
+    private static String jobLabel(Map<String, Object> job) {
+        String title = Objects.toString(job.get("jobTitle"), "a job");
+        String company = Objects.toString(job.get("companyName"), "");
+        return company.isBlank() ? title : title + ", " + company;
     }
 
     /**
@@ -275,13 +319,13 @@ public class ScreeningGraphQLResolver {
         metrics.put("stagePassRates", listOfMaps(screening.get("stagePassRates")));
         metrics.put("topSkillsInDemand", listOfMaps(jobs.get("topSkillsInDemand")));
 
-        List<Map<String, Object>> recentActivity = new ArrayList<>();
-        recentActivity.addAll(listOfMaps(jobs.get("recentActivity")));
-        recentActivity.addAll(listOfMaps(screening.get("recentActivity")));
-        recentActivity = new ArrayList<>(recentActivity.stream().map(this::normalizeActivityTimestamp).toList());
-        recentActivity.sort((a, b) -> String.valueOf(b.getOrDefault("timestamp", "")).compareTo(String.valueOf(a.getOrDefault("timestamp", ""))));
-        metrics.put("recentActivity", recentActivity.stream().limit(20).toList());
         return metrics;
+    }
+
+    private List<Map<String, Object>> sortedActivity(List<Map<String, Object>> activity) {
+        List<Map<String, Object>> normalized = new ArrayList<>(activity.stream().map(this::normalizeActivityTimestamp).toList());
+        normalized.sort((a, b) -> String.valueOf(b.getOrDefault("timestamp", "")).compareTo(String.valueOf(a.getOrDefault("timestamp", ""))));
+        return normalized.stream().limit(RECENT_ACTIVITY).toList();
     }
 
     private Map<String, Object> normalizeActivityTimestamp(Map<String, Object> activity) {

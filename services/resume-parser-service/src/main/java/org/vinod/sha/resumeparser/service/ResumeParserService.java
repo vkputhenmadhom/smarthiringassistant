@@ -114,16 +114,24 @@ public class ResumeParserService {
         return parsedData;
     }
 
-    private String extractFullName(String text) {
-        // Try to extract name from first few lines
+    /** 2–4 words of letters (initials, hyphens and apostrophes allowed): "Jane A. Doe", "RAVI KUMAR" */
+    private static final Pattern NAME_LINE = Pattern.compile("\\p{L}[\\p{L}.'-]*(\\s+\\p{L}[\\p{L}.'-]*){1,3}");
+    private static final Pattern NOT_A_NAME = Pattern.compile(
+            "(?i)\\b(resume|curriculum|vitae|cv|profile|summary|objective|contact|engineer|developer|manager|architect)\\b");
+
+    /**
+     * The first of the opening lines that looks like a person's name. PDF text extraction does not always put
+     * the name first, so a tagline such as "Relocated from US | Open to Remote" is skipped. Blank if none fits.
+     */
+    static String extractFullName(String text) {
         String[] lines = text.split("\n");
-        for (int i = 0; i < Math.min(5, lines.length); i++) {
-            String line = lines[i].trim();
-            if (!line.isEmpty() && !isEmail(line) && !isPhone(line)) {
+        for (int i = 0; i < Math.min(10, lines.length); i++) {
+            String line = lines[i].trim().replaceAll("\\s+", " ");
+            if (NAME_LINE.matcher(line).matches() && !NOT_A_NAME.matcher(line).find()) {
                 return line;
             }
         }
-        return "Unknown";
+        return "";
     }
 
     private String extractEmail(String text) {
@@ -213,14 +221,6 @@ public class ResumeParserService {
         // This is a simplified version - in production, use NLP models
         // For now, return empty list
         return educations;
-    }
-
-    private boolean isEmail(String text) {
-        return text.contains("@");
-    }
-
-    private boolean isPhone(String text) {
-        return text.matches(".*\\d{3}.*\\d{3}.*\\d{4}.*");
     }
 
     private String getFileFormat(String fileName) {

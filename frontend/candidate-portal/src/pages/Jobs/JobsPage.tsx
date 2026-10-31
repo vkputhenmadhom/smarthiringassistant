@@ -6,11 +6,16 @@ import { useMutation, useQuery } from '@apollo/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fetchJobs } from '../../store/jobsSlice';
 import { RootState, AppDispatch } from '../../store';
-import { Job, JobFeed, JOB_FEEDS_QUERY, START_SCREENING_MUTATION } from '../../graphql';
+import { Job, JobFeed, JobMatch, JOB_FEEDS_QUERY, MY_MATCHES_QUERY, START_SCREENING_MUTATION } from '../../graphql';
 
 const { Title, Text } = Typography;
 
 const PAGE_SIZE = 20;
+
+/** The tab with the candidate's matches; the other tabs are the configured job feeds */
+const RECOMMENDED = 'recommended';
+
+const scoreColor = (score: number) => (score >= 0.75 ? 'green' : score >= 0.6 ? 'blue' : 'gold');
 
 type StartScreeningResponse = {
   startScreening: {
@@ -48,9 +53,16 @@ const JobsPage: React.FC = () => {
   // Tabs are the feeds configured in job-analyzer's job-feeds.yml
   const { data: feedData, loading: feedsLoading, error: feedsError } = useQuery<{ jobFeeds: JobFeed[] }>(JOB_FEEDS_QUERY);
   const feeds = feedData?.jobFeeds ?? [];
-  const feed = feeds.find(f => f.key === params.get('feed')) ?? feeds[0];
-  const { items, loading, totalElements, page, error } = useSelector((s: RootState) => s.jobs);
   const user = useSelector((s: RootState) => s.auth.user);
+  // Jobs matched to the candidate's resume (the matcher keeps the best 20 per resume)
+  const { data: matchData, loading: matchesLoading, error: matchesError } = useQuery<{ matchesForCandidate: { totalElements: number; content: JobMatch[] } }>(
+    MY_MATCHES_QUERY, { variables: { candidateId: user?.id, size: PAGE_SIZE }, skip: !user?.id, fetchPolicy: 'network-only' });
+  const matches = (matchData?.matchesForCandidate?.content ?? []).filter(m => m.job);
+  const matchByJob = new Map(matches.map(m => [m.job!.id, m]));
+  const requested = params.get('feed');
+  const recommended = requested === RECOMMENDED || (!requested && !!user?.id);
+  const feed = feeds.find(f => f.key === requested) ?? feeds[0];
+  const { items, loading, totalElements, page, error } = useSelector((s: RootState) => s.jobs);
   const [search, setSearch]   = useState('');
   const [query, setQuery]     = useState('');
   const [applied, setApplied] = useState<Set<string>>(new Set());
@@ -60,10 +72,10 @@ const JobsPage: React.FC = () => {
   const [startScreening] = useMutation<StartScreeningResponse>(START_SCREENING_MUTATION);
 
   const load = (pageIndex: number) => {
-    if (feed) dispatch(fetchJobs({ source: feed.key, search: query || undefined, page: pageIndex, size: PAGE_SIZE }));
+    if (feed && !recommended) dispatch(fetchJobs({ source: feed.key, search: query || undefined, page: pageIndex, size: PAGE_SIZE }));
   };
 
-  useEffect(() => { load(0); }, [dispatch, feed?.key, query]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(0); }, [dispatch, feed?.key, query, recommended]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const changeFeed = (key: string) => setParams({ feed: key }, { replace: true });
 
@@ -103,19 +115,90 @@ const JobsPage: React.FC = () => {
     }
   };
 
+  /** One job card; with a match it shows the match score and which of the candidate's skills fit */
+  const renderJob = (job: Job, match?: JobMatch) => {
+    const salary = salaryText(job);
+    const via = sourceLabel(job.source);
+    return (
+      <Col xs={24} md={12} key={job.id}>
+        <Card
+          hoverable
+          title={job.title}
+          extra={match
+            ? <Tag color={scoreColor(match.score)}>{Math.round(match.score * 100)}% match</Tag>
+            : <Tag color={job.status === 'OPEN' ? 'green' : 'default'}>{job.status}</Tag>}
+          actions={[
+            applied.has(job.id)
+              ? <Button onClick={() => navigate(`/interview?sessionId=${sessionByJob[job.id]}`)}>Continue Prep</Button>
+              : <Button loading={applying.has(job.id)} onClick={() => handleApply(job.id)}>Apply Now</Button>,
+            ...(job.externalUrl
+              ? [<Button type="link" icon={<LinkOutlined />} href={job.externalUrl} target="_blank" rel="noopener noreferrer">View posting</Button>]
+              : []),
+          ]}
+        >
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:8, color:'#666', fontSize:13 }}>
+            {job.companyName && <span><BuildOutlined /> <strong>{job.companyName}</strong></span>}
+            <span><EnvironmentOutlined /> {job.location?.trim() || 'Location not specified'}</span>
+            <span>· {job.type.replace('_', ' ')}</span>
+            {salary && <span>· {salary}</span>}
+          </div>
+          {match && match.skillMatches.length > 0 ? (
+            <div style={{ marginBottom:8, fontSize:13 }}>
+              <Text type="secondary">Your skills that fit: </Text>
+              {match.skillMatches.map(s => <Tag key={s} color="green">{s}</Tag>)}
+              {match.skillGaps.length > 0 && (
+                <div style={{ marginTop:4 }}>
+                  <Text type="secondary">Also asks for: </Text>
+                  {match.skillGaps.slice(0, 5).map(s => <Tag key={s}>{s}</Tag>)}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginBottom:8 }}>
+              {job.skills.slice(0,5).map(s => <Tag key={s} color="blue">{s}</Tag>)}
+              {job.skills.length > 5 && <Tag>+{job.skills.length-5}</Tag>}
+            </div>
+          )}
+          {via && <Text type="secondary" style={{ fontSize:12 }}>Via {via}</Text>}
+        </Card>
+      </Col>
+    );
+  };
+
   if (feedsLoading) return <Spin size="large" style={{ display:'block', margin:'3rem auto' }} />;
   if (feedsError) return <Alert type="error" showIcon message={feedsError.message} />;
-  if (!feed) return <Empty description="No job categories are set up yet." />;
+  if (!feed && !user?.id) return <Empty description="No job categories are set up yet." />;
+
+  const tabs = [
+    ...(user?.id ? [{ key: RECOMMENDED, label: `Recommended for you${matches.length ? ` (${matches.length})` : ''}` }] : []),
+    ...feeds.map(f => ({ key: f.key, label: f.label })),
+  ];
 
   return (
     <div>
       <Title level={4}>Find Jobs</Title>
 
-      <Tabs
-        activeKey={feed.key}
-        onChange={changeFeed}
-        items={feeds.map(f => ({ key: f.key, label: f.label }))}
-      />
+      <Tabs activeKey={recommended ? RECOMMENDED : feed?.key} onChange={changeFeed} items={tabs} />
+
+      {recommended ? (
+        <>
+          {matchesLoading && <Spin size="large" style={{ display:'block', margin:'3rem auto' }} />}
+          {matchesError && <Alert type="error" showIcon message={matchesError.message} style={{ marginBottom: 16 }} />}
+          {!matchesLoading && !matchesError && matches.length === 0 && (
+            <Empty description="No matches yet. Jobs that fit your resume appear here after you upload it.">
+              <Button type="primary" onClick={() => navigate('/resume')}>Upload resume</Button>
+            </Empty>
+          )}
+          {!matchesLoading && matches.length > 0 && (
+            <>
+              <Text type="secondary" style={{ display:'block', marginBottom:16 }}>
+                Your best {matches.length} matches from your resume, best first.
+              </Text>
+              <Row gutter={[16, 16]}>{matches.map(m => renderJob(m.job!, m))}</Row>
+            </>
+          )}
+        </>
+      ) : feed && (<>
 
       <div style={{ display:'flex', gap:12, marginBottom:16, flexWrap:'wrap' }}>
         <Input placeholder="Search by title, company, skills..." value={search}
@@ -141,39 +224,7 @@ const JobsPage: React.FC = () => {
 
       {!loading && (
         <Row gutter={[16, 16]}>
-          {items.map((job: Job) => {
-            const salary = salaryText(job);
-            const via = sourceLabel(job.source);
-            return (
-              <Col xs={24} md={12} key={job.id}>
-                <Card
-                  hoverable
-                  title={job.title}
-                  extra={<Tag color={job.status === 'OPEN' ? 'green' : 'default'}>{job.status}</Tag>}
-                  actions={[
-                    applied.has(job.id)
-                      ? <Button onClick={() => navigate(`/interview?sessionId=${sessionByJob[job.id]}`)}>Continue Prep</Button>
-                      : <Button loading={applying.has(job.id)} onClick={() => handleApply(job.id)}>Apply Now</Button>,
-                    ...(job.externalUrl
-                      ? [<Button type="link" icon={<LinkOutlined />} href={job.externalUrl} target="_blank" rel="noopener noreferrer">View posting</Button>]
-                      : []),
-                  ]}
-                >
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:8, color:'#666', fontSize:13 }}>
-                    {job.companyName && <span><BuildOutlined /> <strong>{job.companyName}</strong></span>}
-                    <span><EnvironmentOutlined /> {job.location?.trim() || 'Location not specified'}</span>
-                    <span>· {job.type.replace('_', ' ')}</span>
-                    {salary && <span>· {salary}</span>}
-                  </div>
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginBottom:8 }}>
-                    {job.skills.slice(0,5).map(s => <Tag key={s} color="blue">{s}</Tag>)}
-                    {job.skills.length > 5 && <Tag>+{job.skills.length-5}</Tag>}
-                  </div>
-                  {via && <Text type="secondary" style={{ fontSize:12 }}>Via {via}</Text>}
-                </Card>
-              </Col>
-            );
-          })}
+          {items.map((job: Job) => renderJob(job, matchByJob.get(job.id)))}
         </Row>
       )}
 
@@ -187,6 +238,7 @@ const JobsPage: React.FC = () => {
           onChange={(p: number) => { load(p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         />
       )}
+      </>)}
     </div>
   );
 };

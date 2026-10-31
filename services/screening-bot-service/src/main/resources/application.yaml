@@ -28,6 +28,10 @@ openai:
   model: gpt-4-turbo-preview
 
 screening:
+  # Start a screening session automatically for every match at or above the min score. Off: a session starts
+  # when the candidate applies; otherwise each resume upload opens one session per matched job.
+  auto-start-on-match: ${SCREENING_AUTO_START_ON_MATCH:false}
+  auto-start-min-score: 50
   bot:
     stages: ["initial", "technical", "behavioral"]
     timeout-seconds: 300

@@ -115,7 +115,7 @@ export class DashboardComponent implements OnInit {
   actIcon(type: string): string {
     const map: Record<string, string> = {
       NEW_CANDIDATE: 'person_add', SCREENING_COMPLETED: 'check_circle',
-      NEW_JOB: 'work', MATCH_FOUND: 'star',
+      NEW_JOB: 'work', MATCH_FOUND: 'star', APPLICATION: 'send',
     };
     return map[type] ?? 'notifications';
   }

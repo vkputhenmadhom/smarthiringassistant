@@ -38,3 +38,19 @@ export const JOB_FEEDS_QUERY = gql`
     jobFeeds { key label emptyMessage }
   }
 `;
+
+/** The signed-in candidate's matches from their resume, best first, with the job; score is 0–1 */
+export const MY_MATCHES_QUERY = gql`
+  query MyMatches($candidateId: ID!, $size: Int) {
+    matchesForCandidate(candidateId: $candidateId, page: 0, size: $size) {
+      totalElements
+      content {
+        id
+        score
+        skillMatches
+        skillGaps
+        job { ${JOB_FIELDS} }
+      }
+    }
+  }
+`;

@@ -60,6 +60,9 @@ public class CandidateMatcherService {
      * Match a candidate against all active jobs. Only jobs where the candidate has a relevant skill and
      * scores at least {@code matching.min-score} are kept, best first, at most
      * {@code matching.max-matches-per-resume} of them.
+     * <p>
+     * A new resume replaces the candidate's earlier automatic matches. Matches HR has acted on (shortlisted,
+     * rejected, hired) stay, and their jobs are not matched again.
      */
     public List<CandidateMatch> matchCandidateWithJobs(
             Long candidateId,
@@ -73,9 +76,21 @@ public class CandidateMatcherService {
                 .filter(job -> job.getStatus() == JobStatus.ACTIVE)
                 .toList();
 
+        List<CandidateMatch> previous = candidateMatchRepository.findByCandidateId(candidateId);
+        List<CandidateMatch> replaced = previous.stream().filter(CandidateMatcherService::untouched).toList();
+        candidateMatchRepository.deleteAll(replaced);
+        Set<String> keptJobs = previous.stream()
+                .filter(m -> !untouched(m))
+                .map(CandidateMatch::getJobId)
+                .collect(Collectors.toSet());
+        if (!replaced.isEmpty()) {
+            log.info("Replacing {} earlier matches for candidate: {} (keeping {} HR has acted on)", replaced.size(), candidateId, keptJobs.size());
+        }
+
         record Scored(JobRequirement job, WeightedScoreMatcher.Score score) {}
 
         List<CandidateMatch> matches = activeJobs.stream()
+                .filter(job -> !keptJobs.contains(job.getJobId()))
                 .map(job -> new Scored(job, score(job, candidateSkills, candidateExperience, candidateLocation)))
                 .filter(s -> s.score().hasRelevantSkill() && s.score().overall() >= minScore)
                 .sorted(Comparator.comparingDouble((Scored s) -> s.score().overall()).reversed())
@@ -85,6 +100,11 @@ public class CandidateMatcherService {
 
         log.info("Found {} matches for candidate: {} among {} active jobs", matches.size(), candidateId, activeJobs.size());
         return matches;
+    }
+
+    /** An automatic match nobody has acted on yet */
+    private static boolean untouched(CandidateMatch match) {
+        return match.getStatus() == null || match.getStatus() == MatchStatus.MATCHED || match.getStatus() == MatchStatus.PENDING;
     }
 
     /**

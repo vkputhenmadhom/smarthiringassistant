@@ -2,6 +2,7 @@ package org.vinod.sha.screening.listener;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.vinod.shared.config.RabbitMQConfiguration;
 import org.vinod.shared.events.CandidateMatchedEvent;
@@ -18,11 +19,22 @@ public class CandidateMatchedListener {
 
     private final ScreeningBotService screeningBotService;
     private final ConsumedEventRepository consumedEventRepository;
+    private final boolean autoStartOnMatch;
+    private final double autoStartMinScore;
 
+    /**
+     * @param autoStartOnMatch start a screening session for every good match (screening.auto-start-on-match).
+     *                         Off by default: a session starts when the candidate applies, otherwise every
+     *                         resume upload opens one session per matched job.
+     */
     public CandidateMatchedListener(ScreeningBotService screeningBotService,
-                                    ConsumedEventRepository consumedEventRepository) {
+                                    ConsumedEventRepository consumedEventRepository,
+                                    @Value("${screening.auto-start-on-match:false}") boolean autoStartOnMatch,
+                                    @Value("${screening.auto-start-min-score:50}") double autoStartMinScore) {
         this.screeningBotService = screeningBotService;
         this.consumedEventRepository = consumedEventRepository;
+        this.autoStartOnMatch = autoStartOnMatch;
+        this.autoStartMinScore = autoStartMinScore;
     }
 
     @RabbitListener(queues = RabbitMQConfiguration.CANDIDATE_MATCHED_SCREENING_QUEUE)
@@ -34,8 +46,7 @@ public class CandidateMatchedListener {
                 return;
             }
 
-            // Auto-create a screening session for high-confidence matches.
-            if (event.getMatchScore() != null && event.getMatchScore() >= 50.0) {
+            if (autoStartOnMatch && event.getMatchScore() != null && event.getMatchScore() >= autoStartMinScore) {
                 screeningBotService.createSession(CreateSessionRequest.builder()
                         .candidateId(event.getCandidateId())
                         .jobId(event.getJobId())

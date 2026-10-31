@@ -43,9 +43,9 @@ class ReadFailuresTest {
 
     @Test
     void hrDashboardOutageIsAnErrorNotZeros() {
-        // Only the job service is down: with both down, whichever fails first names the outage.
-        var resolver = new ScreeningGraphQLResolver(unavailableExceptScreening(), resilience());
-        ClientFacingException e = assertThrows(ClientFacingException.class, () -> resolver.dashboardMetrics().block());
+        // Only the job service is down: with several down, whichever fails first names the outage.
+        var resolver = new ScreeningGraphQLResolver(onlyJobServiceDown(), resilience());
+        ClientFacingException e = assertThrows(ClientFacingException.class, () -> resolver.dashboardMetrics("Bearer x").block());
 
         assertEquals("Could not load the dashboard's job numbers: the job service is unavailable. Please try again shortly.", e.getMessage());
     }
@@ -68,9 +68,9 @@ class ReadFailuresTest {
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE).body("{}").build()));
     }
 
-    private static WebClient.Builder unavailableExceptScreening() {
+    private static WebClient.Builder onlyJobServiceDown() {
         return WebClient.builder().exchangeFunction(request -> Mono.just(
-                ClientResponse.create(request.url().getHost().equals("screening-bot-service") ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+                ClientResponse.create(request.url().getHost().equals("job-analyzer-service") ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK)
                         .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE).body("{}").build()));
     }
 
