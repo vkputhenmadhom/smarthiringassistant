@@ -154,19 +154,23 @@ jobs:
             postgres mongodb rabbitmq redis \
             auth-service api-gateway \
             job-analyzer-service screening-bot-service \
+            resume-parser-service \
             hr-admin-dashboard
 
-      - name: Wait for gateway and HR frontend
+      - name: Wait for gateway, HR frontend and resume-parser
         shell: bash
         run: |
           set -euo pipefail
           for i in {1..60}; do
-            if curl -fsS http://localhost:8000/actuator/health >/dev/null && curl -fsS http://localhost:4200 >/dev/null; then
+            # The HR dashboard reads candidate numbers from resume-parser, so wait for it as well.
+            if curl -fsS http://localhost:8000/actuator/health >/dev/null && curl -fsS http://localhost:4200 >/dev/null \
+              && docker compose -f docker-compose.yml -f docker-compose.apps.yml exec -T resume-parser-service \
+                   wget -q -O /dev/null http://localhost:8002/api/resumes/actuator/health; then
               exit 0
             fi
             sleep 5
           done
-          echo "Gateway/frontend did not become ready in time" >&2
+          echo "Gateway/frontend/resume-parser did not become ready in time" >&2
           docker compose -f docker-compose.yml -f docker-compose.apps.yml ps
           exit 1
 
