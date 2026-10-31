@@ -85,3 +85,6 @@ CREATE TABLE IF NOT EXISTS hiring.resume_parser_event_outbox (
     sent_at TIMESTAMP
 );
 
+
+-- Places the candidate is open to working from (encrypted, "; "-separated); filled by AI resume parsing.
+ALTER TABLE hiring.resume_parser_parsed_data ADD COLUMN IF NOT EXISTS preferred_locations TEXT;

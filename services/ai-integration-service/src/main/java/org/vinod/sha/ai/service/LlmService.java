@@ -62,13 +62,21 @@ public class LlmService {
      * @param systemPrompt instructions; untrusted content belongs in {@code userPrompt} only
      */
     public Completion complete(String userId, String systemPrompt, String userPrompt, Integer requestedMaxTokens) {
+        return complete(userId, systemPrompt, userPrompt, requestedMaxTokens, true);
+    }
+
+    /**
+     * @param cacheable false for personal data: the cache stores the prompt and answer in plain text
+     */
+    public Completion complete(String userId, String systemPrompt, String userPrompt, Integer requestedMaxTokens,
+                               boolean cacheable) {
         if (userPrompt.length() > properties.maxPromptChars()) {
             throw new IllegalArgumentException("prompt exceeds " + properties.maxPromptChars() + " characters");
         }
         int maxTokens = properties.clampOutputTokens(requestedMaxTokens);
         String cacheKey = cacheKey(systemPrompt, userPrompt, maxTokens);
 
-        Optional<AICache> cached = cacheRepository.findByCacheKey(cacheKey)
+        Optional<AICache> cached = !cacheable ? Optional.empty() : cacheRepository.findByCacheKey(cacheKey)
                 .filter(entry -> entry.getExpiresAt().isAfter(LocalDateTime.now()));
         if (cached.isPresent()) {
             return new Completion(cached.get().getResponse(), cached.get().getModel(), null, true);
@@ -99,7 +107,9 @@ public class LlmService {
         Integer tokensUsed = usage == null ? null : usage.getTotalTokens();
         log.info("LLM completion for user={} provider={} model={} tokens={}", userId, provider, model, tokensUsed);
 
-        save(cacheKey, userPrompt, text, model);
+        if (cacheable) {
+            save(cacheKey, userPrompt, text, model);
+        }
         return new Completion(text, model, tokensUsed, false);
     }
 

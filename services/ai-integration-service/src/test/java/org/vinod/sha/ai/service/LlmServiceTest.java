@@ -75,6 +75,16 @@ class LlmServiceTest {
     }
 
     @Test
+    void personalDataIsNeitherCachedNorReadFromTheCache() {
+        LlmService service = service("openai");
+        service.complete("u1", null, "my resume", null, false);
+
+        assertFalse(service.complete("u1", null, "my resume", null, false).cached());
+        verify(chatModel, times(2)).call(any(Prompt.class));
+        verify(cacheRepository, never()).save(any());
+    }
+
+    @Test
     void promptsWithCollidingHashCodesDoNotShareACacheEntry() {
         // "Aa" and "BB" have the same String.hashCode(); the old 32-bit cache key confused them
         assertEquals("Aa".hashCode(), "BB".hashCode());

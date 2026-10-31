@@ -1,6 +1,11 @@
 spring:
   application:
     name: ai-integration-service
+  # Instructions for the AI endpoints: the packaged ai-prompts.yml, replaced by /config/ai-prompts.yml when mounted.
+  config:
+    import:
+      - "classpath:ai-prompts.yml"
+      - "optional:file:${AI_PROMPTS_FILE:/config/ai-prompts.yml}"
   mongodb:
     uri: ${SPRING_MONGODB_URI:mongodb://localhost:27017/smart_hiring_db}
   ai:

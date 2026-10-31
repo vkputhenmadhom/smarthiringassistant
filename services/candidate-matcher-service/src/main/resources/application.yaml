@@ -48,6 +48,41 @@ matching:
   min-score: ${MATCHING_MIN_SCORE:50}
   # Only the best matches are kept for each parsed resume.
   max-matches-per-resume: ${MATCHING_MAX_MATCHES_PER_RESUME:20}
+  # A job's skill share is divided by at least this many skills: one listed skill alone cannot give 100%.
+  min-required-skills: 3
+  # Other spellings of a skill (lower case) and the name to compare them as.
+  skill-aliases:
+    reactjs: react
+    react.js: react
+    nodejs: node.js
+    node: node.js
+    golang: go
+    postgres: postgresql
+    k8s: kubernetes
+    js: javascript
+    ts: typescript
+    springboot: spring boot
+    spring-boot: spring boot
+    amazon web services: aws
+    google cloud: gcp
+    google cloud platform: gcp
+    microsoft azure: azure
+    ci-cd: ci/cd
+    "ci / cd": ci/cd
+    rest: rest api
+    rest apis: rest api
+    restful apis: rest api
+  # Other names of a place (lower case) and the name to compare them as.
+  location-aliases:
+    bangalore: bengaluru
+    trivandrum: thiruvananthapuram
+    cochin: kochi
+    ernakulam: kochi
+    bombay: mumbai
+    madras: chennai
+    calcutta: kolkata
+    gurgaon: gurugram
+    new delhi: delhi
   algorithm:
     skill-weight: 0.5
     experience-weight: 0.3

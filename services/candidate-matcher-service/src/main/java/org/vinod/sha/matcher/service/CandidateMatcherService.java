@@ -13,15 +13,12 @@ import org.vinod.sha.matcher.entity.MatchStatus;
 import org.vinod.sha.matcher.repository.CandidateMatchRepository;
 import org.vinod.sha.matcher.repository.JobRequirementRepository;
 import org.vinod.shared.events.CandidateMatchedEvent;
-import org.vinod.shared.text.SkillText;
 
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -69,6 +66,16 @@ public class CandidateMatcherService {
             List<String> candidateSkills,
             Double candidateExperience,
             String candidateLocation) {
+        return matchCandidateWithJobs(candidateId, candidateSkills, candidateExperience, candidateLocation, List.of());
+    }
+
+    /** @param preferredLocations places the candidate is open to; location scores the best of these and where they live */
+    public List<CandidateMatch> matchCandidateWithJobs(
+            Long candidateId,
+            List<String> candidateSkills,
+            Double candidateExperience,
+            String candidateLocation,
+            List<String> preferredLocations) {
 
         log.info("Matching candidate: {} against all active jobs", candidateId);
 
@@ -91,11 +98,11 @@ public class CandidateMatcherService {
 
         List<CandidateMatch> matches = activeJobs.stream()
                 .filter(job -> !keptJobs.contains(job.getJobId()))
-                .map(job -> new Scored(job, score(job, candidateSkills, candidateExperience, candidateLocation)))
+                .map(job -> new Scored(job, score(job, candidateSkills, candidateExperience, candidateLocation, preferredLocations)))
                 .filter(s -> s.score().hasRelevantSkill() && s.score().overall() >= minScore)
                 .sorted(Comparator.comparingDouble((Scored s) -> s.score().overall()).reversed())
                 .limit(maxMatchesPerResume)
-                .map(s -> createMatch(candidateId, s.job(), s.score(), candidateSkills))
+                .map(s -> createMatch(candidateId, s.job(), s.score()))
                 .toList();
 
         log.info("Found {} matches for candidate: {} among {} active jobs", matches.size(), candidateId, activeJobs.size());
@@ -122,15 +129,16 @@ public class CandidateMatcherService {
         var job = jobRequirementRepository.findByJobId(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobId));
 
-        var score = score(job, candidateSkills, candidateExperience, candidateLocation);
-        CandidateMatch match = createMatch(candidateId, job, score, candidateSkills);
+        var score = score(job, candidateSkills, candidateExperience, candidateLocation, List.of());
+        CandidateMatch match = createMatch(candidateId, job, score);
 
         log.info("Created match with score: {} for candidate: {} and job: {}", score.overall(), candidateId, jobId);
         return match;
     }
 
     private WeightedScoreMatcher.Score score(JobRequirement job, List<String> candidateSkills,
-                                             Double candidateExperience, String candidateLocation) {
+                                             Double candidateExperience, String candidateLocation,
+                                             List<String> preferredLocations) {
         return weightedScoreMatcher.score(
                 candidateSkills,
                 job.getRequiredSkills(),
@@ -139,6 +147,7 @@ public class CandidateMatcherService {
                 candidateExperience,
                 job.getRequiredYearsExperience(),
                 candidateLocation,
+                preferredLocations,
                 job.getLocation());
     }
 
@@ -202,11 +211,7 @@ public class CandidateMatcherService {
     private CandidateMatch createMatch(
             Long candidateId,
             JobRequirement job,
-            WeightedScoreMatcher.Score score,
-            List<String> candidateSkills) {
-
-        List<String> requiredSkills = job.getRequiredSkills();
-        boolean listsSkills = requiredSkills != null && !requiredSkills.isEmpty();
+            WeightedScoreMatcher.Score score) {
 
         CandidateMatch match = CandidateMatch.builder()
                 .matchId(UUID.randomUUID().toString())
@@ -216,10 +221,8 @@ public class CandidateMatcherService {
                 .skillMatchPercentage(score.skills())
                 .experienceMatchPercentage(score.experience())
                 .locationMatchPercentage(score.location())
-                .matchedSkills(listsSkills
-                        ? skillsIn(requiredSkills, candidateSkills, true)
-                        : mentionedIn(job, candidateSkills))
-                .missingSkills(skillsIn(requiredSkills, candidateSkills, false))
+                .matchedSkills(score.matched())
+                .missingSkills(score.missing())
                 .build();
 
         match = candidateMatchRepository.save(match);
@@ -228,29 +231,6 @@ public class CandidateMatcherService {
         publishMatchEvent(match);
 
         return match;
-    }
-
-    /** The required skills the candidate has ({@code present}) or lacks, compared case-insensitively. */
-    static List<String> skillsIn(List<String> requiredSkills, List<String> candidateSkills, boolean present) {
-        if (requiredSkills == null) {
-            return List.of();
-        }
-        Set<String> candidate = candidateSkills == null ? Set.of() : candidateSkills.stream()
-                .filter(Objects::nonNull)
-                .map(s -> s.trim().toLowerCase(Locale.ROOT))
-                .collect(Collectors.toSet());
-        return requiredSkills.stream()
-                .filter(Objects::nonNull)
-                .filter(skill -> candidate.contains(skill.trim().toLowerCase(Locale.ROOT)) == present)
-                .distinct()
-                .toList();
-    }
-
-    /** For a job that lists no skills: the candidate's skills its title or description mentions. */
-    private static List<String> mentionedIn(JobRequirement job, List<String> candidateSkills) {
-        String text = (job.getJobTitle() == null ? "" : job.getJobTitle()) + "\n"
-                + (job.getJobDescription() == null ? "" : job.getJobDescription());
-        return SkillText.find(text, candidateSkills);
     }
 
     private void publishMatchEvent(CandidateMatch match) {

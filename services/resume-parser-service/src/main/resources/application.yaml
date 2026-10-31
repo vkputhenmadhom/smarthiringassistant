@@ -24,6 +24,17 @@ spring:
     password: ${RABBITMQ_PASSWORD:hiring_password}
     virtual-host: ${RABBITMQ_VHOST:/}
 
+# AI resume parsing (ai-integration-service /analyze-resume; instructions in its ai-prompts.yml).
+# Off, or on any failure, the rule-based parser alone reads the resume.
+resume-parser:
+  ai:
+    enabled: ${RESUME_AI_ENABLED:true}
+    base-url: ${AI_SERVICE_URL:http://ai-integration-service:8008/api/ai}
+    # ai-integration accepts prompts up to this length (ai.max-prompt-chars)
+    max-chars: 12000
+    # Below the portal's upload timeout, so a slow answer falls back instead of failing the upload
+    timeout-seconds: 45
+
 server:
   port: 8002
   servlet:

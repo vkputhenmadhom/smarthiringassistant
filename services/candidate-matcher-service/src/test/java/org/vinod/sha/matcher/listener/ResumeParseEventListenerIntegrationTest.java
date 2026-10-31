@@ -43,12 +43,12 @@ class ResumeParseEventListenerIntegrationTest {
                 .build();
 
         when(processedEventRepository.existsByEventKey("ResumeParseEvent:res-101:SUCCESS")).thenReturn(false);
-        when(candidateMatcherService.matchCandidateWithJobs(88L, List.of("Java", "Spring"), 5.0, "Remote"))
+        when(candidateMatcherService.matchCandidateWithJobs(88L, List.of("Java", "Spring"), 5.0, "Remote", List.of()))
                 .thenReturn(List.of());
 
         listener.handleResumeParseEvent(event);
 
-        verify(candidateMatcherService).matchCandidateWithJobs(88L, List.of("Java", "Spring"), 5.0, "Remote");
+        verify(candidateMatcherService).matchCandidateWithJobs(88L, List.of("Java", "Spring"), 5.0, "Remote", List.of());
 
         ArgumentCaptor<ProcessedEvent> captor = ArgumentCaptor.forClass(ProcessedEvent.class);
         verify(processedEventRepository).save(captor.capture());
@@ -67,7 +67,7 @@ class ResumeParseEventListenerIntegrationTest {
 
         listener.handleResumeParseEvent(event);
 
-        verify(candidateMatcherService, never()).matchCandidateWithJobs(any(), any(), any(), any());
+        verify(candidateMatcherService, never()).matchCandidateWithJobs(any(), any(), any(), any(), any());
         verify(processedEventRepository, never()).save(any());
     }
 
@@ -83,7 +83,7 @@ class ResumeParseEventListenerIntegrationTest {
 
         listener.handleResumeParseEvent(event);
 
-        verify(candidateMatcherService, never()).matchCandidateWithJobs(any(), any(), any(), any());
+        verify(candidateMatcherService, never()).matchCandidateWithJobs(any(), any(), any(), any(), any());
         verify(processedEventRepository).save(any(ProcessedEvent.class));
     }
 }
