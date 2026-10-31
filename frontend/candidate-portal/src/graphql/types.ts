@@ -39,6 +39,12 @@ export interface Job {
   externalUrl?: string;
 }
 
+export interface JobFeed {
+  key: string;
+  label: string;
+  emptyMessage: string;
+}
+
 export interface StagePassRate {
   stage: string;
   passRate: number;

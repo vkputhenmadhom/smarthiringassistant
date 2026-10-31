@@ -4,6 +4,7 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * External job-board sync settings.
@@ -24,8 +25,8 @@ public class JobSyncProperties {
     /** Master switch – set to true (or env JOB_SYNC_ENABLED=true) to activate scheduled sync */
     private boolean enabled = false;
 
-    /** Spring 6-field cron expression (sec min hour day month weekday). Default: every 6 hours */
-    private String cron = "0 0 */6 * * *";
+    /** Spring 6-field cron expression (sec min hour day month weekday). Default: daily at 00:30 UTC (06:00 IST) */
+    private String cron = "0 30 0 * * *";
 
     /** Max total jobs to import per sync run (across all sources & keywords) */
     private int maxPerSync = 50;
@@ -50,8 +51,6 @@ public class JobSyncProperties {
     private JSearchConfig jsearch = new JSearchConfig();
     private AdzunaConfig  adzuna  = new AdzunaConfig();
 
-    /** India-specific sync configuration (government + private sector) */
-    private IndiaConfig india = new IndiaConfig();
 
     // ── JSearch (RapidAPI) ────────────────────────────────────────────────────
 
@@ -75,40 +74,53 @@ public class JobSyncProperties {
         private int resultsPerPage = 20;
     }
 
-    // ── India (Adzuna /in/ + JSearch location=India) ──────────────────────────
-    //
-    // India government jobs are NOT on NCS (no public API).
-    // The sources below DO include PSU / central-govt listings:
-    //   • Adzuna India  (/in/)  – aggregates Naukri, LinkedIn India, Indeed.co.in
-    //   • JSearch India         – aggregates LinkedIn India, Indeed.co.in
-    //
-    // Typical government/PSU employers found: DRDO, ISRO, NTPC, BHEL, ONGC,
-    //   Indian Railways, IBPS, SBI, HAL, BEL, NLC India, SAIL, GAIL …
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Job feeds ───────────────────────────────────────────────────────────────
+    // The feeds candidates browse (one portal tab each) are configured in job-feeds.yml, not in code.
+    // docker-compose mounts that file, so editing it and restarting the service applies a change.
+
+    /** Imports the configured feeds; env JOB_SYNC_INDIA_ENABLED */
+    private boolean feedsEnabled = false;
+
+    /**
+     * Imports made before feeds existed are tagged only PROVIDER_MARKET (e.g. JSEARCH_IN); they move to this
+     * feed at startup. Blank leaves them as they are.
+     */
+    private String legacyFeed = "";
+
+    /** In order: the portal shows the tabs in this order, and a posting found by two feeds goes to the first. */
+    private List<Feed> feeds = List.of();
 
     @Data
-    public static class IndiaConfig {
-        /** Set to true to activate India-specific sync (reuses the same API keys) */
-        private boolean enabled = false;
-
-        /** Max jobs to import per India sync run */
+    public static class Feed {
+        /** Short id, used in the source tag (PROVIDER_KEY_MARKET) and the portal URL; letters only */
+        private String key;
+        /** Portal tab title */
+        private String label;
+        /** Shown when the tab has no jobs */
+        private String emptyMessage = "No jobs yet.";
+        /** Job market the feed belongs to (see job-market.region); its imports are tagged with it */
+        private String market = "IN";
+        /** The tab lists jobs posted in the app rather than imports; such a feed has no sources */
+        private boolean postedInApp = false;
+        /** Max new jobs per run, across the feed's sources */
         private int maxPerSync = 30;
+        private List<FeedSource> sources = List.of();
+        /** Keep a job only if its title or description matches one of these (regex, case-insensitive); empty keeps all */
+        private List<String> requireAny = List.of();
+        /** Drop a job whose title or description matches any of these (regex, case-insensitive) */
+        private List<String> rejectAny = List.of();
+    }
 
-        /**
-         * Keywords tuned for India government / PSU / central-government jobs.
-         * Works with both Adzuna India and JSearch India.
-         */
-        private List<String> keywords = List.of(
-                "government engineer India",
-                "PSU jobs India",
-                "DRDO scientist",
-                "ISRO engineer",
-                "NTPC engineer",
-                "BHEL engineer",
-                "Indian Railways engineer",
-                "IBPS bank jobs",
-                "central government jobs"
-        );
+    @Data
+    public static class FeedSource {
+        /** adzuna or jsearch */
+        private String provider;
+        /** Two-letter country: Adzuna's country path (required); JSearch's country filter (optional) */
+        private String country;
+        /** One API request per keyword per run; JSearch's free plan is 200 requests a month */
+        private List<String> keywords = List.of();
+        /** Extra query parameters passed as they are, e.g. category: it-jobs (Adzuna), work_from_home: true (JSearch) */
+        private Map<String, String> params = Map.of();
     }
 }
 

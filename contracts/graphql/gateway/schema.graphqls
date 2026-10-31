@@ -108,6 +108,12 @@ input UpdateJobInput {
     closingDate: DateTime
 }
 
+type JobFeed {
+    key: String!
+    label: String!
+    emptyMessage: String!
+}
+
 type JobPage {
     content: [Job!]!
     totalElements: Int!
@@ -289,7 +295,10 @@ type Query {
     me: User!
 
     # Jobs
+    # source: a job feed key from jobFeeds (one portal tab each), or an exact import source tag
     jobs(page: Int, size: Int, status: JobStatus, search: String, source: String): JobPage!
+    # The job feeds candidates browse, in tab order (configured in job-analyzer's job-feeds.yml)
+    jobFeeds: [JobFeed!]!
     job(id: ID!): Job!
 
     # Candidates

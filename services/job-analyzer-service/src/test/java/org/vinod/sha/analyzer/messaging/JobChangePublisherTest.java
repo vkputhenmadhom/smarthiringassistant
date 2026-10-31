@@ -52,8 +52,9 @@ class JobChangePublisherTest {
     void indiaImportsAndInAppPostingsAreInTheIndianMarket() {
         JobMarket india = new JobMarket("IN");
 
-        assertTrue(india.includes(JobAnalysis.builder().source("JSEARCH_IN").build()));
-        assertTrue(india.includes(JobAnalysis.builder().source("adzuna_in").build()));
+        assertTrue(india.includes(JobAnalysis.builder().source("JSEARCH_TECH_IN").build()));
+        assertTrue(india.includes(JobAnalysis.builder().source("adzuna_govt_in").build()));
+        assertTrue(india.includes(JobAnalysis.builder().source("JSEARCH_REMOTE_IN").build()), "remote jobs open to India");
         assertTrue(india.includes(JobAnalysis.builder().build()), "posted by HR in the app");
         assertFalse(india.includes(JobAnalysis.builder().source("JSEARCH").build()));
         assertTrue(new JobMarket("").includes(JobAnalysis.builder().source("JSEARCH").build()), "blank market = every job");

@@ -9,7 +9,9 @@ import org.vinod.sha.analyzer.dto.SkillsExtractRequest;
 import org.vinod.sha.analyzer.dto.SkillsExtractResponse;
 import org.vinod.sha.analyzer.entity.JobAnalysis;
 import org.vinod.sha.analyzer.service.JobAnalyzerService;
+import org.vinod.sha.analyzer.service.JobFeeds;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -17,9 +19,11 @@ import java.util.Map;
 public class JobAnalyzerController {
 
     private final JobAnalyzerService service;
+    private final JobFeeds jobFeeds;
 
-    public JobAnalyzerController(JobAnalyzerService service) {
+    public JobAnalyzerController(JobAnalyzerService service, JobFeeds jobFeeds) {
         this.service = service;
+        this.jobFeeds = jobFeeds;
     }
 
     @PostMapping("analyze")
@@ -36,6 +40,14 @@ public class JobAnalyzerController {
             @RequestParam(required = false) String source,
             @RequestParam(defaultValue = "false") boolean marketOnly) {
         return ResponseEntity.ok(service.listJobs(page, size, status, search, source, marketOnly));
+    }
+
+    /** The job feeds candidates browse, in tab order (job-feeds.yml); list jobs of one with ?source=<key>. */
+    @GetMapping("jobs/feeds")
+    public ResponseEntity<List<Map<String, String>>> feeds() {
+        return ResponseEntity.ok(jobFeeds.all().stream()
+                .map(feed -> Map.of("key", feed.getKey(), "label", feed.getLabel(), "emptyMessage", feed.getEmptyMessage()))
+                .toList());
     }
 
     @PostMapping("jobs")

@@ -66,15 +66,18 @@ public class JobAnalyzerService {
                               RabbitTemplate rabbitTemplate,
                               RestTemplate restTemplate,
                               MeterRegistry meterRegistry,
-                              JobMarket jobMarket) {
+                              JobMarket jobMarket,
+                              JobFeeds jobFeeds) {
         this.repository = repository;
         this.rabbitTemplate = rabbitTemplate;
         this.restTemplate = restTemplate;
         this.meterRegistry = meterRegistry;
         this.jobMarket = jobMarket;
+        this.jobFeeds = jobFeeds;
     }
 
     private final JobMarket jobMarket;
+    private final JobFeeds jobFeeds;
 
     private DistributionSummary salaryConfidenceSummary;
 
@@ -312,13 +315,10 @@ public class JobAnalyzerService {
 
     private boolean matchesSource(JobAnalysis job, String source) {
         if (source == null || source.isBlank()) return true;
-        
-        var sourceUpper = source.toUpperCase();
-        return switch (sourceUpper) {
-            case "INDIA" -> "JSEARCH_IN".equalsIgnoreCase(job.getSource())
-                    || "ADZUNA_IN".equalsIgnoreCase(job.getSource());
-            default -> source.equalsIgnoreCase(job.getSource());
-        };
+        // A feed key from job-feeds.yml (a portal tab); anything else is an exact source tag.
+        return jobFeeds.find(source)
+                .map(feed -> JobFeeds.includes(feed, job))
+                .orElseGet(() -> source.equalsIgnoreCase(job.getSource()));
     }
 
     private boolean matchesSearch(JobAnalysis job, String search) {

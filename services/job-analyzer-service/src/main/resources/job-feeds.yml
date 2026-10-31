@@ -1,0 +1,116 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Job feeds: what is imported from the job APIs, and the tabs candidates see on Find Jobs.
+#
+# docker-compose mounts this file into job-analyzer-service (/config/job-feeds.yml), so to change a
+# feed edit it and restart the service:
+#   docker compose -f docker-compose.yml -f docker-compose.apps.yml restart job-analyzer-service
+# The portal reads the tabs from the service; a new feed shows up as a new tab, in this order.
+#
+# Per feed
+#   key            short id, letters only. Imports are tagged PROVIDER_KEY_MARKET (e.g. ADZUNA_TECH_IN);
+#                  changing a key leaves jobs already imported under the old tag out of the tab.
+#   label          tab title;  empty-message: shown when the tab has no jobs
+#   market         job market of its imports (job-market.region / JOB_MARKET). IN = India.
+#   max-per-sync   max new jobs per daily run, across its sources
+#   sources        provider (adzuna | jsearch), country, keywords (one API request each per run) and
+#                  params (extra query parameters, passed as they are)
+#   require-any    keep a job only if its title or description matches one of these (regex, case-insensitive)
+#   reject-any     drop a job whose title or description matches any of these
+#   posted-in-app  the tab lists jobs posted on this site instead of imports (no sources)
+#
+# Quotas: JSearch's free plan is 200 requests a month and Adzuna's 250 a day. The sync runs once a day,
+# so keep the JSearch keywords across all feeds to about 6 or fewer (currently 5).
+# A posting found by two feeds is imported once, by the feed listed first.
+# ─────────────────────────────────────────────────────────────────────────────
+job-sync:
+  # Imports from before feeds existed (tagged JSEARCH_IN / ADZUNA_IN) came from government searches.
+  legacy-feed: govt
+
+  feeds:
+    - key: tech
+      label: "India · Tech"
+      empty-message: "No India tech jobs yet. New ones are imported daily."
+      market: IN
+      max-per-sync: 30
+      sources:
+        - provider: adzuna
+          country: in
+          params:
+            category: it-jobs          # Adzuna's IT jobs category
+            max_days_old: "14"
+          keywords:
+            - "software engineer"
+            - "java developer"
+            - "python developer"
+            - "full stack developer"
+            - "frontend developer"
+            - "devops engineer"
+            - "data engineer"
+        - provider: jsearch
+          country: in
+          keywords:
+            - "software engineer"
+            - "software developer"
+
+    - key: remote
+      label: "Remote · open to India"
+      empty-message: "No remote jobs open to India yet. New ones are imported daily."
+      market: IN
+      max-per-sync: 20
+      sources:
+        - provider: jsearch
+          params:
+            work_from_home: "true"
+          keywords:
+            - "remote software engineer worldwide"
+            - "remote developer APAC India"
+      # Open worldwide, or names India / APAC / Asia ...
+      require-any:
+        - '\b(worldwide|world-wide|globally|fully distributed|location[- ]independent)\b'
+        - '\b(anywhere in the world|work from anywhere|from anywhere)\b'
+        - '\b(global(ly)? remote|remote[- ]global|any (country|location|time ?zone))\b'
+        - '\b(india|indian|apac|asia[- ]pacific|asia)\b'
+      # ... and not limited to the US or another region. (?-i:US) matches "US" but not the word "us".
+      reject-any:
+        - 'authori[sz]ed to work in (the )?((?-i:US|U\.S\.?|USA)|United States)'
+        - 'work authori[sz]ation (in|for) (the )?((?-i:US|U\.S\.?|USA)|United States)'
+        - '((?-i:US|U\.S\.?|USA)|United States)[- ]?(citizens?|citizenship|persons?|residents?|based|only)\b'
+        - 'green card|security clearance|\bW-?2\b|\bITAR\b'
+        - '(reside|located|based|live|living|residing) (in|within) (the )?((?-i:US|U\.S\.?|USA)|United States|Canada|Europe|EU|UK|LATAM|Latin America)\b'
+        - 'anywhere in (the )?((?-i:US|U\.S\.?|USA)|United States|North America|Canada|Europe|EU|UK|LATAM|Latin America)\b'
+        - 'remote[ ,(/-]*(in (the )?)?((?-i:US|U\.S\.?|USA)|United States)\b'
+        - '\(((?-i:US|U\.S\.?|USA)|United States)\)'
+        - '((?-i:US|U\.S\.?|USA)|United States) remote\b'
+
+    - key: govt
+      label: "India · Government"
+      empty-message: "No government jobs yet. New ones are imported daily."
+      market: IN
+      max-per-sync: 30
+      sources:
+        - provider: adzuna
+          country: in
+          params:
+            max_days_old: "14"
+          keywords:
+            - "government jobs"
+            - "PSU recruitment"
+            - "DRDO ISRO scientist"
+            - "bank PO clerk recruitment"
+            - "railway recruitment"
+        # JSearch finds the real government postings (DRDO, ISRO, PSU recruitment); Adzuna India has few.
+        - provider: jsearch
+          country: in
+          keywords:
+            - "government recruitment India"
+      # Adzuna matches word stems ("government" finds "governance"), so keep only postings that name a
+      # government employer or a government recruitment term. (?-i:...) makes acronyms case-sensitive.
+      require-any:
+        - '\b(government|govt|sarkari|public sector|central government|state government|ministry of)\b'
+        - '\b(?-i:PSU|DRDO|ISRO|NTPC|BHEL|ONGC|GAIL|SAIL|HAL|BEL|NLC|IOCL|BPCL|HPCL|AIIMS|NHM)\b'
+        - '\b(?-i:IBPS|SBI|RBI|NABARD|UPSC|SSC|RRB)\b|\b(Coal India|Indian Railways|railway recruitment)\b'
+
+    - key: posted
+      label: "Posted here"
+      empty-message: "No jobs have been posted on this site yet."
+      posted-in-app: true
