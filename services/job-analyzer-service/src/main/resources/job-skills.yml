@@ -1,0 +1,161 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Skills looked for in job titles and descriptions (whole words, case-insensitive; Go only as "Go").
+# Leave out names that are everyday words (C, R, Express): they would be found in ordinary text.
+# Each entry is written the way it is shown and matched. Jobs keep skills their source lists too
+# (JSearch sends some).
+#
+# docker-compose mounts this file into job-analyzer-service (/config/job-skills.yml): edit it and restart
+# the service. At startup, imported jobs' skills are re-read with this list, and the matcher is told.
+# Candidate-side spellings ("ReactJS", "Golang") are mapped in candidate-matcher's matching.skill-aliases.
+# ─────────────────────────────────────────────────────────────────────────────
+job-skills:
+  dictionary:
+    # Languages
+    - Java
+    - Kotlin
+    - Scala
+    - Groovy
+    - Python
+    - Go
+    - Golang
+    - Rust
+    - C++
+    - C#
+    - JavaScript
+    - TypeScript
+    - PHP
+    - Ruby
+    - Swift
+    - Objective-C
+    - Dart
+    - Perl
+    - SQL
+    - PL/SQL
+    - Bash
+    - PowerShell
+    # .NET
+    - .NET
+    - .NET Core
+    - ASP.NET
+    - ASP.NET Core
+    - Entity Framework
+    # JVM frameworks
+    - Spring
+    - Spring Boot
+    - Spring Security
+    - Spring WebFlux
+    - Hibernate
+    - JPA
+    - Quarkus
+    - Micronaut
+    - Maven
+    - Gradle
+    # Web
+    - React
+    - Angular
+    - Vue
+    - Next.js
+    - Node.js
+    - NestJS
+    - HTML
+    - CSS
+    - Redux
+    - GraphQL
+    - gRPC
+    - REST API
+    - Django
+    - Flask
+    - FastAPI
+    - Ruby on Rails
+    - Laravel
+    # Mobile
+    - Android
+    - iOS
+    - Flutter
+    - React Native
+    # Data stores
+    - PostgreSQL
+    - MySQL
+    - Oracle
+    - SQL Server
+    - MongoDB
+    - Redis
+    - Cassandra
+    - DynamoDB
+    - Elasticsearch
+    - Snowflake
+    - BigQuery
+    # Messaging and data
+    - Kafka
+    - RabbitMQ
+    - Spark
+    - Hadoop
+    - Airflow
+    - Databricks
+    - ETL
+    # Cloud and platform
+    - AWS
+    - Azure
+    - GCP
+    - Docker
+    - Kubernetes
+    - OpenShift
+    - Helm
+    - Terraform
+    - Ansible
+    - Jenkins
+    - GitHub Actions
+    - GitLab CI
+    - CI/CD
+    - Linux
+    - Microservices
+    - Serverless
+    # Observability and quality
+    - Prometheus
+    - Grafana
+    - Datadog
+    - Splunk
+    - ELK
+    - JUnit
+    - Selenium
+    - Cypress
+    - Playwright
+    # AI and ML
+    - Machine Learning
+    - Deep Learning
+    - TensorFlow
+    - PyTorch
+    - LLM
+    - RAG
+    - LangChain
+    - OpenAI
+    - NLP
+    # Enterprise platforms
+    - Salesforce
+    - SAP
+    - ServiceNow
+    - Power BI
+    - Tableau
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Seniority: shown on every job card and used by matching. Years a posting states ("5+ Yrs",
+# "8-12 years of experience") win; otherwise the first level whose keyword the title contains (whole
+# words, any case) gives the range. A title naming no level and stating no years is "not stated".
+# ─────────────────────────────────────────────────────────────────────────────
+job-levels:
+  levels:
+    - name: Entry
+      keywords: [new grad, graduate, junior, jr, intern, internship, entry level, entry-level, trainee, fresher, apprentice]
+      min-years: 0
+      max-years: 2
+    - name: Lead
+      keywords: [principal, staff, lead, architect, head, director, manager, distinguished, fellow, program manager]
+      min-years: 10
+    - name: Senior
+      keywords: [senior, sr, iii]
+      min-years: 5
+      max-years: 12
+    - name: Mid
+      keywords: [ii, associate, intermediate]
+      min-years: 2
+      max-years: 6

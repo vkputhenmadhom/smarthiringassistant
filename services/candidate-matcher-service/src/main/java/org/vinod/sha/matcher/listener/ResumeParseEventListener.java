@@ -10,6 +10,7 @@ import org.vinod.shared.config.RabbitMQConfiguration;
 import org.vinod.shared.events.ResumeParseEvent;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -29,7 +30,8 @@ public class ResumeParseEventListener {
         log.info("Received ResumeParseEvent for resume: {}", event.getResumeId());
 
         try {
-            String eventKey = "ResumeParseEvent:" + event.getResumeId() + ":" + event.getStatus();
+            // parsedAt tells a redelivery (same key, skipped) from a "refresh my matches" request (new key)
+            String eventKey = "ResumeParseEvent:" + event.getResumeId() + ":" + event.getStatus() + ":" + event.getParsedAt();
             if (processedEventRepository.existsByEventKey(eventKey)) {
                 log.info("Skipping duplicate ResumeParseEvent key={}", eventKey);
                 return;
@@ -50,7 +52,8 @@ public class ResumeParseEventListener {
                     event.getUserId(),
                     event.getSkills(),
                     event.getExperienceYears(),
-                    event.getLocation()
+                    event.getLocation(),
+                    event.getPreferredLocations() == null ? List.of() : event.getPreferredLocations()
             );
 
             log.info("Found {} matches for candidate: {}", matches.size(), event.getUserId());

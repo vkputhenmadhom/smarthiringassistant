@@ -65,6 +65,11 @@ type Job {
     source: String
     companyName: String
     externalUrl: String
+    # Level the title names (Entry, Mid, Senior, Lead) and the years the job is meant for: stated in the
+    # posting, else the level's range. Null when unknown; maxExperienceYears null also means no upper bound.
+    seniority: String
+    minExperienceYears: Int
+    maxExperienceYears: Int
 }
 
 enum JobType {

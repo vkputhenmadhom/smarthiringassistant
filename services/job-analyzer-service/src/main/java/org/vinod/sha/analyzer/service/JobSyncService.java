@@ -13,7 +13,6 @@ import org.vinod.sha.analyzer.config.JobSyncProperties.Feed;
 import org.vinod.sha.analyzer.config.JobSyncProperties.FeedSource;
 import org.vinod.sha.analyzer.entity.JobAnalysis;
 import org.vinod.sha.analyzer.repository.JobAnalysisRepository;
-import org.vinod.shared.text.SkillText;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -22,10 +21,8 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -52,19 +49,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 public class JobSyncService {
 
-    // Minimal skill dictionary used for description-based extraction (Adzuna)
-    private static final Set<String> SKILL_DICT = Set.of(
-            "java", "spring", "spring boot", "react", "angular", "vue", "node.js",
-            "python", "sql", "postgresql", "mongodb", "redis", "docker", "kubernetes",
-            "aws", "azure", "gcp", "graphql", "grpc", "microservices", "kafka",
-            "rabbitmq", "jenkins", "terraform", "typescript", "golang", "rust",
-            "llm", "rag", "langchain", "openai", "pytorch", "tensorflow"
-    );
-
     private final JobAnalysisRepository repository;
     private final RestTemplate           restTemplate;
     private final JobSyncProperties      props;
     private final JobFeeds               jobFeeds;
+    private final JobSkills              jobSkills;
+    private final JobLevels              jobLevels;
+    private final JobDetailsRefresh      jobDetailsRefresh;
 
     // ── In-memory sync status (good enough; persist to DB if you want history) ──
     private volatile String        lastSyncStatus = "NEVER_RUN";
@@ -79,11 +70,17 @@ public class JobSyncService {
     public JobSyncService(JobAnalysisRepository repository,
                           RestTemplate restTemplate,
                           JobSyncProperties props,
-                          JobFeeds jobFeeds) {
+                          JobFeeds jobFeeds,
+                          JobSkills jobSkills,
+                          JobLevels jobLevels,
+                          JobDetailsRefresh jobDetailsRefresh) {
         this.repository   = repository;
         this.restTemplate = restTemplate;
         this.props        = props;
         this.jobFeeds     = jobFeeds;
+        this.jobSkills    = jobSkills;
+        this.jobLevels    = jobLevels;
+        this.jobDetailsRefresh = jobDetailsRefresh;
     }
 
     // ── Scheduled entry-point ─────────────────────────────────────────────────
@@ -150,6 +147,10 @@ public class JobSyncService {
                     default -> source + ":+" + count;
                 });
             });
+
+            // Boards take ads down without notice; close what is past its feed's max-age-days
+            int closed = jobDetailsRefresh.closeExpired();
+            if (closed > 0) summary.add("Closed (older than max-age-days):" + closed);
 
             if (!hasJSearchKey() && !hasAdzunaCreds()) {
                 summary.add("No API credentials configured – set JSEARCH_API_KEY / ADZUNA_APP_ID / ADZUNA_APP_KEY");
@@ -291,10 +292,10 @@ public class JobSyncService {
         List<Object> rawSkills = raw.get("job_required_skills") instanceof List
                 ? (List<Object>) raw.get("job_required_skills") : List.of();
         List<String> skills = rawSkills.isEmpty()
-                ? extractFromDescription(description)
+                ? extractSkills(str(raw.get("job_title")), description)
                 : rawSkills.stream().map(Object::toString).toList();
 
-        repository.save(JobAnalysis.builder()
+        repository.save(jobLevels.apply(JobAnalysis.builder()
                 .jobId(UUID.randomUUID().toString())
                 .externalId(externalId)
                 .source(sourceTag)
@@ -315,7 +316,7 @@ public class JobSyncService {
                 .postedAt(parseIso(str(raw.get("job_posted_at_datetime_utc"))))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
-                .build());
+                .build()));
         return true;
     }
 
@@ -382,7 +383,7 @@ public class JobSyncService {
         if (raw.get("location") instanceof Map<?,?> loc)
             location = str(loc.get("display_name"));
 
-        repository.save(JobAnalysis.builder()
+        repository.save(jobLevels.apply(JobAnalysis.builder()
                 .jobId(UUID.randomUUID().toString())
                 .externalId(externalId)
                 .source(sourceTag)
@@ -392,7 +393,7 @@ public class JobSyncService {
                 .location(location)
                 .employmentType(mapAdzunaType(str(raw.get("contract_time"))))
                 .jobDescription(description)
-                .requiredSkills(extractFromDescription(description))
+                .requiredSkills(extractSkills(str(raw.get("title")), description))
                 .preferredSkills(List.of())
                 .salaryMin(toInt(raw.get("salary_min")))
                 .salaryMax(toInt(raw.get("salary_max")))
@@ -402,7 +403,7 @@ public class JobSyncService {
                 .postedAt(parseIso(str(raw.get("created"))))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
-                .build());
+                .build()));
         return true;
     }
 
@@ -507,13 +508,9 @@ public class JobSyncService {
 
     // ── Skill extraction (dictionary-based) ───────────────────────────────────
 
-    private List<String> extractFromDescription(String text) {
-        if (text == null || text.isBlank()) return List.of();
-        Set<String> found = new LinkedHashSet<>();
-        for (String skill : SkillText.find(text, SKILL_DICT)) {
-            found.add(capitalize(skill));
-        }
-        return new ArrayList<>(found);
+    /** The job-skills.yml skills the title or description names */
+    private List<String> extractSkills(String title, String description) {
+        return jobSkills.find((title == null ? "" : title) + "\n" + (description == null ? "" : description));
     }
 
     // ── Employment-type mapping ───────────────────────────────────────────────
@@ -576,11 +573,6 @@ public class JobSyncService {
 
     private String encode(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
-    }
-
-    private String capitalize(String s) {
-        if (s == null || s.isBlank()) return s;
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     private boolean hasJSearchKey()   { return !blank(props.getJsearch().getApiKey()); }

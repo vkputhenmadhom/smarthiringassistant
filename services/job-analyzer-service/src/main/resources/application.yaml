@@ -6,6 +6,9 @@ spring:
     import:
       - "classpath:job-feeds.yml"
       - "optional:file:${JOB_FEEDS_FILE:/config/job-feeds.yml}"
+      # Skills looked for in job titles and descriptions, the same way
+      - "classpath:job-skills.yml"
+      - "optional:file:${JOB_SKILLS_FILE:/config/job-skills.yml}"
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}

@@ -16,6 +16,10 @@ const JOB_FIELDS = `
   source
   companyName
   externalUrl
+  postedAt
+  seniority
+  minExperienceYears
+  maxExperienceYears
 `;
 
 /** source: a feed key from JOB_FEEDS_QUERY or an exact source tag; omit for every job */

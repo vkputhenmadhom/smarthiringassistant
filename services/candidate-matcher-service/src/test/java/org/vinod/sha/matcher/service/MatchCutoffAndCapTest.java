@@ -34,7 +34,7 @@ class MatchCutoffAndCapTest {
     }
 
     private CandidateMatcherService service(int cap) {
-        return new CandidateMatcherService(matches, jobs, new WeightedScoreMatcher(), mock(OutboxPublisher.class), 50, cap);
+        return new CandidateMatcherService(matches, jobs, new WeightedScoreMatcher(org.vinod.sha.matcher.config.MatchingRules.defaults()), mock(OutboxPublisher.class), 50, cap);
     }
 
     private static JobRequirement job(String id, List<String> skills, String title, JobStatus status) {
@@ -49,17 +49,18 @@ class MatchCutoffAndCapTest {
     void keepsOnlyRelevantJobsAboveTheCutoffBestFirst() {
         when(jobs.findAll()).thenReturn(List.of(
                 job("sales", List.of(), "Sales Executive", JobStatus.ACTIVE),            // nothing relevant
-                job("half", List.of("Java", "Kafka"), "Engineer", JobStatus.ACTIVE),     // 50: kept
-                job("full", List.of("Java"), "Engineer", JobStatus.ACTIVE),              // 100: kept first
-                job("weak", List.of("Java", "Go", "Kafka"), "Engineer", JobStatus.ACTIVE), // 33: below cutoff
-                job("closed", List.of("Java"), "Engineer", JobStatus.CLOSED)));
+                job("half", List.of("Java", "SQL", "Kafka", "Go"), "Engineer", JobStatus.ACTIVE), // 50: kept
+                job("full", List.of("Java", "Spring", "SQL"), "Engineer", JobStatus.ACTIVE),     // 100: kept first
+                job("weak", List.of("Java", "Go", "Kafka"), "Engineer", JobStatus.ACTIVE),       // 33: below cutoff
+                job("single", List.of("Java"), "Engineer", JobStatus.ACTIVE),                    // 1 of at least 3: below cutoff
+                job("closed", List.of("Java", "Spring", "SQL"), "Engineer", JobStatus.CLOSED)));
 
-        List<CandidateMatch> result = service(20).matchCandidateWithJobs(7L, List.of("Java"), 4.0, "Pune");
+        List<CandidateMatch> result = service(20).matchCandidateWithJobs(7L, List.of("Java", "Spring", "SQL"), 4.0, "Pune");
 
         assertEquals(List.of("full", "half"), result.stream().map(CandidateMatch::getJobId).toList());
         assertNull(result.get(0).getExperienceMatchPercentage());
         assertNull(result.get(0).getLocationMatchPercentage());
-        assertEquals(List.of("Kafka"), result.get(1).getMissingSkills());
+        assertEquals(List.of("Kafka", "Go"), result.get(1).getMissingSkills());
     }
 
     @Test
@@ -68,10 +69,10 @@ class MatchCutoffAndCapTest {
         CandidateMatch shortlisted = CandidateMatch.builder().matchId("hr").candidateId(7L).jobId("b").status(MatchStatus.SHORTLISTED).build();
         when(matches.findByCandidateId(7L)).thenReturn(List.of(untouched, shortlisted));
         when(jobs.findAll()).thenReturn(List.of(
-                job("a", List.of("Java"), "Engineer", JobStatus.ACTIVE),
-                job("b", List.of("Java"), "Engineer", JobStatus.ACTIVE)));
+                job("a", List.of("Java", "Spring", "SQL"), "Engineer", JobStatus.ACTIVE),
+                job("b", List.of("Java", "Spring", "SQL"), "Engineer", JobStatus.ACTIVE)));
 
-        List<CandidateMatch> result = service(20).matchCandidateWithJobs(7L, List.of("Java"), null, null);
+        List<CandidateMatch> result = service(20).matchCandidateWithJobs(7L, List.of("Java", "Spring", "SQL"), null, null);
 
         verify(matches).deleteAll(List.of(untouched));
         assertEquals(List.of("a"), result.stream().map(CandidateMatch::getJobId).toList(), "job b keeps its shortlisted match");
@@ -81,11 +82,11 @@ class MatchCutoffAndCapTest {
     void capsMatchesPerResume() {
         List<JobRequirement> many = new ArrayList<>();
         for (int i = 0; i < 30; i++) {
-            many.add(job("job-" + i, List.of("Java"), "Engineer", JobStatus.ACTIVE));
+            many.add(job("job-" + i, List.of("Java", "Spring", "SQL"), "Engineer", JobStatus.ACTIVE));
         }
         when(jobs.findAll()).thenReturn(many);
 
-        assertEquals(20, service(20).matchCandidateWithJobs(7L, List.of("Java"), null, null).size());
+        assertEquals(20, service(20).matchCandidateWithJobs(7L, List.of("Java", "Spring", "SQL"), null, null).size());
     }
 
     @Test

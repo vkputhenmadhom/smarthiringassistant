@@ -76,3 +76,6 @@ CREATE TABLE IF NOT EXISTS hiring.event_outbox (
     sent_at TIMESTAMP
 );
 
+
+-- Most years a job is meant for (stated, or its title's level); null: no upper bound or unknown.
+ALTER TABLE hiring.job_requirements ADD COLUMN IF NOT EXISTS max_years_experience INTEGER;

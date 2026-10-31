@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS hiring.resume_parser_parsed_data (
     summary TEXT,
     total_experience_years DOUBLE PRECISION
 );
+ALTER TABLE hiring.resume_parser_parsed_data ADD COLUMN IF NOT EXISTS preferred_locations TEXT;
 
 CREATE TABLE IF NOT EXISTS hiring.resume_parser_experience (
     id BIGSERIAL PRIMARY KEY,

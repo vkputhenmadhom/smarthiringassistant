@@ -47,6 +47,14 @@ public class JobPostingChangedEvent implements Serializable {
     @JsonProperty("min_experience_years")
     private Integer minExperienceYears;
 
+    /** Most years the job is meant for (stated, or its level's range); null: no upper bound or unknown */
+    @JsonProperty("max_experience_years")
+    private Integer maxExperienceYears;
+
+    /** Level the title names (Entry, Mid, Senior, Lead); null when none */
+    @JsonProperty("seniority")
+    private String seniority;
+
     /** job-analyzer status: DRAFT, ANALYZED, OPEN or CLOSED. */
     @JsonProperty("status")
     private String status;

@@ -28,7 +28,7 @@ public class EncryptionKeyRotationRunner implements ApplicationRunner {
 
     static final String RESUMES = "hiring.resume_parser_resumes";
     static final String PARSED_DATA = "hiring.resume_parser_parsed_data";
-    static final List<String> PARSED_COLUMNS = List.of("full_name", "email", "phone", "location", "summary");
+    static final List<String> PARSED_COLUMNS = List.of("full_name", "email", "phone", "location", "summary", "preferred_locations");
 
     private final SensitiveDataEncryptionService encryption;
     private final JdbcTemplate jdbc;

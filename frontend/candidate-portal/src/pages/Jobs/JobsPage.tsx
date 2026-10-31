@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Card, Input, Row, Col, Tag, Button, Spin, Empty, Typography, Tabs, Pagination, message } from 'antd';
-import { SearchOutlined, EnvironmentOutlined, BuildOutlined, LinkOutlined } from '@ant-design/icons';
+import { SearchOutlined, EnvironmentOutlined, BuildOutlined, LinkOutlined, ReloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useMutation, useQuery } from '@apollo/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -14,6 +14,25 @@ const PAGE_SIZE = 20;
 
 /** The tab with the candidate's matches; the other tabs are the configured job feeds */
 const RECOMMENDED = 'recommended';
+
+/** "Lead · 10+ yrs", "Senior · 5–12 yrs", "5+ yrs", or null when nothing is known */
+const seniorityText = (job: Job): string | null => {
+  const min = job.minExperienceYears;
+  const max = job.maxExperienceYears;
+  const years = min == null && max == null ? null
+    : max == null ? `${min}+ yrs`
+    : min === max || min == null ? `${max} yrs` : `${min}–${max} yrs`;
+  if (job.seniority && years) return `${job.seniority} · ${years}`;
+  return job.seniority ?? years;
+};
+
+/** "Posted today", "Posted 3 days ago" */
+const postedText = (postedAt?: string): string | null => {
+  if (!postedAt) return null;
+  const days = Math.floor((Date.now() - new Date(postedAt).getTime()) / 86_400_000);
+  if (Number.isNaN(days) || days < 0) return null;
+  return days === 0 ? 'Posted today' : days === 1 ? 'Posted yesterday' : `Posted ${days} days ago`;
+};
 
 const scoreColor = (score: number) => (score >= 0.75 ? 'green' : score >= 0.6 ? 'blue' : 'gold');
 
@@ -54,10 +73,38 @@ const JobsPage: React.FC = () => {
   const { data: feedData, loading: feedsLoading, error: feedsError } = useQuery<{ jobFeeds: JobFeed[] }>(JOB_FEEDS_QUERY);
   const feeds = feedData?.jobFeeds ?? [];
   const user = useSelector((s: RootState) => s.auth.user);
+  const authToken = useSelector((s: RootState) => s.auth.token);
   // Jobs matched to the candidate's resume (the matcher keeps the best 20 per resume)
-  const { data: matchData, loading: matchesLoading, error: matchesError } = useQuery<{ matchesForCandidate: { totalElements: number; content: JobMatch[] } }>(
+  const { data: matchData, loading: matchesLoading, error: matchesError, refetch: refetchMatches } = useQuery<{ matchesForCandidate: { totalElements: number; content: JobMatch[] } }>(
     MY_MATCHES_QUERY, { variables: { candidateId: user?.id, size: PAGE_SIZE }, skip: !user?.id, fetchPolicy: 'network-only' });
-  const matches = (matchData?.matchesForCandidate?.content ?? []).filter(m => m.job);
+  // A job that has closed since the match is no longer worth showing
+  const matches = (matchData?.matchesForCandidate?.content ?? []).filter(m => m.job && m.job.status === 'OPEN');
+  const [refreshing, setRefreshing] = useState(false);
+
+  /** Matches the latest resume against today's jobs, without a new upload */
+  const refreshMatches = async () => {
+    const token = authToken ?? localStorage.getItem('sha_token');
+    setRefreshing(true);
+    try {
+      const response = await fetch('/api/resumes/candidates/me/rematch', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (response.status === 404) {
+        message.info('Upload your resume first; matches come from it.');
+        return;
+      }
+      if (!response.ok) throw new Error(`Could not refresh your matches (${response.status})`);
+      // Matching runs in the background; it takes a few seconds
+      await new Promise(resolve => setTimeout(resolve, 4000));
+      await refetchMatches();
+      message.success('Matches refreshed with the latest jobs.');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Could not refresh your matches');
+    } finally {
+      setRefreshing(false);
+    }
+  };
   const matchByJob = new Map(matches.map(m => [m.job!.id, m]));
   const requested = params.get('feed');
   const recommended = requested === RECOMMENDED || (!requested && !!user?.id);
@@ -119,6 +166,8 @@ const JobsPage: React.FC = () => {
   const renderJob = (job: Job, match?: JobMatch) => {
     const salary = salaryText(job);
     const via = sourceLabel(job.source);
+    const level = seniorityText(job);
+    const posted = postedText(job.postedAt);
     return (
       <Col xs={24} md={12} key={job.id}>
         <Card
@@ -141,6 +190,10 @@ const JobsPage: React.FC = () => {
             <span><EnvironmentOutlined /> {job.location?.trim() || 'Location not specified'}</span>
             <span>· {job.type.replace('_', ' ')}</span>
             {salary && <span>· {salary}</span>}
+          </div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:8, fontSize:13 }}>
+            <Tag color={level ? 'purple' : 'default'}>{level ?? 'Level not stated'}</Tag>
+            {posted && <Text type="secondary"><ClockCircleOutlined /> {posted}</Text>}
           </div>
           {match && match.skillMatches.length > 0 ? (
             <div style={{ marginBottom:8, fontSize:13 }}>
@@ -191,9 +244,10 @@ const JobsPage: React.FC = () => {
           )}
           {!matchesLoading && matches.length > 0 && (
             <>
-              <Text type="secondary" style={{ display:'block', marginBottom:16 }}>
-                Your best {matches.length} matches from your resume, best first.
-              </Text>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap', marginBottom:16 }}>
+                <Text type="secondary">Your best {matches.length} matches from your resume, best first.</Text>
+                <Button icon={<ReloadOutlined />} loading={refreshing} onClick={refreshMatches}>Refresh matches</Button>
+              </div>
               <Row gutter={[16, 16]}>{matches.map(m => renderJob(m.job!, m))}</Row>
             </>
           )}
