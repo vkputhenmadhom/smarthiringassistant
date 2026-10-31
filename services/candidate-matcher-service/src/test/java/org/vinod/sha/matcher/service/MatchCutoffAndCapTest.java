@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class MatchCutoffAndCapTest {
@@ -59,6 +60,21 @@ class MatchCutoffAndCapTest {
         assertNull(result.get(0).getExperienceMatchPercentage());
         assertNull(result.get(0).getLocationMatchPercentage());
         assertEquals(List.of("Kafka"), result.get(1).getMissingSkills());
+    }
+
+    @Test
+    void newResumeReplacesUntouchedMatchesAndKeepsOnesHrActedOn() {
+        CandidateMatch untouched = CandidateMatch.builder().matchId("old").candidateId(7L).jobId("a").status(MatchStatus.MATCHED).build();
+        CandidateMatch shortlisted = CandidateMatch.builder().matchId("hr").candidateId(7L).jobId("b").status(MatchStatus.SHORTLISTED).build();
+        when(matches.findByCandidateId(7L)).thenReturn(List.of(untouched, shortlisted));
+        when(jobs.findAll()).thenReturn(List.of(
+                job("a", List.of("Java"), "Engineer", JobStatus.ACTIVE),
+                job("b", List.of("Java"), "Engineer", JobStatus.ACTIVE)));
+
+        List<CandidateMatch> result = service(20).matchCandidateWithJobs(7L, List.of("Java"), null, null);
+
+        verify(matches).deleteAll(List.of(untouched));
+        assertEquals(List.of("a"), result.stream().map(CandidateMatch::getJobId).toList(), "job b keeps its shortlisted match");
     }
 
     @Test

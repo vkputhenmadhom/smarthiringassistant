@@ -1,9 +1,9 @@
 package org.vinod.sha.screening.listener;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.vinod.sha.screening.dto.CreateSessionRequest;
@@ -28,8 +28,23 @@ class CandidateMatchedListenerIntegrationTest {
     @Mock
     private ConsumedEventRepository consumedEventRepository;
 
-    @InjectMocks
     private CandidateMatchedListener listener;
+
+    @BeforeEach
+    void autoStartOn() {
+        listener = new CandidateMatchedListener(screeningBotService, consumedEventRepository, true, 50);
+    }
+
+    @Test
+    void onCandidateMatched_autoStartOff_onlyStoresMarker() {
+        CandidateMatchedListener off = new CandidateMatchedListener(screeningBotService, consumedEventRepository, false, 50);
+        when(consumedEventRepository.existsByEventKey("CandidateMatchedEvent:m-off")).thenReturn(false);
+
+        off.onCandidateMatched(CandidateMatchedEvent.builder().matchId("m-off").candidateId(9L).jobId("JOB-1").matchScore(95.0).build());
+
+        verify(screeningBotService, never()).createSession(any(CreateSessionRequest.class));
+        verify(consumedEventRepository).save(any(ConsumedEvent.class));
+    }
 
     @Test
     void onCandidateMatched_highScore_createsSessionAndStoresConsumedMarker() {

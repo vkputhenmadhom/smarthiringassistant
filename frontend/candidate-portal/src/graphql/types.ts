@@ -39,6 +39,15 @@ export interface Job {
   externalUrl?: string;
 }
 
+/** A match between the signed-in candidate's resume and a job; score is 0–1 */
+export interface JobMatch {
+  id: string;
+  score: number;
+  skillMatches: string[];
+  skillGaps: string[];
+  job?: Job | null;
+}
+
 export interface JobFeed {
   key: string;
   label: string;

@@ -2,6 +2,7 @@ package org.vinod.sha.gateway.graphql;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.graphql.data.method.annotation.Argument;
+import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.security.access.annotation.Secured;
@@ -9,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.vinod.sha.gateway.resilience.GatewayResilience;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.LinkedHashMap;
@@ -78,6 +80,32 @@ public class JobGraphQLResolver {
         return requestMap(JOB_SERVICE_BASE + "/jobs/" + id)
                 .map(this::normalizeJob)
                 .onErrorMap(e -> BackendErrors.read("job service", "job " + id, e));
+    }
+
+    /**
+     * Fills {@code CandidateMatch.job}, one job-service read per distinct job. A job that cannot be read (closed
+     * and removed since the match) is left null: the match is still shown without it.
+     */
+    @BatchMapping(typeName = "CandidateMatch", field = "job")
+    public Mono<Map<Map<String, Object>, Map<String, Object>>> matchJob(List<Map<String, Object>> matches) {
+        return Flux.fromIterable(matches.stream().map(m -> String.valueOf(m.get("jobId"))).distinct().toList())
+                .flatMap(id -> requestMap(JOB_SERVICE_BASE + "/jobs/" + id)
+                        .map(raw -> Map.entry(id, normalizeJob(raw)))
+                        .onErrorResume(e -> {
+                            log.debug("Job {} for a match could not be read: {}", id, e.toString());
+                            return Mono.empty();
+                        }))
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                .map(jobs -> {
+                    Map<Map<String, Object>, Map<String, Object>> result = new LinkedHashMap<>();
+                    for (Map<String, Object> match : matches) {
+                        Map<String, Object> job = jobs.get(String.valueOf(match.get("jobId")));
+                        if (job != null) {
+                            result.put(match, job);
+                        }
+                    }
+                    return result;
+                });
     }
 
     // ── Mutations ────────────────────────────────────────────────────────────

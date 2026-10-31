@@ -254,12 +254,15 @@ public class JobAnalyzerService {
                 .map(entry -> Map.<String, Object>of("skill", entry.getKey(), "count", entry.getValue().intValue()))
                 .collect(Collectors.toList());
 
+        // Jobs posted in the app; imports arrive by the dozen each day and would crowd out everything else.
         List<Map<String, Object>> recentActivity = jobs.stream()
+                .filter(job -> job.getSource() == null || job.getSource().isBlank() || "INTERNAL".equalsIgnoreCase(job.getSource()))
                 .sorted(Comparator.comparing(JobAnalysis::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(10)
                 .map(job -> Map.<String, Object>of(
-                        "type", "JOB_UPDATED",
-                        "description", defaultIfBlank(job.getJobTitle(), "Untitled job") + " is " + defaultIfBlank(job.getStatus(), "DRAFT"),
+                        "type", "NEW_JOB",
+                        "description", "Job posted: " + defaultIfBlank(job.getJobTitle(), "Untitled job")
+                                + " (" + defaultIfBlank(job.getStatus(), "DRAFT").toLowerCase() + ")",
                         "timestamp", String.valueOf(Objects.requireNonNullElse(job.getUpdatedAt(), job.getCreatedAt()))
                 ))
                 .collect(Collectors.toList());
