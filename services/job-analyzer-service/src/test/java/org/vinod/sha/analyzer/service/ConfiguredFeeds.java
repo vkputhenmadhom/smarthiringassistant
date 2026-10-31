@@ -26,6 +26,17 @@ public final class ConfiguredFeeds {
         }
     }
 
+    /** The seniority levels exactly as the shipped job-skills.yml configures them. */
+    public static JobLevels levels() {
+        try {
+            var yaml = new YamlPropertySourceLoader().load("job-skills", new ClassPathResource("job-skills.yml")).get(0);
+            return new Binder(ConfigurationPropertySources.from(yaml)).bind("job-levels", JobLevels.class)
+                    .orElseThrow(() -> new IllegalStateException("job-skills.yml has no job-levels section"));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     public static JobFeeds load() {
         try {
             var yaml = new YamlPropertySourceLoader().load("job-feeds", new ClassPathResource("job-feeds.yml")).get(0);

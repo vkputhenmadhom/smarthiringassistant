@@ -54,6 +54,8 @@ public class JobSyncService {
     private final JobSyncProperties      props;
     private final JobFeeds               jobFeeds;
     private final JobSkills              jobSkills;
+    private final JobLevels              jobLevels;
+    private final JobDetailsRefresh      jobDetailsRefresh;
 
     // ── In-memory sync status (good enough; persist to DB if you want history) ──
     private volatile String        lastSyncStatus = "NEVER_RUN";
@@ -69,12 +71,16 @@ public class JobSyncService {
                           RestTemplate restTemplate,
                           JobSyncProperties props,
                           JobFeeds jobFeeds,
-                          JobSkills jobSkills) {
+                          JobSkills jobSkills,
+                          JobLevels jobLevels,
+                          JobDetailsRefresh jobDetailsRefresh) {
         this.repository   = repository;
         this.restTemplate = restTemplate;
         this.props        = props;
         this.jobFeeds     = jobFeeds;
         this.jobSkills    = jobSkills;
+        this.jobLevels    = jobLevels;
+        this.jobDetailsRefresh = jobDetailsRefresh;
     }
 
     // ── Scheduled entry-point ─────────────────────────────────────────────────
@@ -141,6 +147,10 @@ public class JobSyncService {
                     default -> source + ":+" + count;
                 });
             });
+
+            // Boards take ads down without notice; close what is past its feed's max-age-days
+            int closed = jobDetailsRefresh.closeExpired();
+            if (closed > 0) summary.add("Closed (older than max-age-days):" + closed);
 
             if (!hasJSearchKey() && !hasAdzunaCreds()) {
                 summary.add("No API credentials configured – set JSEARCH_API_KEY / ADZUNA_APP_ID / ADZUNA_APP_KEY");
@@ -285,7 +295,7 @@ public class JobSyncService {
                 ? extractSkills(str(raw.get("job_title")), description)
                 : rawSkills.stream().map(Object::toString).toList();
 
-        repository.save(JobAnalysis.builder()
+        repository.save(jobLevels.apply(JobAnalysis.builder()
                 .jobId(UUID.randomUUID().toString())
                 .externalId(externalId)
                 .source(sourceTag)
@@ -306,7 +316,7 @@ public class JobSyncService {
                 .postedAt(parseIso(str(raw.get("job_posted_at_datetime_utc"))))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
-                .build());
+                .build()));
         return true;
     }
 
@@ -373,7 +383,7 @@ public class JobSyncService {
         if (raw.get("location") instanceof Map<?,?> loc)
             location = str(loc.get("display_name"));
 
-        repository.save(JobAnalysis.builder()
+        repository.save(jobLevels.apply(JobAnalysis.builder()
                 .jobId(UUID.randomUUID().toString())
                 .externalId(externalId)
                 .source(sourceTag)
@@ -393,7 +403,7 @@ public class JobSyncService {
                 .postedAt(parseIso(str(raw.get("created"))))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
-                .build());
+                .build()));
         return true;
     }
 

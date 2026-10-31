@@ -12,6 +12,7 @@
 #   label          tab title;  empty-message: shown when the tab has no jobs
 #   market         job market of its imports (job-market.region / JOB_MARKET). IN = India.
 #   max-per-sync   max new jobs per daily run, across its sources
+#   max-age-days   imported postings older than this are closed: boards take ads down without notice
 #   sources        provider (adzuna | jsearch), country, keywords (one API request each per run) and
 #                  params (extra query parameters, passed as they are)
 #   require-any    keep a job only if its title or description matches one of these (regex, case-insensitive)
@@ -32,6 +33,8 @@ job-sync:
       empty-message: "No India tech jobs yet. New ones are imported daily."
       market: IN
       max-per-sync: 30
+      max-age-days: 30
+      # Senior and leadership roles; add plain titles ("software engineer") for a broader feed
       sources:
         - provider: adzuna
           country: in
@@ -39,31 +42,30 @@ job-sync:
             category: it-jobs          # Adzuna's IT jobs category
             max_days_old: "14"
           keywords:
-            - "software engineer"
-            - "java developer"
-            - "python developer"
-            - "full stack developer"
-            - "frontend developer"
-            - "devops engineer"
-            - "data engineer"
+            - "principal engineer"
+            - "staff engineer"
+            - "technical lead"
+            - "engineering manager"
+            - "technical program manager"
         - provider: jsearch
           country: in
           keywords:
-            - "software engineer"
-            - "software developer"
+            - "principal engineer staff engineer technical lead"
+            - "engineering manager technical program manager"
 
     - key: remote
       label: "Remote · open to India"
       empty-message: "No remote jobs open to India yet. New ones are imported daily."
       market: IN
       max-per-sync: 20
+      max-age-days: 30
       sources:
         - provider: jsearch
           params:
             work_from_home: "true"
           keywords:
-            - "remote software engineer worldwide"
-            - "remote developer APAC India"
+            - "remote principal engineer staff engineer worldwide"
+            - "remote engineering manager technical lead APAC India"
       # Open worldwide, or names India / APAC / Asia ...
       require-any:
         - '\b(worldwide|world-wide|globally|fully distributed|location[- ]independent)\b'
@@ -87,6 +89,7 @@ job-sync:
       empty-message: "No government jobs yet. New ones are imported daily."
       market: IN
       max-per-sync: 30
+      max-age-days: 45
       sources:
         - provider: adzuna
           country: in

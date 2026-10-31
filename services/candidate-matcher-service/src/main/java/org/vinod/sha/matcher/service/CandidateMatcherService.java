@@ -146,6 +146,7 @@ public class CandidateMatcherService {
                 job.getJobDescription(),
                 candidateExperience,
                 job.getRequiredYearsExperience(),
+                job.getMaxYearsExperience(),
                 candidateLocation,
                 preferredLocations,
                 job.getLocation());

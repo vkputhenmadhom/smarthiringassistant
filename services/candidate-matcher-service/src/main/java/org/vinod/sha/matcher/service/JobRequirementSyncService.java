@@ -5,10 +5,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.vinod.sha.matcher.entity.JobRequirement;
 import org.vinod.sha.matcher.entity.JobStatus;
+import org.vinod.sha.matcher.entity.CandidateMatch;
+import org.vinod.sha.matcher.entity.MatchStatus;
+import org.vinod.sha.matcher.repository.CandidateMatchRepository;
 import org.vinod.sha.matcher.repository.JobRequirementRepository;
 import org.vinod.shared.events.JobPostingChangedEvent;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -20,9 +24,11 @@ import java.util.Locale;
 public class JobRequirementSyncService {
 
     private final JobRequirementRepository repository;
+    private final CandidateMatchRepository matches;
 
-    public JobRequirementSyncService(JobRequirementRepository repository) {
+    public JobRequirementSyncService(JobRequirementRepository repository, CandidateMatchRepository matches) {
         this.repository = repository;
+        this.matches = matches;
     }
 
     @Transactional
@@ -36,6 +42,7 @@ public class JobRequirementSyncService {
                 repository.delete(job);
                 log.info("Removed job {} from matching", event.getJobId());
             });
+            dropUntouchedMatches(event.getJobId());
             return;
         }
 
@@ -47,9 +54,22 @@ public class JobRequirementSyncService {
         job.setJobDescription(event.getJobDescription());
         job.setRequiredSkills(event.getRequiredSkills() == null ? new ArrayList<>() : new ArrayList<>(event.getRequiredSkills()));
         job.setRequiredYearsExperience(event.getMinExperienceYears() == null ? 0 : Math.max(0, event.getMinExperienceYears()));
+        job.setMaxYearsExperience(event.getMaxExperienceYears());
         // Outside the job market (e.g. a US job while the app serves India): keep it, but never match it.
         job.setStatus(Boolean.FALSE.equals(event.getInMarket()) ? JobStatus.ON_HOLD : toMatcherStatus(event.getStatus()));
         repository.save(job);
+        if (job.getStatus() != JobStatus.ACTIVE) {
+            dropUntouchedMatches(job.getJobId());
+        }
+    }
+
+    /** A job that closes or leaves the market stops being recommended; matches HR acted on stay. */
+    private void dropUntouchedMatches(String jobId) {
+        List<CandidateMatch> untouched = matches.findByJobIdAndStatus(jobId, MatchStatus.MATCHED);
+        if (!untouched.isEmpty()) {
+            matches.deleteAll(untouched);
+            log.info("Removed {} untouched matches for job {}, which is no longer open", untouched.size(), jobId);
+        }
     }
 
     /** Only OPEN jobs are matched; drafts and analyses wait, closed jobs stop matching. */

@@ -30,7 +30,8 @@ public class ResumeParseEventListener {
         log.info("Received ResumeParseEvent for resume: {}", event.getResumeId());
 
         try {
-            String eventKey = "ResumeParseEvent:" + event.getResumeId() + ":" + event.getStatus();
+            // parsedAt tells a redelivery (same key, skipped) from a "refresh my matches" request (new key)
+            String eventKey = "ResumeParseEvent:" + event.getResumeId() + ":" + event.getStatus() + ":" + event.getParsedAt();
             if (processedEventRepository.existsByEventKey(eventKey)) {
                 log.info("Skipping duplicate ResumeParseEvent key={}", eventKey);
                 return;

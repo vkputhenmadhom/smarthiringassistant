@@ -17,7 +17,7 @@ import static org.mockito.Mockito.*;
 class JobRequirementSyncServiceTest {
 
     private final JobRequirementRepository repository = mock(JobRequirementRepository.class);
-    private final JobRequirementSyncService service = new JobRequirementSyncService(repository);
+    private final JobRequirementSyncService service = new JobRequirementSyncService(repository, org.mockito.Mockito.mock(org.vinod.sha.matcher.repository.CandidateMatchRepository.class));
 
     @Test
     void createsAMatchableJobFromAnOpenPosting() {

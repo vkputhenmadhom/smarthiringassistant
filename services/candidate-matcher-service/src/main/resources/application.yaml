@@ -53,28 +53,9 @@ matching:
   # The most the skill part scores when the job title names a skill the candidate lacks (".NET" in
   # "Senior Software Engineer - .NET"): such a skill is the job's core.
   missing-title-skill-cap: 40
-  # For jobs that state no years: the level the title names, matched with the candidate's years.
-  # The first level with a keyword in the title (whole words, any case) applies; titles naming none are left out.
-  seniority:
-    # Points off per year above a level's range, down to 20 (an 18-year engineer for a new-grad job)
-    over-qualified-penalty-per-year: 8
-    levels:
-      - name: entry
-        keywords: [new grad, graduate, junior, jr, intern, internship, entry level, entry-level, trainee, fresher, apprentice]
-        min-years: 0
-        max-years: 2
-      - name: lead
-        keywords: [principal, staff, lead, architect, head, director, manager, distinguished, fellow]
-        min-years: 10
-        max-years: 40
-      - name: senior
-        keywords: [senior, sr, iii]
-        min-years: 5
-        max-years: 14
-      - name: mid
-        keywords: [ii, associate, intermediate]
-        min-years: 2
-        max-years: 6
+  # Points off the experience part per year above a job's range (stated years, or its title's level from
+  # job-analyzer's job-skills.yml), down to 20: an 18-year engineer for a new-grad job.
+  over-qualified-penalty-per-year: 8
   # Other spellings of a skill (lower case) and the name to compare them as.
   skill-aliases:
     reactjs: react

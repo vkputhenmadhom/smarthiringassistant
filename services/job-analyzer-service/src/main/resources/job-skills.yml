@@ -136,3 +136,26 @@ job-skills:
     - ServiceNow
     - Power BI
     - Tableau
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Seniority: shown on every job card and used by matching. Years a posting states ("5+ Yrs",
+# "8-12 years of experience") win; otherwise the first level whose keyword the title contains (whole
+# words, any case) gives the range. A title naming no level and stating no years is "not stated".
+# ─────────────────────────────────────────────────────────────────────────────
+job-levels:
+  levels:
+    - name: Entry
+      keywords: [new grad, graduate, junior, jr, intern, internship, entry level, entry-level, trainee, fresher, apprentice]
+      min-years: 0
+      max-years: 2
+    - name: Lead
+      keywords: [principal, staff, lead, architect, head, director, manager, distinguished, fellow, program manager]
+      min-years: 10
+    - name: Senior
+      keywords: [senior, sr, iii]
+      min-years: 5
+      max-years: 12
+    - name: Mid
+      keywords: [ii, associate, intermediate]
+      min-years: 2
+      max-years: 6

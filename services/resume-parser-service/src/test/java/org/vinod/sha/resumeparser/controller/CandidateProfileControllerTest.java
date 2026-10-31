@@ -1,11 +1,13 @@
 package org.vinod.sha.resumeparser.controller;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.vinod.sha.resumeparser.dto.CandidateProfile;
 import org.vinod.sha.resumeparser.security.AuthenticatedUser;
 import org.vinod.sha.resumeparser.service.CandidateProfileService;
+import org.vinod.sha.resumeparser.service.ResumeParserService;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,7 +23,8 @@ import static org.mockito.Mockito.when;
 class CandidateProfileControllerTest {
 
     private final CandidateProfileService service = mock(CandidateProfileService.class);
-    private final CandidateProfileController controller = new CandidateProfileController(service);
+    private final ResumeParserService parser = mock(ResumeParserService.class);
+    private final CandidateProfileController controller = new CandidateProfileController(service, parser);
 
     @Test
     void onlyHrCanListCandidates() {
@@ -60,5 +63,12 @@ class CandidateProfileControllerTest {
     private static CandidateProfile profile(Long id) {
         return new CandidateProfile(id, "r-" + id, null, "Name " + id, null, null, null, List.of(), null, List.of(), List.of(),
                 "COMPLETED", null, null);
+    }
+
+    @Test
+    void candidateCanAskToBeMatchedAgain() {
+        when(parser.rematch(32L)).thenReturn(true);
+        assertEquals(HttpStatus.ACCEPTED, controller.rematch(user(32L, "JOB_SEEKER")).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, controller.rematch(user(33L, "JOB_SEEKER")).getStatusCode(), "no resume yet");
     }
 }

@@ -104,6 +104,21 @@ public class ResumeParserService {
                 .orElseThrow(() -> new RuntimeException("Resume not found: " + resumeId));
     }
 
+    /**
+     * Sends the user's latest parsed resume to matching again, so new or changed jobs are matched without a new
+     * upload (or another AI call). False when the user has no parsed resume.
+     */
+    public boolean rematch(Long userId) {
+        return resumeRepository.findFirstByUserIdOrderByCreatedAtDesc(userId)
+                .filter(resume -> resume.getStatus() == ParseStatus.SUCCESS)
+                .map(resume -> {
+                    publishResumeParseEvent(resume, 0, "SUCCESS");
+                    log.info("Re-sent resume {} of user {} to matching", resume.getResumeId(), userId);
+                    return true;
+                })
+                .orElse(false);
+    }
+
     public List<Resume> getUserResumes(Long userId) {
         return resumeRepository.findByUserId(userId);
     }

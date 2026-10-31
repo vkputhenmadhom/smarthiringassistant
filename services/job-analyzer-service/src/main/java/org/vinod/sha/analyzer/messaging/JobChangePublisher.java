@@ -77,6 +77,8 @@ public class JobChangePublisher extends AbstractMongoEventListener<JobAnalysis> 
                 .jobDescription(job.getJobDescription())
                 .requiredSkills(job.getRequiredSkills())
                 .minExperienceYears(job.getMinExperienceYears())
+                .maxExperienceYears(job.getMaxExperienceYears())
+                .seniority(job.getSeniority())
                 .status(job.getStatus())
                 .inMarket(inMarket)
                 .changedAt(System.currentTimeMillis())

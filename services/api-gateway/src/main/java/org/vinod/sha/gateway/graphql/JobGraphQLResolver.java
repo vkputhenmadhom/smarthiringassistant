@@ -266,6 +266,9 @@ public class JobGraphQLResolver {
         j.put("source", rawJob.get("source"));
         j.put("companyName", firstNonNull(rawJob.get("companyName"), rawJob.get("company"), null));
         j.put("externalUrl", rawJob.get("externalUrl"));
+        j.put("seniority", rawJob.get("seniority"));
+        j.put("minExperienceYears", rawJob.get("minExperienceYears"));
+        j.put("maxExperienceYears", rawJob.get("maxExperienceYears"));
         return j;
     }
 

@@ -104,6 +104,8 @@ public class JobSyncProperties {
         private boolean postedInApp = false;
         /** Max new jobs per run, across the feed's sources */
         private int maxPerSync = 30;
+        /** Imported postings older than this many days are closed (boards remove ads); null keeps them open */
+        private Integer maxAgeDays;
         private List<FeedSource> sources = List.of();
         /** Keep a job only if its title or description matches one of these (regex, case-insensitive); empty keeps all */
         private List<String> requireAny = List.of();

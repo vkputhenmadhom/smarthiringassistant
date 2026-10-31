@@ -42,7 +42,7 @@ class ResumeParseEventListenerIntegrationTest {
                 .status("SUCCESS")
                 .build();
 
-        when(processedEventRepository.existsByEventKey("ResumeParseEvent:res-101:SUCCESS")).thenReturn(false);
+        when(processedEventRepository.existsByEventKey("ResumeParseEvent:res-101:SUCCESS:0")).thenReturn(false);
         when(candidateMatcherService.matchCandidateWithJobs(88L, List.of("Java", "Spring"), 5.0, "Remote", List.of()))
                 .thenReturn(List.of());
 
@@ -52,7 +52,7 @@ class ResumeParseEventListenerIntegrationTest {
 
         ArgumentCaptor<ProcessedEvent> captor = ArgumentCaptor.forClass(ProcessedEvent.class);
         verify(processedEventRepository).save(captor.capture());
-        assertEquals("ResumeParseEvent:res-101:SUCCESS", captor.getValue().getEventKey());
+        assertEquals("ResumeParseEvent:res-101:SUCCESS:0", captor.getValue().getEventKey());
         assertEquals("ResumeParseEvent", captor.getValue().getEventType());
     }
 
@@ -63,7 +63,7 @@ class ResumeParseEventListenerIntegrationTest {
                 .status("SUCCESS")
                 .build();
 
-        when(processedEventRepository.existsByEventKey("ResumeParseEvent:res-dup:SUCCESS")).thenReturn(true);
+        when(processedEventRepository.existsByEventKey("ResumeParseEvent:res-dup:SUCCESS:0")).thenReturn(true);
 
         listener.handleResumeParseEvent(event);
 
@@ -79,7 +79,7 @@ class ResumeParseEventListenerIntegrationTest {
                 .errorMessage("Could not parse")
                 .build();
 
-        when(processedEventRepository.existsByEventKey("ResumeParseEvent:res-fail:FAILED")).thenReturn(false);
+        when(processedEventRepository.existsByEventKey("ResumeParseEvent:res-fail:FAILED:0")).thenReturn(false);
 
         listener.handleResumeParseEvent(event);
 

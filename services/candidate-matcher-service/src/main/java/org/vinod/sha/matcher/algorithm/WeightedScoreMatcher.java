@@ -44,8 +44,8 @@ public class WeightedScoreMatcher {
     /**
      * @param overall     0–100 over the known parts
      * @param skills      0–100; 0 means no relevant skill, which is never a match
-     * @param experience  0–100 from the years the job asks for, else from the level its title names (senior, lead,
-     *                    ...); null when neither is known or the candidate's years are unknown
+     * @param experience  0–100: how the candidate's years fit the job's range (stated, or its title's level, from
+     *                    job-analyzer); null when the job's range or the candidate's years are unknown
      * @param location    0–100, or null when either side's location is unknown
      * @param matched     the candidate's skills the job lists or names
      * @param missing     skills the job lists that the candidate does not have
@@ -63,15 +63,13 @@ public class WeightedScoreMatcher {
                        String jobDescription,
                        Double candidateExperience,
                        Integer requiredExperience,
+                       Integer maxExperience,
                        String candidateLocation,
                        List<String> preferredLocations,
                        String jobLocation) {
 
         SkillFit fit = skillFit(candidateSkills, requiredSkills, jobTitle, jobDescription);
-        Double experience = experienceScore(candidateExperience, requiredExperience);
-        if (experience == null) {
-            experience = seniorityScore(candidateExperience, jobTitle);
-        }
+        Double experience = experienceScore(candidateExperience, requiredExperience, maxExperience);
         Double location = locationScore(candidateLocation, preferredLocations, jobLocation);
 
         double weighted = fit.score() * SKILL_WEIGHT;
@@ -136,40 +134,23 @@ public class WeightedScoreMatcher {
         return byKey;
     }
 
-    /** Jobs are stored with 0 years when the posting states none, so 0 means unknown here. */
-    static Double experienceScore(Double candidateExperience, Integer requiredExperience) {
-        if (candidateExperience == null || requiredExperience == null || requiredExperience <= 0) {
-            return null;
-        }
-        if (candidateExperience >= requiredExperience) {
-            return 100.0;
-        }
-        return Math.max(0.0, candidateExperience / requiredExperience * 100);
-    }
-
     /**
-     * How the candidate's years fit the level the job title names (the first configured level with a keyword in
-     * it): 100 within its range, less per year above it (down to 20), in proportion below it. Null when the
-     * title names no level or the candidate's years are unknown.
+     * 100 within the job's range, in proportion below its minimum, and {@code matching.over-qualified-penalty-per-year}
+     * less per year above its maximum (down to 20: an 18-year engineer for a new-grad job). Jobs are stored with
+     * minimum 0 when nothing is known, so a range is known when the minimum is above 0 or a maximum is set.
      */
-    Double seniorityScore(Double candidateExperience, String jobTitle) {
-        if (candidateExperience == null || candidateExperience <= 0 || jobTitle == null) {
+    Double experienceScore(Double candidateExperience, Integer minYears, Integer maxYears) {
+        int min = minYears == null ? 0 : minYears;
+        if (candidateExperience == null || candidateExperience <= 0 || (min <= 0 && maxYears == null)) {
             return null;
         }
-        MatchingRules.Seniority seniority = rules.seniority();
-        return seniority.levels().stream()
-                .filter(level -> level.keywords().stream().anyMatch(k -> SkillText.mentions(jobTitle, k)))
-                .findFirst()
-                .map(level -> {
-                    if (candidateExperience > level.maxYears()) {
-                        return Math.max(20.0, 100.0 - (candidateExperience - level.maxYears()) * seniority.overQualifiedPenaltyPerYear());
-                    }
-                    if (candidateExperience < level.minYears()) {
-                        return candidateExperience / level.minYears() * 100.0;
-                    }
-                    return 100.0;
-                })
-                .orElse(null);
+        if (candidateExperience < min) {
+            return Math.max(0.0, candidateExperience / min * 100);
+        }
+        if (maxYears != null && candidateExperience > maxYears) {
+            return Math.max(20.0, 100.0 - (candidateExperience - maxYears) * rules.overQualifiedPenaltyPerYear());
+        }
+        return 100.0;
     }
 
     /** The best score over where the candidate lives and the places they are open to. */

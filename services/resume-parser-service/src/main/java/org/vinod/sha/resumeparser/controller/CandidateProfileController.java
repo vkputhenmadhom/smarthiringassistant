@@ -7,12 +7,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.vinod.sha.resumeparser.dto.CandidateProfile;
 import org.vinod.sha.resumeparser.security.AuthenticatedUser;
 import org.vinod.sha.resumeparser.service.CandidateProfileService;
+import org.vinod.sha.resumeparser.service.ResumeParserService;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -33,9 +35,11 @@ public class CandidateProfileController {
     static final Set<String> HR_AUTHORITIES = Set.of("ROLE_ADMIN", "ROLE_RECRUITER", "ROLE_HIRING_MANAGER");
 
     private final CandidateProfileService candidates;
+    private final ResumeParserService resumeParserService;
 
-    public CandidateProfileController(CandidateProfileService candidates) {
+    public CandidateProfileController(CandidateProfileService candidates, ResumeParserService resumeParserService) {
         this.candidates = candidates;
+        this.resumeParserService = resumeParserService;
     }
 
     /** HR only. {@code userIds} (comma-separated) narrows the list to those users, unpaged. */
@@ -70,6 +74,16 @@ public class CandidateProfileController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return candidates.forUser(userId).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Re-sends the caller's latest parsed resume to matching (after jobs change); 404 without one. */
+    @PostMapping("me/rematch")
+    public ResponseEntity<Void> rematch(Authentication authentication) {
+        Long userId = callerId(authentication);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return resumeParserService.rematch(userId) ? ResponseEntity.accepted().build() : ResponseEntity.notFound().build();
     }
 
     static boolean isHr(Authentication authentication) {

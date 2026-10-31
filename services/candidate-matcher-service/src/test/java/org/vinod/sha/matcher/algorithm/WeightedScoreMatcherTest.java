@@ -12,19 +12,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class WeightedScoreMatcherTest {
 
-    private final WeightedScoreMatcher matcher = new WeightedScoreMatcher(new MatchingRules(3, 40,
+    private final WeightedScoreMatcher matcher = new WeightedScoreMatcher(new MatchingRules(3, 40, 8,
             Map.of("reactjs", "react", "golang", "go"),
-            Map.of("bangalore", "bengaluru"),
-            new MatchingRules.Seniority(8, List.of(
-                    new MatchingRules.Level("entry", List.of("new grad", "junior"), 0, 2),
-                    new MatchingRules.Level("lead", List.of("principal", "lead", "staff"), 10, 40),
-                    new MatchingRules.Level("senior", List.of("senior", "sr"), 5, 14),
-                    new MatchingRules.Level("mid", List.of("ii"), 2, 6)))));
+            Map.of("bangalore", "bengaluru")));
 
     private WeightedScoreMatcher.Score score(List<String> candidate, List<String> required, String title, String description,
                                              Double years, Integer requiredYears, String location, List<String> preferred,
                                              String jobLocation) {
-        return matcher.score(candidate, required, title, description, years, requiredYears, location, preferred, jobLocation);
+        return matcher.score(candidate, required, title, description, years, requiredYears, null, location, preferred, jobLocation);
     }
 
     @Test
@@ -101,25 +96,24 @@ class WeightedScoreMatcherTest {
     }
 
     @Test
-    void titleLevelStandsInForUnstatedYears() {
-        assertEquals(100.0, matcher.seniorityScore(18.7, "Principal Engineer"));
-        assertEquals(100.0, matcher.seniorityScore(18.7, "Associate Lead Software Engineer"), "lead comes before mid");
-        assertEquals(100.0 - 4.7 * 8, matcher.seniorityScore(18.7, "Sr Software Engineer"), 1e-9);
-        assertEquals(20.0, matcher.seniorityScore(18.7, "Software Engineer, New Grad"));
-        assertEquals(50.0, matcher.seniorityScore(1.0, "Software Engineer II"));
-        assertNull(matcher.seniorityScore(18.7, "Java Developer"), "no level named");
-        assertNull(matcher.seniorityScore(null, "Senior Engineer"));
+    void overQualifiedCandidatesLosePointsPerYear() {
+        assertEquals(100.0, matcher.experienceScore(18.7, 10, null), "Lead: 10+ years");
+        assertEquals(100.0 - 6.7 * 8, matcher.experienceScore(18.7, 5, 12), 1e-9, "Senior: 5-12");
+        assertEquals(20.0, matcher.experienceScore(18.7, 0, 2), "Entry: 0-2");
+        assertEquals(50.0, matcher.experienceScore(1.0, 2, 6));
+        assertNull(matcher.experienceScore(18.7, 0, null), "nothing known about the job");
+        assertNull(matcher.experienceScore(null, 5, 12));
 
-        var score = score(List.of("Java", "SQL", "Spring"), List.of("Java", "SQL", "Spring"), "Software Engineer, New Grad",
-                null, 18.7, 0, null, List.of(), null);
+        var score = matcher.score(List.of("Java", "SQL", "Spring"), List.of("Java", "SQL", "Spring"), "Software Engineer, New Grad",
+                null, 18.7, 0, 2, null, List.of(), null);
         assertEquals(20.0, score.experience());
     }
 
     @Test
     void experienceGivesPartialCreditAndZeroYearsMeansUnknown() {
-        assertEquals(50.0, WeightedScoreMatcher.experienceScore(2.0, 4));
-        assertNull(WeightedScoreMatcher.experienceScore(2.0, 0));
-        assertNull(WeightedScoreMatcher.experienceScore(null, 4));
+        assertEquals(50.0, matcher.experienceScore(2.0, 4, null));
+        assertNull(matcher.experienceScore(2.0, 0, null));
+        assertNull(matcher.experienceScore(null, 4, null));
     }
 
     @Test

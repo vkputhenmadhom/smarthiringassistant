@@ -14,10 +14,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class JobSkillRefreshTest {
+class JobDetailsRefreshTest {
 
     private final JobAnalysisRepository repository = mock(JobAnalysisRepository.class);
-    private final JobSkillRefresh refresh = new JobSkillRefresh(repository, ConfiguredFeeds.skills());
+    private final JobDetailsRefresh refresh = new JobDetailsRefresh(repository, ConfiguredFeeds.skills(), ConfiguredFeeds.levels(), ConfiguredFeeds.load());
 
     @Test
     void dotNetJobGetsItsCoreSkills() {
@@ -46,9 +46,27 @@ class JobSkillRefreshTest {
 
         refresh.run(null);
 
-        verify(repository, times(1)).save(any());
-        verify(repository).save(changed);
+        verify(repository, times(1)).save(changed);
+        verify(repository, never()).save(same);
         verify(repository, never()).save(posted);
         assertEquals(List.of("SQL", ".NET"), changed.getRequiredSkills());
+        assertEquals("Senior", changed.getSeniority());
+        assertEquals(5, changed.getMinExperienceYears());
+    }
+
+    @Test
+    void closesImportsOlderThanTheirFeedsMaxAge() {
+        JobAnalysis old = JobAnalysis.builder().id("old").source("ADZUNA_TECH_IN").status("OPEN")
+                .postedAt(java.time.LocalDateTime.now().minusDays(45)).build();
+        JobAnalysis fresh = JobAnalysis.builder().id("new").source("ADZUNA_TECH_IN").status("OPEN")
+                .postedAt(java.time.LocalDateTime.now().minusDays(3)).build();
+        JobAnalysis posted = JobAnalysis.builder().id("hr").status("OPEN")
+                .postedAt(java.time.LocalDateTime.now().minusDays(400)).build();
+        when(repository.findAll()).thenReturn(List.of(old, fresh, posted));
+
+        assertEquals(1, refresh.closeExpired());
+        assertEquals("CLOSED", old.getStatus());
+        assertEquals("OPEN", fresh.getStatus());
+        assertEquals("OPEN", posted.getStatus(), "jobs posted in the app are HR's to close");
     }
 }
