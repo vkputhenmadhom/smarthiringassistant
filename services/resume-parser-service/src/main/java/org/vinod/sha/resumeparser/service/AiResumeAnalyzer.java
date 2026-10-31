@@ -44,7 +44,7 @@ public class AiResumeAnalyzer {
 
     public AiResumeAnalyzer(@Value("${resume-parser.ai.enabled:true}") boolean enabled,
                             @Value("${resume-parser.ai.base-url:http://ai-integration-service:8008/api/ai}") String baseUrl,
-                            @Value("${resume-parser.ai.max-chars:12000}") int maxChars,
+                            @Value("${resume-parser.ai.max-chars:20000}") int maxChars,
                             @Value("${resume-parser.ai.timeout-seconds:90}") int timeoutSeconds,
                             ObjectMapper objectMapper) {
         this.enabled = enabled;

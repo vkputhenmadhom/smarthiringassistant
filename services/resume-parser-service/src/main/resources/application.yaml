@@ -30,8 +30,8 @@ resume-parser:
   ai:
     enabled: ${RESUME_AI_ENABLED:true}
     base-url: ${AI_SERVICE_URL:http://ai-integration-service:8008/api/ai}
-    # ai-integration accepts prompts up to this length (ai.max-prompt-chars)
-    max-chars: 12000
+    # Resume text sent to the AI; below ai-integration's ai.max-prompt-chars (24000), which also counts the tags
+    max-chars: 20000
     # Below the portal's upload timeout, so a slow answer falls back instead of failing the upload
     timeout-seconds: 45
 

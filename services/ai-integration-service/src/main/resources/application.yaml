@@ -29,7 +29,8 @@ server:
     context-path: /api/ai
 
 ai:
-  max-prompt-chars: ${AI_MAX_PROMPT_CHARS:12000}
+  # Long enough for a full resume (resume-parser sends up to 20000) plus the tags around it
+  max-prompt-chars: ${AI_MAX_PROMPT_CHARS:24000}
   # Output budget per request, including the model's reasoning tokens
   min-output-tokens: ${AI_MIN_OUTPUT_TOKENS:1024}
   max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:4096}
