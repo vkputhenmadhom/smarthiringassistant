@@ -44,6 +44,10 @@ grpc:
     port: 9003
 
 matching:
+  # A match needs a relevant skill and at least this score (0-100) over the parts the job states.
+  min-score: ${MATCHING_MIN_SCORE:50}
+  # Only the best matches are kept for each parsed resume.
+  max-matches-per-resume: ${MATCHING_MAX_MATCHES_PER_RESUME:20}
   algorithm:
     skill-weight: 0.5
     experience-weight: 0.3

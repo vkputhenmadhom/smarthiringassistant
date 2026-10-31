@@ -7,6 +7,7 @@ import org.vinod.sha.resumeparser.outbox.OutboxPublisher;
 import org.vinod.sha.resumeparser.entity.*;
 import org.vinod.sha.resumeparser.repository.ResumeRepository;
 import org.vinod.shared.events.ResumeParseEvent;
+import org.vinod.shared.text.SkillText;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -171,13 +172,7 @@ public class ResumeParserService {
                 "HTML", "CSS", "Node.js", "C++", "Go", "Rust"
         );
 
-        List<String> foundSkills = new ArrayList<>();
-        for (String skill : commonSkills) {
-            if (text.toLowerCase().contains(skill.toLowerCase())) {
-                foundSkills.add(skill);
-            }
-        }
-        return foundSkills;
+        return new ArrayList<>(SkillText.find(text, commonSkills));
     }
 
     private List<String> extractCertifications(String text) {

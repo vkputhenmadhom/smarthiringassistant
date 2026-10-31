@@ -34,10 +34,12 @@ public class CandidateMatch {
     @Column(nullable = false)
     private Double skillMatchPercentage;
 
-    @Column(nullable = false)
+    /** Null when the job states no experience requirement or the candidate's experience is unknown. */
+    @Column
     private Double experienceMatchPercentage;
 
-    @Column(nullable = false)
+    /** Null when the job's or the candidate's location is unknown. */
+    @Column
     private Double locationMatchPercentage;
 
     @Enumerated(EnumType.STRING)
