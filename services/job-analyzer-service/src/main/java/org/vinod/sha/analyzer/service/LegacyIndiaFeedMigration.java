@@ -8,39 +8,53 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
+import org.vinod.sha.analyzer.config.JobSyncProperties;
 import org.vinod.sha.analyzer.entity.JobAnalysis;
 
-import java.util.Map;
+import java.util.List;
 
 /**
- * India imports used to be tagged JSEARCH_IN / ADZUNA_IN and came only from government / PSU searches.
- * They now belong to the government feed. Nothing creates those tags any more, so running this on every
- * start is harmless.
+ * Imports from before feeds existed are tagged only PROVIDER_MARKET (e.g. JSEARCH_IN). They move to the
+ * feed named by job-sync.legacy-feed (job-feeds.yml). Feed imports never use that tag, so running this on
+ * every start is harmless.
  */
 @Slf4j
 @Component
 class LegacyIndiaFeedMigration implements ApplicationRunner {
 
-    private static final Map<String, String> LEGACY_TO_GOVT = Map.of(
-            "JSEARCH_IN", "JSEARCH_GOVT_IN",
-            "ADZUNA_IN", "ADZUNA_GOVT_IN");
+    private static final List<String> PROVIDERS = List.of("jsearch", "adzuna");
 
     private final MongoTemplate mongoTemplate;
+    private final JobSyncProperties props;
+    private final JobFeeds jobFeeds;
 
-    LegacyIndiaFeedMigration(MongoTemplate mongoTemplate) {
+    LegacyIndiaFeedMigration(MongoTemplate mongoTemplate, JobSyncProperties props, JobFeeds jobFeeds) {
         this.mongoTemplate = mongoTemplate;
+        this.props = props;
+        this.jobFeeds = jobFeeds;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        LEGACY_TO_GOVT.forEach((legacy, govt) -> {
+        String legacyFeed = props.getLegacyFeed();
+        if (legacyFeed == null || legacyFeed.isBlank()) {
+            return;
+        }
+        var feed = jobFeeds.find(legacyFeed).orElse(null);
+        if (feed == null || feed.isPostedInApp()) {
+            log.warn("[JobSync] job-sync.legacy-feed '{}' is not an import feed in job-feeds.yml; old imports left as they are", legacyFeed);
+            return;
+        }
+        for (String provider : PROVIDERS) {
+            String legacyTag = JobFeeds.externalIdPrefix(provider, feed);
+            String feedTag = JobFeeds.sourceTag(provider, feed);
             long moved = mongoTemplate.updateMulti(
-                    Query.query(Criteria.where("source").is(legacy)),
-                    Update.update("source", govt),
+                    Query.query(Criteria.where("source").is(legacyTag)),
+                    Update.update("source", feedTag),
                     JobAnalysis.class).getModifiedCount();
             if (moved > 0) {
-                log.info("[JobSync] Moved {} {} jobs to the government feed ({})", moved, legacy, govt);
+                log.info("[JobSync] Moved {} {} jobs to the '{}' feed ({})", moved, legacyTag, feed.getKey(), feedTag);
             }
-        });
+        }
     }
 }

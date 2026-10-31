@@ -66,15 +66,18 @@ public class JobAnalyzerService {
                               RabbitTemplate rabbitTemplate,
                               RestTemplate restTemplate,
                               MeterRegistry meterRegistry,
-                              JobMarket jobMarket) {
+                              JobMarket jobMarket,
+                              JobFeeds jobFeeds) {
         this.repository = repository;
         this.rabbitTemplate = rabbitTemplate;
         this.restTemplate = restTemplate;
         this.meterRegistry = meterRegistry;
         this.jobMarket = jobMarket;
+        this.jobFeeds = jobFeeds;
     }
 
     private final JobMarket jobMarket;
+    private final JobFeeds jobFeeds;
 
     private DistributionSummary salaryConfidenceSummary;
 
@@ -312,18 +315,10 @@ public class JobAnalyzerService {
 
     private boolean matchesSource(JobAnalysis job, String source) {
         if (source == null || source.isBlank()) return true;
-        
-        var sourceUpper = source.toUpperCase();
-        var jobSource = job.getSource() == null ? "" : job.getSource().toUpperCase();
-        // Feeds the candidate portal shows as tabs; anything else is an exact source tag.
-        return switch (sourceUpper) {
-            case "INDIA_TECH" -> jobSource.endsWith("_TECH_IN");
-            case "INDIA_GOVT" -> jobSource.endsWith("_GOVT_IN");
-            case "REMOTE" -> jobSource.endsWith("_REMOTE_IN");
-            case "INDIA" -> jobSource.endsWith("_IN");
-            case "POSTED" -> jobSource.isEmpty() || jobSource.equals("INTERNAL");
-            default -> sourceUpper.equals(jobSource);
-        };
+        // A feed key from job-feeds.yml (a portal tab); anything else is an exact source tag.
+        return jobFeeds.find(source)
+                .map(feed -> JobFeeds.includes(feed, job))
+                .orElseGet(() -> source.equalsIgnoreCase(job.getSource()));
     }
 
     private boolean matchesSearch(JobAnalysis job, String search) {

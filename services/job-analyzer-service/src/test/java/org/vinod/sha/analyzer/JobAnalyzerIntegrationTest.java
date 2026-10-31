@@ -50,7 +50,8 @@ class JobAnalyzerIntegrationTest {
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
         service = new JobAnalyzerService(repository, rabbitTemplate, restTemplate, meterRegistry,
-                new org.vinod.sha.analyzer.service.JobMarket(""));
+                new org.vinod.sha.analyzer.service.JobMarket(""),
+                org.vinod.sha.analyzer.service.ConfiguredFeeds.load());
 
         ReflectionTestUtils.setField(service, "aiBaseUrl", "http://localhost:8008/api/ai");
         ReflectionTestUtils.setField(service, "salaryConfidenceSummary", salaryConfidenceSummary);
@@ -85,7 +86,8 @@ class JobAnalyzerIntegrationTest {
     @Test
     void candidatesSeeOnlyTheJobMarketWhileHrSeesEverything() {
         JobAnalyzerService india = new JobAnalyzerService(repository, rabbitTemplate, restTemplate, meterRegistry,
-                new org.vinod.sha.analyzer.service.JobMarket("IN"));
+                new org.vinod.sha.analyzer.service.JobMarket("IN"),
+                org.vinod.sha.analyzer.service.ConfiguredFeeds.load());
         when(repository.findAll()).thenReturn(List.of(
                 JobAnalysis.builder().id("in").source("JSEARCH_TECH_IN").status("OPEN").createdAt(java.time.LocalDateTime.now()).build(),
                 JobAnalysis.builder().id("us").source("JSEARCH").status("OPEN").createdAt(java.time.LocalDateTime.now()).build(),
@@ -107,11 +109,11 @@ class JobAnalyzerIntegrationTest {
                 JobAnalysis.builder().id("posted").status("OPEN").createdAt(now).build(),
                 JobAnalysis.builder().id("us").source("JSEARCH").status("OPEN").createdAt(now).build()));
 
-        assertEquals(List.of("tech-a", "tech-j"), ids(service.listJobs(0, 20, null, null, "INDIA_TECH", false)));
-        assertEquals(List.of("govt"), ids(service.listJobs(0, 20, null, null, "INDIA_GOVT", false)));
-        assertEquals(List.of("remote"), ids(service.listJobs(0, 20, null, null, "remote", false)));
-        assertEquals(List.of("posted"), ids(service.listJobs(0, 20, null, null, "POSTED", false)));
-        assertEquals(4, service.listJobs(0, 20, null, null, "INDIA", false).get("totalElements"));
+        assertEquals(List.of("tech-a", "tech-j"), ids(service.listJobs(0, 20, null, null, "tech", false)));
+        assertEquals(List.of("govt"), ids(service.listJobs(0, 20, null, null, "govt", false)));
+        assertEquals(List.of("remote"), ids(service.listJobs(0, 20, null, null, "REMOTE", false)));
+        assertEquals(List.of("posted"), ids(service.listJobs(0, 20, null, null, "posted", false)));
+        assertEquals(List.of("us"), ids(service.listJobs(0, 20, null, null, "JSEARCH", false)), "an exact source tag");
     }
 
     @SuppressWarnings("unchecked")

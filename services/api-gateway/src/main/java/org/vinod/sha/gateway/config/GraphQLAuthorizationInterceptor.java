@@ -46,7 +46,7 @@ import java.util.Set;
 public class GraphQLAuthorizationInterceptor implements WebGraphQlInterceptor {
 
     static final Set<String> PUBLIC_FIELDS = Set.of(
-            "login", "register", "refreshToken", "jobs", "job",
+            "login", "register", "refreshToken", "jobs", "jobFeeds", "job",
             "__schema", "__type", "__typename");
 
     static final Set<String> HR_FIELDS = Set.of(

@@ -62,6 +62,17 @@ public class JobGraphQLResolver {
     }
 
     @QueryMapping
+    public Mono<List<Map<String, Object>>> jobFeeds() {
+        return gatewayResilience.protect(JOB_BACKEND,
+                        webClientBuilder.build()
+                                .get().uri(JOB_SERVICE_BASE + "/jobs/feeds")
+                                .retrieve().bodyToFlux(Map.class)
+                                .map(this::toStringObjectMap)
+                                .collectList())
+                .onErrorMap(e -> BackendErrors.read("job service", "the job categories", e));
+    }
+
+    @QueryMapping
     public Mono<Map<String, Object>> job(@Argument String id) {
         log.debug("GraphQL job query: id={}", id);
         return requestMap(JOB_SERVICE_BASE + "/jobs/" + id)

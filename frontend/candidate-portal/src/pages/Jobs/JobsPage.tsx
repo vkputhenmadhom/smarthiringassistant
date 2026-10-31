@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Card, Input, Row, Col, Tag, Button, Spin, Empty, Typography, Tabs, Pagination, message } from 'antd';
 import { SearchOutlined, EnvironmentOutlined, BuildOutlined, LinkOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fetchJobs } from '../../store/jobsSlice';
 import { RootState, AppDispatch } from '../../store';
-import { Job, START_SCREENING_MUTATION } from '../../graphql';
+import { Job, JobFeed, JOB_FEEDS_QUERY, START_SCREENING_MUTATION } from '../../graphql';
 
 const { Title, Text } = Typography;
 
@@ -22,18 +22,6 @@ type StartScreeningResponse = {
     decision: string;
   };
 };
-
-/** Each tab is one job feed; `source` is the feed name the job service filters on. */
-const FEEDS = [
-  { key: 'tech',   label: 'India · Tech',            source: 'INDIA_TECH', empty: 'No India tech jobs yet. New ones are imported daily.' },
-  { key: 'remote', label: 'Remote · open to India',  source: 'REMOTE',     empty: 'No remote jobs open to India yet. New ones are imported daily.' },
-  { key: 'govt',   label: 'India · Government',      source: 'INDIA_GOVT', empty: 'No government jobs yet. New ones are imported daily.' },
-  { key: 'posted', label: 'Posted here',             source: 'POSTED',     empty: 'No jobs have been posted on this site yet.' },
-] as const;
-
-type FeedKey = typeof FEEDS[number]['key'];
-
-const feedFor = (key: string | null) => FEEDS.find(f => f.key === key) ?? FEEDS[0];
 
 /** Where an imported job came from, for the card footer */
 const sourceLabel = (source?: string): string | null => {
@@ -57,7 +45,10 @@ const JobsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const feed = feedFor(params.get('feed'));
+  // Tabs are the feeds configured in job-analyzer's job-feeds.yml
+  const { data: feedData, loading: feedsLoading, error: feedsError } = useQuery<{ jobFeeds: JobFeed[] }>(JOB_FEEDS_QUERY);
+  const feeds = feedData?.jobFeeds ?? [];
+  const feed = feeds.find(f => f.key === params.get('feed')) ?? feeds[0];
   const { items, loading, totalElements, page, error } = useSelector((s: RootState) => s.jobs);
   const user = useSelector((s: RootState) => s.auth.user);
   const [search, setSearch]   = useState('');
@@ -68,12 +59,13 @@ const JobsPage: React.FC = () => {
 
   const [startScreening] = useMutation<StartScreeningResponse>(START_SCREENING_MUTATION);
 
-  const load = (pageIndex: number) =>
-    dispatch(fetchJobs({ source: feed.source, search: query || undefined, page: pageIndex, size: PAGE_SIZE }));
+  const load = (pageIndex: number) => {
+    if (feed) dispatch(fetchJobs({ source: feed.key, search: query || undefined, page: pageIndex, size: PAGE_SIZE }));
+  };
 
-  useEffect(() => { load(0); }, [dispatch, feed.source, query]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(0); }, [dispatch, feed?.key, query]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const changeFeed = (key: string) => setParams({ feed: key as FeedKey }, { replace: true });
+  const changeFeed = (key: string) => setParams({ feed: key }, { replace: true });
 
   const handleApply = async (jobId: string) => {
     if (!user?.id) {
@@ -111,6 +103,10 @@ const JobsPage: React.FC = () => {
     }
   };
 
+  if (feedsLoading) return <Spin size="large" style={{ display:'block', margin:'3rem auto' }} />;
+  if (feedsError) return <Alert type="error" showIcon message={feedsError.message} />;
+  if (!feed) return <Empty description="No job categories are set up yet." />;
+
   return (
     <div>
       <Title level={4}>Find Jobs</Title>
@@ -118,7 +114,7 @@ const JobsPage: React.FC = () => {
       <Tabs
         activeKey={feed.key}
         onChange={changeFeed}
-        items={FEEDS.map(f => ({ key: f.key, label: f.label }))}
+        items={feeds.map(f => ({ key: f.key, label: f.label }))}
       />
 
       <div style={{ display:'flex', gap:12, marginBottom:16, flexWrap:'wrap' }}>
@@ -140,7 +136,7 @@ const JobsPage: React.FC = () => {
       {!loading && error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
 
       {!loading && !error && items.length === 0 && (
-        <Empty description={query ? `No ${feed.label} jobs match “${query}”.` : feed.empty} />
+        <Empty description={query ? `No ${feed.label} jobs match “${query}”.` : feed.emptyMessage} />
       )}
 
       {!loading && (

@@ -423,6 +423,9 @@ services:
       JSEARCH_API_KEY: ${JSEARCH_API_KEY:-}
       ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
       ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+    # Job feeds (tabs, keywords, filters): edit this file and restart the service; no rebuild needed.
+    volumes:
+      - ./services/job-analyzer-service/src/main/resources/job-feeds.yml:/config/job-feeds.yml:ro
     depends_on:
       mongodb:
         condition: service_healthy

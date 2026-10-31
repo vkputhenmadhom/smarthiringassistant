@@ -4,6 +4,7 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * External job-board sync settings.
@@ -50,8 +51,6 @@ public class JobSyncProperties {
     private JSearchConfig jsearch = new JSearchConfig();
     private AdzunaConfig  adzuna  = new AdzunaConfig();
 
-    /** India-specific sync configuration (government + private sector) */
-    private IndiaConfig india = new IndiaConfig();
 
     // ── JSearch (RapidAPI) ────────────────────────────────────────────────────
 
@@ -75,67 +74,53 @@ public class JobSyncProperties {
         private int resultsPerPage = 20;
     }
 
-    // ── India (Adzuna /in/ + JSearch country=in) and remote jobs open to India ──
-    //
-    // Three feeds, each with its own source tag (all ending in _IN, so all are in the India market):
-    //   tech    ADZUNA_TECH_IN / JSEARCH_TECH_IN – software jobs in India
-    //   govt    ADZUNA_GOVT_IN                   – government / PSU jobs in India
-    //   remote  JSEARCH_REMOTE_IN                – remote jobs anywhere that can be done from India
-    //
-    // JSearch's free plan allows 200 requests a month, so it gets a few searches per run; Adzuna
-    // (250 a day) gets the rest. With one run a day that is about 4 JSearch and 12 Adzuna requests.
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Job feeds ───────────────────────────────────────────────────────────────
+    // The feeds candidates browse (one portal tab each) are configured in job-feeds.yml, not in code.
+    // docker-compose mounts that file, so editing it and restarting the service applies a change.
+
+    /** Imports the configured feeds; env JOB_SYNC_INDIA_ENABLED */
+    private boolean feedsEnabled = false;
+
+    /**
+     * Imports made before feeds existed are tagged only PROVIDER_MARKET (e.g. JSEARCH_IN); they move to this
+     * feed at startup. Blank leaves them as they are.
+     */
+    private String legacyFeed = "";
+
+    /** In order: the portal shows the tabs in this order, and a posting found by two feeds goes to the first. */
+    private List<Feed> feeds = List.of();
 
     @Data
-    public static class IndiaConfig {
-        /** Set to true to activate the India and remote imports (reuses the same API keys) */
-        private boolean enabled = false;
-
-        /** Max new jobs per feed per run */
+    public static class Feed {
+        /** Short id, used in the source tag (PROVIDER_KEY_MARKET) and the portal URL; letters only */
+        private String key;
+        /** Portal tab title */
+        private String label;
+        /** Shown when the tab has no jobs */
+        private String emptyMessage = "No jobs yet.";
+        /** Job market the feed belongs to (see job-market.region); its imports are tagged with it */
+        private String market = "IN";
+        /** The tab lists jobs posted in the app rather than imports; such a feed has no sources */
+        private boolean postedInApp = false;
+        /** Max new jobs per run, across the feed's sources */
         private int maxPerSync = 30;
-
-        /** Software job searches on Adzuna India (restricted to its IT category) */
-        private List<String> keywords = List.of(
-                "software engineer",
-                "java developer",
-                "python developer",
-                "full stack developer",
-                "frontend developer",
-                "devops engineer",
-                "data engineer"
-        );
-
-        /** Software job searches on JSearch India; keep this short, each one is a request from the monthly quota */
-        private List<String> jsearchKeywords = List.of(
-                "software engineer",
-                "software developer"
-        );
-
-        /** Government / PSU job searches on Adzuna India */
-        private List<String> govtKeywords = List.of(
-                "government jobs",
-                "PSU recruitment",
-                "DRDO ISRO scientist",
-                "bank PO clerk recruitment",
-                "railway recruitment"
-        );
-
-        private RemoteConfig remote = new RemoteConfig();
+        private List<FeedSource> sources = List.of();
+        /** Keep a job only if its title or description matches one of these (regex, case-insensitive); empty keeps all */
+        private List<String> requireAny = List.of();
+        /** Drop a job whose title or description matches any of these (regex, case-insensitive) */
+        private List<String> rejectAny = List.of();
     }
 
-    /** Remote jobs from anywhere that say they are open worldwide, to India or APAC (JSearch, remote only). */
     @Data
-    public static class RemoteConfig {
-        private boolean enabled = true;
-
-        /** Max new jobs per run */
-        private int maxPerSync = 20;
-
-        /** Each keyword is one JSearch request */
-        private List<String> keywords = List.of(
-                "remote software engineer worldwide",
-                "remote developer APAC India"
-        );
+    public static class FeedSource {
+        /** adzuna or jsearch */
+        private String provider;
+        /** Two-letter country: Adzuna's country path (required); JSearch's country filter (optional) */
+        private String country;
+        /** One API request per keyword per run; JSearch's free plan is 200 requests a month */
+        private List<String> keywords = List.of();
+        /** Extra query parameters passed as they are, e.g. category: it-jobs (Adzuna), work_from_home: true (JSearch) */
+        private Map<String, String> params = Map.of();
     }
 }
 

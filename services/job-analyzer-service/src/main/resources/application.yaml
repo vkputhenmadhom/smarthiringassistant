@@ -1,6 +1,11 @@
 spring:
   application:
     name: job-analyzer-service
+  # Job feeds: the packaged job-feeds.yml, replaced by /config/job-feeds.yml when mounted (docker-compose does).
+  config:
+    import:
+      - "classpath:job-feeds.yml"
+      - "optional:file:${JOB_FEEDS_FILE:/config/job-feeds.yml}"
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -43,13 +48,13 @@ job-market:
 
 job-sync:
   enabled: ${JOB_SYNC_ENABLED:false}
-  # The primary import below is the US/global one; the India import is under job-sync.india.
+  # The primary import below is the US/global one; the India and remote feeds are in job-feeds.yml.
   global-enabled: ${JOB_SYNC_GLOBAL_ENABLED:true}
-  # Once a day at 06:00 IST (00:30 UTC): 4 JSearch requests a run keeps within its 200-a-month free plan.
+  # Once a day at 06:00 IST (00:30 UTC), which keeps JSearch within its 200-a-month free plan.
   cron: "${JOB_SYNC_CRON:0 30 0 * * *}"
   max-per-sync: 50
   # Two-letter ISO code for the primary import. It used to say "india", which JSearch ignores (it returned
-  # US jobs) and which is not a valid Adzuna country; India is imported by job-sync.india instead.
+  # US jobs) and which is not a valid Adzuna country; India is imported by the feeds in job-feeds.yml.
   country: us
   keywords:
     - "technical lead"
@@ -67,40 +72,8 @@ job-sync:
     app-key:           ${ADZUNA_APP_KEY:}
     base-url:          https://api.adzuna.com/v1/api
     results-per-page:  20
-  # ── India feeds + remote jobs open to India ─────────────────────────────────
-  # tech   : Adzuna /in/ IT category (keywords) + JSearch country=in (jsearch-keywords)
-  # govt   : Adzuna /in/ (govt-keywords)
-  # remote : JSearch remote-only, kept when the posting is open worldwide / to India / APAC
-  #          and not limited to US work authorisation or residence
-  # JSearch's free plan is 200 requests a month: each JSearch keyword is one request per run.
-  # Set JOB_SYNC_INDIA_ENABLED=true to activate (reuses same API keys above).
-  # ─────────────────────────────────────────────────────────────────────────────
-  india:
-    enabled:      ${JOB_SYNC_INDIA_ENABLED:false}
-    max-per-sync: 30
-    keywords:
-      - "software engineer"
-      - "java developer"
-      - "python developer"
-      - "full stack developer"
-      - "frontend developer"
-      - "devops engineer"
-      - "data engineer"
-    jsearch-keywords:
-      - "software engineer"
-      - "software developer"
-    govt-keywords:
-      - "government jobs"
-      - "PSU recruitment"
-      - "DRDO ISRO scientist"
-      - "bank PO clerk recruitment"
-      - "railway recruitment"
-    remote:
-      enabled: ${JOB_SYNC_REMOTE_ENABLED:true}
-      max-per-sync: 20
-      keywords:
-        - "remote software engineer worldwide"
-        - "remote developer APAC India"
+  # The feeds themselves (keywords, tabs, filters) are in job-feeds.yml.
+  feeds-enabled: ${JOB_SYNC_INDIA_ENABLED:false}
 
 logging:
   level:
