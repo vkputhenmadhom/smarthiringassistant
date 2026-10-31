@@ -18,9 +18,10 @@ const JOB_FIELDS = `
   externalUrl
 `;
 
+/** source: a feed (INDIA_TECH, REMOTE, INDIA_GOVT, POSTED) or an exact source tag; omit for every job */
 export const JOBS_QUERY = gql`
-  query Jobs($page: Int, $size: Int, $search: String) {
-    jobs(page: $page, size: $size, search: $search) {
+  query Jobs($page: Int, $size: Int, $search: String, $source: String) {
+    jobs(page: $page, size: $size, search: $search, source: $source) {
       totalElements
       totalPages
       page
@@ -30,15 +31,3 @@ export const JOBS_QUERY = gql`
   }
 `;
 
-/** India government & PSU jobs — filtered server-side by source=INDIA */
-export const GOVT_JOBS_QUERY = gql`
-  query GovtJobs($page: Int, $size: Int, $search: String) {
-    jobs(page: $page, size: $size, search: $search, source: "INDIA") {
-      totalElements
-      totalPages
-      page
-      size
-      content { ${JOB_FIELDS} }
-    }
-  }
-`;

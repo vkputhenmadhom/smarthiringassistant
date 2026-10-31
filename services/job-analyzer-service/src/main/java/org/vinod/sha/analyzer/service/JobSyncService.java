@@ -83,7 +83,7 @@ public class JobSyncService {
 
     // ── Scheduled entry-point ─────────────────────────────────────────────────
 
-    @Scheduled(cron = "${job-sync.cron:0 0 */6 * * *}")
+    @Scheduled(cron = "${job-sync.cron:0 30 0 * * *}")
     public void scheduledSync() {
         if (!props.isEnabled()) {
             log.debug("[JobSync] Sync disabled – skipping scheduled run");
@@ -116,17 +116,24 @@ public class JobSyncService {
                 ));
             }
 
-            // ── India sources (Adzuna /in/ + JSearch location=India) ──────────
+            // ── India feeds and remote jobs open to India ─────────────────────
+            // Tech runs before govt on each API so a job found by both lands in the tech feed.
             if (props.getIndia().isEnabled()) {
                 if (hasJSearchKey()) {
-                    threads.add(Thread.startVirtualThread(() -> 
-                        results.put("jsearch_in", syncFromJSearchIndia())
-                    ));
+                    threads.add(Thread.startVirtualThread(() -> {
+                        results.put("jsearch_tech_in", syncJSearchIndiaTech());
+                        if (props.getIndia().getRemote().isEnabled()) {
+                            results.put("jsearch_remote_in", syncJSearchRemote());
+                        }
+                    }));
                 }
                 if (hasAdzunaCreds()) {
-                    threads.add(Thread.startVirtualThread(() -> 
-                        results.put("adzuna_in", syncFromAdzunaIndia())
-                    ));
+                    threads.add(Thread.startVirtualThread(() -> {
+                        results.put("adzuna_tech_in", syncAdzunaIndia(props.getIndia().getKeywords(),
+                                "&category=it-jobs", ADZUNA_TECH_IN));
+                        results.put("adzuna_govt_in", syncAdzunaIndia(props.getIndia().getGovtKeywords(),
+                                "", ADZUNA_GOVT_IN));
+                    }));
                 }
             }
 
@@ -146,8 +153,10 @@ public class JobSyncService {
                 summary.add(switch(source) {
                     case "jsearch" -> "JSearch(US):+" + count;
                     case "adzuna" -> "Adzuna(US):+" + count;
-                    case "jsearch_in" -> "JSearch(IN):+" + count;
-                    case "adzuna_in" -> "Adzuna(IN):+" + count;
+                    case "jsearch_tech_in" -> "JSearch(IN tech):+" + count;
+                    case "jsearch_remote_in" -> "JSearch(remote, open to India):+" + count;
+                    case "adzuna_tech_in" -> "Adzuna(IN tech):+" + count;
+                    case "adzuna_govt_in" -> "Adzuna(IN govt):+" + count;
                     default -> source + ":+" + count;
                 });
             });
@@ -270,15 +279,17 @@ public class JobSyncService {
 
     @SuppressWarnings("unchecked")
     private boolean saveJSearchJob(Map<String, Object> raw) {
-        return saveJSearchJobTagged(raw, "JSEARCH");
+        return saveJSearchJobTagged(raw, new Feed("JSEARCH", "JSEARCH"));
     }
 
+    /** @param feed source tag to store, and the external-id prefix shared by feeds that must not import the same job twice */
     @SuppressWarnings("unchecked")
-    private boolean saveJSearchJobTagged(Map<String, Object> raw, String sourceTag) {
+    private boolean saveJSearchJobTagged(Map<String, Object> raw, Feed feed) {
         String jobId = str(raw.get("job_id"));
         if (blank(jobId)) return false;
 
-        String externalId = sourceTag + ":" + jobId;
+        String externalId = feed.externalIdPrefix() + ":" + jobId;
+        String sourceTag = feed.sourceTag();
         if (repository.existsByExternalId(externalId)) return false;
 
         String description = str(raw.get("job_description"));
@@ -359,15 +370,16 @@ public class JobSyncService {
 
     @SuppressWarnings("unchecked")
     private boolean saveAdzunaJob(Map<String, Object> raw) {
-        return saveAdzunaJobTagged(raw, "ADZUNA");
+        return saveAdzunaJobTagged(raw, new Feed("ADZUNA", "ADZUNA"));
     }
 
     @SuppressWarnings("unchecked")
-    private boolean saveAdzunaJobTagged(Map<String, Object> raw, String sourceTag) {
+    private boolean saveAdzunaJobTagged(Map<String, Object> raw, Feed feed) {
         String jobId = str(raw.get("id"));
         if (blank(jobId)) return false;
 
-        String externalId = sourceTag + ":" + jobId;
+        String externalId = feed.externalIdPrefix() + ":" + jobId;
+        String sourceTag = feed.sourceTag();
         if (repository.existsByExternalId(externalId)) return false;
 
         String description = str(raw.get("description"));
@@ -404,90 +416,108 @@ public class JobSyncService {
         return true;
     }
 
-    // ── JSearch India ─────────────────────────────────────────────────────────
-    // Reuses the same RapidAPI key, adds location=India filter.
-    // Returns LinkedIn India + Indeed.co.in results including PSU / govt employers.
+    // ── India feeds and remote jobs open to India ─────────────────────────────
+    // Every source tag ends in _IN, so all three feeds are in the India job market (see JobMarket).
+    // Feeds on the same API share an external-id prefix, so one posting is imported once.
 
-    @SuppressWarnings("unchecked")
-    private int syncFromJSearchIndia() {
+    record Feed(String sourceTag, String externalIdPrefix) {}
+
+    static final Feed JSEARCH_TECH_IN   = new Feed("JSEARCH_TECH_IN", "JSEARCH_IN");
+    static final Feed JSEARCH_REMOTE_IN = new Feed("JSEARCH_REMOTE_IN", "JSEARCH_REMOTE");
+    static final Feed ADZUNA_TECH_IN    = new Feed("ADZUNA_TECH_IN", "ADZUNA_IN");
+    static final Feed ADZUNA_GOVT_IN    = new Feed("ADZUNA_GOVT_IN", "ADZUNA_IN");
+
+    /** Software jobs in India from JSearch (LinkedIn India, Indeed.co.in). */
+    private int syncJSearchIndiaTech() {
         int imported = 0;
-        String apiKey  = props.getJsearch().getApiKey();
-        String baseUrl = props.getJsearch().getBaseUrl();
-        int    limit   = props.getIndia().getMaxPerSync();
-
-        for (String keyword : props.getIndia().getKeywords()) {
+        int limit = props.getIndia().getMaxPerSync();
+        for (String keyword : props.getIndia().getJsearchKeywords()) {
             if (imported >= limit) break;
-            try {
-                String url = baseUrl + "/search"
-                        + "?query="       + encode(keyword)
-                        + "&page=1"
-                        + "&num_pages=1"
-                        + "&date_posted=" + props.getJsearch().getDatePosted()
-                        + "&country=in";
-
-                HttpHeaders headers = new HttpHeaders();
-                headers.set("X-RapidAPI-Key",  apiKey);
-                headers.set("X-RapidAPI-Host", "jsearch.p.rapidapi.com");
-
-                ResponseEntity<Map> response = restTemplate.exchange(
-                        url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-
-                if (response.getBody() == null) continue;
-                List<Map<String, Object>> data =
-                        (List<Map<String, Object>>) response.getBody().get("data");
-                if (data == null) continue;
-
-                for (Map<String, Object> job : data) {
-                    if (imported >= limit) break;
-                    // Tag as JSEARCH_IN so status endpoint differentiates from US results
-                    if (saveJSearchJobTagged(job, "JSEARCH_IN")) imported++;
-                }
-            } catch (Exception e) {
-                log.warn("[JobSync][JSearch-IN] keyword='{}' error: {}", keyword, e.getMessage());
+            for (Map<String, Object> job : jsearch(keyword, "&country=in")) {
+                if (imported >= limit) break;
+                if (saveJSearchJobTagged(job, JSEARCH_TECH_IN)) imported++;
             }
         }
-        log.info("[JobSync][JSearch-IN] Imported {} new India jobs", imported);
+        log.info("[JobSync][JSearch-IN] Imported {} new India tech jobs", imported);
         return imported;
     }
 
-    // ── Adzuna India ──────────────────────────────────────────────────────────
-    // Adzuna /in/ aggregates Naukri, LinkedIn India, Indeed.co.in, TimesJobs.
-    // Government / PSU employers appear when filtered by relevant keywords.
-
-    @SuppressWarnings("unchecked")
-    private int syncFromAdzunaIndia() {
+    /** Remote jobs from anywhere, kept only when the posting is open to someone in India. */
+    private int syncJSearchRemote() {
         int imported = 0;
-        String appId   = props.getAdzuna().getAppId();
-        String appKey  = props.getAdzuna().getAppKey();
-        String baseUrl = props.getAdzuna().getBaseUrl();
-        int    limit   = props.getIndia().getMaxPerSync();
+        int skipped = 0;
+        int limit = props.getIndia().getRemote().getMaxPerSync();
+        for (String keyword : props.getIndia().getRemote().getKeywords()) {
+            if (imported >= limit) break;
+            for (Map<String, Object> job : jsearch(keyword, "&work_from_home=true")) {
+                if (imported >= limit) break;
+                if (!RemoteFromIndia.isOpenToIndia(str(job.get("job_title")), str(job.get("job_description")))) {
+                    skipped++;
+                    continue;
+                }
+                if (saveJSearchJobTagged(job, JSEARCH_REMOTE_IN)) imported++;
+            }
+        }
+        log.info("[JobSync][JSearch-remote] Imported {} new remote jobs open to India; skipped {} not open to India", imported, skipped);
+        return imported;
+    }
 
-        for (String keyword : props.getIndia().getKeywords()) {
+    /** One JSearch request (one from the monthly quota); an error is logged and yields no jobs. */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> jsearch(String keyword, String extraParams) {
+        try {
+            String url = props.getJsearch().getBaseUrl() + "/search"
+                    + "?query="       + encode(keyword)
+                    + "&page=1"
+                    + "&num_pages=1"
+                    + "&date_posted=" + props.getJsearch().getDatePosted()
+                    + extraParams;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-RapidAPI-Key",  props.getJsearch().getApiKey());
+            headers.set("X-RapidAPI-Host", "jsearch.p.rapidapi.com");
+
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            if (response.getBody() == null) return List.of();
+            List<Map<String, Object>> data = (List<Map<String, Object>>) response.getBody().get("data");
+            return data == null ? List.of() : data;
+        } catch (Exception e) {
+            log.warn("[JobSync][JSearch] keyword='{}' error: {}", keyword, e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** Adzuna India (Naukri, LinkedIn India, Indeed.co.in, TimesJobs), postings from the last two weeks. */
+    @SuppressWarnings("unchecked")
+    private int syncAdzunaIndia(List<String> keywords, String extraParams, Feed feed) {
+        int imported = 0;
+        int limit = props.getIndia().getMaxPerSync();
+        for (String keyword : keywords) {
             if (imported >= limit) break;
             try {
-                String url = baseUrl + "/jobs/in/search/1"
-                        + "?app_id="          + appId
-                        + "&app_key="         + appKey
+                String url = props.getAdzuna().getBaseUrl() + "/jobs/in/search/1"
+                        + "?app_id="          + props.getAdzuna().getAppId()
+                        + "&app_key="         + props.getAdzuna().getAppKey()
                         + "&results_per_page="+ props.getAdzuna().getResultsPerPage()
                         + "&what="            + encode(keyword)
+                        + "&max_days_old=14"
+                        + extraParams
                         + "&content-type=application/json";
 
                 Map<String, Object> response = restTemplate.getForObject(url, Map.class);
                 if (response == null) continue;
-
-                List<Map<String, Object>> results =
-                        (List<Map<String, Object>>) response.get("results");
+                List<Map<String, Object>> results = (List<Map<String, Object>>) response.get("results");
                 if (results == null) continue;
 
                 for (Map<String, Object> job : results) {
                     if (imported >= limit) break;
-                    if (saveAdzunaJobTagged(job, "ADZUNA_IN")) imported++;
+                    if (saveAdzunaJobTagged(job, feed)) imported++;
                 }
             } catch (Exception e) {
                 log.warn("[JobSync][Adzuna-IN] keyword='{}' error: {}", keyword, e.getMessage());
             }
         }
-        log.info("[JobSync][Adzuna-IN] Imported {} new India jobs", imported);
+        log.info("[JobSync][Adzuna-IN] Imported {} new {} jobs", imported, feed.sourceTag());
         return imported;
     }
 
@@ -576,7 +606,10 @@ public class JobSyncService {
         info.add("US/global sync       : " + (props.isGlobalEnabled() ? "ENABLED" : "PAUSED – set JOB_SYNC_GLOBAL_ENABLED=true"));
         info.add("JSearch (RapidAPI) US : " + (hasJSearchKey()  ? "CONFIGURED" : "NOT CONFIGURED – set JSEARCH_API_KEY"));
         info.add("Adzuna          US   : " + (hasAdzunaCreds() ? "CONFIGURED" : "NOT CONFIGURED – set ADZUNA_APP_ID + ADZUNA_APP_KEY"));
-        info.add("India sync           : " + (props.getIndia().isEnabled() ? "ENABLED (Adzuna/in + JSearch country=in)" : "DISABLED – set JOB_SYNC_INDIA_ENABLED=true"));
+        info.add("India sync           : " + (props.getIndia().isEnabled()
+                ? "ENABLED (tech: Adzuna/in IT + JSearch country=in; govt: Adzuna/in; remote open to India: "
+                        + (props.getIndia().getRemote().isEnabled() ? "JSearch" : "off") + ")"
+                : "DISABLED – set JOB_SYNC_INDIA_ENABLED=true"));
         return info;
     }
 }

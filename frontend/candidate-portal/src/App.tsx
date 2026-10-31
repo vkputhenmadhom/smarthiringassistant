@@ -11,7 +11,6 @@ const RegisterPage = lazy(() => import('./pages/Register/RegisterPage'));
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallback/AuthCallbackPage'));
 const DashboardPage = lazy(() => import('./pages/Dashboard/DashboardPage'));
 const JobsPage = lazy(() => import('./pages/Jobs/JobsPage'));
-const GovtJobsPage = lazy(() => import('./pages/GovtJobs/GovtJobsPage'));
 const ResumeUploadPage = lazy(() => import('./pages/ResumeUpload/ResumeUploadPage'));
 const InterviewPrepPage = lazy(() => import('./pages/InterviewPrep/InterviewPrepPage'));
 
@@ -67,7 +66,8 @@ const App: React.FC = () => {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/jobs" element={<JobsPage />} />
-              <Route path="/govt-jobs" element={<GovtJobsPage />} />
+              {/* Government jobs are a tab on Find Jobs now */}
+              <Route path="/govt-jobs" element={<Navigate to="/jobs?feed=govt" replace />} />
               <Route path="/resume" element={<ResumeUploadPage />} />
               <Route path="/interview" element={<InterviewPrepPage />} />
             </Route>

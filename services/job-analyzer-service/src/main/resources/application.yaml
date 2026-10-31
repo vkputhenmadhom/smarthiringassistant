@@ -45,7 +45,8 @@ job-sync:
   enabled: ${JOB_SYNC_ENABLED:false}
   # The primary import below is the US/global one; the India import is under job-sync.india.
   global-enabled: ${JOB_SYNC_GLOBAL_ENABLED:true}
-  cron: "0 0 */6 * * *"          # every 6 hours
+  # Once a day at 06:00 IST (00:30 UTC): 4 JSearch requests a run keeps within its 200-a-month free plan.
+  cron: "${JOB_SYNC_CRON:0 30 0 * * *}"
   max-per-sync: 50
   # Two-letter ISO code for the primary import. It used to say "india", which JSearch ignores (it returned
   # US jobs) and which is not a valid Adzuna country; India is imported by job-sync.india instead.
@@ -66,26 +67,40 @@ job-sync:
     app-key:           ${ADZUNA_APP_KEY:}
     base-url:          https://api.adzuna.com/v1/api
     results-per-page:  20
-  # ── India government + PSU jobs ─────────────────────────────────────────────
-  # Sources: Adzuna /in/ (Naukri, LinkedIn IN, Indeed.co.in, TimesJobs)
-  #        + JSearch country=in (LinkedIn India, Indeed.co.in)
-  # NOTE: NCS (ncs.gov.in) has no public API. Adzuna/JSearch DO carry listings
-  #       from DRDO, ISRO, NTPC, BHEL, Indian Railways, IBPS, SBI etc.
+  # ── India feeds + remote jobs open to India ─────────────────────────────────
+  # tech   : Adzuna /in/ IT category (keywords) + JSearch country=in (jsearch-keywords)
+  # govt   : Adzuna /in/ (govt-keywords)
+  # remote : JSearch remote-only, kept when the posting is open worldwide / to India / APAC
+  #          and not limited to US work authorisation or residence
+  # JSearch's free plan is 200 requests a month: each JSearch keyword is one request per run.
   # Set JOB_SYNC_INDIA_ENABLED=true to activate (reuses same API keys above).
   # ─────────────────────────────────────────────────────────────────────────────
   india:
     enabled:      ${JOB_SYNC_INDIA_ENABLED:false}
     max-per-sync: 30
     keywords:
-      - "government engineer India"
-      - "PSU jobs India"
-      - "DRDO scientist"
-      - "ISRO engineer"
-      - "NTPC engineer"
-      - "BHEL engineer"
-      - "Indian Railways engineer"
-      - "IBPS bank jobs"
-      - "central government jobs"
+      - "software engineer"
+      - "java developer"
+      - "python developer"
+      - "full stack developer"
+      - "frontend developer"
+      - "devops engineer"
+      - "data engineer"
+    jsearch-keywords:
+      - "software engineer"
+      - "software developer"
+    govt-keywords:
+      - "government jobs"
+      - "PSU recruitment"
+      - "DRDO ISRO scientist"
+      - "bank PO clerk recruitment"
+      - "railway recruitment"
+    remote:
+      enabled: ${JOB_SYNC_REMOTE_ENABLED:true}
+      max-per-sync: 20
+      keywords:
+        - "remote software engineer worldwide"
+        - "remote developer APAC India"
 
 logging:
   level:

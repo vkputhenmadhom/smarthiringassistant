@@ -13,7 +13,7 @@ const initialState: JobsState = {
   totalElements: 0, totalPages: 0, page: 0, selectedJobId: null,
 };
 
-export const fetchJobs = createAsyncThunk('jobs/fetch', async (params: { page?: number; size?: number; search?: string } = {}) => {
+export const fetchJobs = createAsyncThunk('jobs/fetch', async (params: { page?: number; size?: number; search?: string; source?: string } = {}) => {
   const res = await apolloClient.query<{ jobs: GraphQLPage<Job> }>({
     query: JOBS_QUERY,
     variables: params,

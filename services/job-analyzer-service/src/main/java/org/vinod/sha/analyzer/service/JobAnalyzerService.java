@@ -314,10 +314,15 @@ public class JobAnalyzerService {
         if (source == null || source.isBlank()) return true;
         
         var sourceUpper = source.toUpperCase();
+        var jobSource = job.getSource() == null ? "" : job.getSource().toUpperCase();
+        // Feeds the candidate portal shows as tabs; anything else is an exact source tag.
         return switch (sourceUpper) {
-            case "INDIA" -> "JSEARCH_IN".equalsIgnoreCase(job.getSource())
-                    || "ADZUNA_IN".equalsIgnoreCase(job.getSource());
-            default -> source.equalsIgnoreCase(job.getSource());
+            case "INDIA_TECH" -> jobSource.endsWith("_TECH_IN");
+            case "INDIA_GOVT" -> jobSource.endsWith("_GOVT_IN");
+            case "REMOTE" -> jobSource.endsWith("_REMOTE_IN");
+            case "INDIA" -> jobSource.endsWith("_IN");
+            case "POSTED" -> jobSource.isEmpty() || jobSource.equals("INTERNAL");
+            default -> sourceUpper.equals(jobSource);
         };
     }
 

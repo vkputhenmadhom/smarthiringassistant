@@ -421,8 +421,8 @@ services:
       JOB_MARKET: ${JOB_MARKET:-IN}
       JOB_SYNC_GLOBAL_ENABLED: ${JOB_SYNC_GLOBAL_ENABLED:-false}
       JSEARCH_API_KEY: ${JSEARCH_API_KEY:-}
-      ADZUNA_API_KEY: ${ADZUNA_API_KEY:-}
       ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
+      ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
     depends_on:
       mongodb:
         condition: service_healthy

@@ -87,13 +87,36 @@ class JobAnalyzerIntegrationTest {
         JobAnalyzerService india = new JobAnalyzerService(repository, rabbitTemplate, restTemplate, meterRegistry,
                 new org.vinod.sha.analyzer.service.JobMarket("IN"));
         when(repository.findAll()).thenReturn(List.of(
-                JobAnalysis.builder().id("in").source("JSEARCH_IN").status("OPEN").createdAt(java.time.LocalDateTime.now()).build(),
+                JobAnalysis.builder().id("in").source("JSEARCH_TECH_IN").status("OPEN").createdAt(java.time.LocalDateTime.now()).build(),
                 JobAnalysis.builder().id("us").source("JSEARCH").status("OPEN").createdAt(java.time.LocalDateTime.now()).build(),
                 JobAnalysis.builder().id("hr").status("OPEN").createdAt(java.time.LocalDateTime.now()).build()));
 
         assertEquals(2, india.listJobs(0, 20, null, null, null, true).get("totalElements"));
         assertEquals(3, india.listJobs(0, 20, null, null, null, false).get("totalElements"));
         assertEquals(2, india.getJobDashboardMetrics(true).get("openJobs"));
+    }
+
+    @Test
+    void eachPortalTabListsItsOwnFeed() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        when(repository.findAll()).thenReturn(List.of(
+                JobAnalysis.builder().id("tech-a").source("ADZUNA_TECH_IN").status("OPEN").createdAt(now).build(),
+                JobAnalysis.builder().id("tech-j").source("JSEARCH_TECH_IN").status("OPEN").createdAt(now).build(),
+                JobAnalysis.builder().id("govt").source("ADZUNA_GOVT_IN").status("OPEN").createdAt(now).build(),
+                JobAnalysis.builder().id("remote").source("JSEARCH_REMOTE_IN").status("OPEN").createdAt(now).build(),
+                JobAnalysis.builder().id("posted").status("OPEN").createdAt(now).build(),
+                JobAnalysis.builder().id("us").source("JSEARCH").status("OPEN").createdAt(now).build()));
+
+        assertEquals(List.of("tech-a", "tech-j"), ids(service.listJobs(0, 20, null, null, "INDIA_TECH", false)));
+        assertEquals(List.of("govt"), ids(service.listJobs(0, 20, null, null, "INDIA_GOVT", false)));
+        assertEquals(List.of("remote"), ids(service.listJobs(0, 20, null, null, "remote", false)));
+        assertEquals(List.of("posted"), ids(service.listJobs(0, 20, null, null, "POSTED", false)));
+        assertEquals(4, service.listJobs(0, 20, null, null, "INDIA", false).get("totalElements"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> ids(java.util.Map<String, Object> page) {
+        return ((List<JobAnalysis>) page.get("content")).stream().map(JobAnalysis::getId).sorted().toList();
     }
 
     @Test

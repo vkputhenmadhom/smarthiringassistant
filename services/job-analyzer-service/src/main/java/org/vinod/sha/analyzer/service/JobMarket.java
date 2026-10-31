@@ -9,7 +9,8 @@ import java.util.Locale;
 /**
  * The job market candidates see and are matched against ({@code job-market.region}, env JOB_MARKET), e.g.
  * {@code IN} for India. A job is in the market when it came from that region's import (source tagged
- * {@code *_IN}, like JSEARCH_IN or ADZUNA_IN) or was posted in the app (no source). Blank means every job.
+ * {@code *_IN}: the India tech, government and remote-open-to-India feeds) or was posted in the app
+ * (no source). Blank means every job.
  * Jobs outside the market are kept, and stay visible to HR; changing the setting brings them back.
  */
 @Component

@@ -16,7 +16,6 @@ const { Header, Sider, Content } = AntLayout;
 const menuItems = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
   { key: '/jobs',      icon: <SearchOutlined />,    label: 'Find Jobs' },
-  { key: '/govt-jobs', icon: <span style={{ fontSize: 16 }}>🇮🇳</span>, label: 'Govt Jobs' },
   { key: '/resume',    icon: <FileTextOutlined />,  label: 'My Resume' },
   { key: '/interview', icon: <ReadOutlined />,      label: 'Interview Prep' },
 ];
