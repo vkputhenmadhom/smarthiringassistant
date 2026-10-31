@@ -11,6 +11,7 @@ import org.springframework.web.client.RestTemplate;
 import org.vinod.sha.analyzer.config.JobSyncProperties;
 import org.vinod.sha.analyzer.entity.JobAnalysis;
 import org.vinod.sha.analyzer.repository.JobAnalysisRepository;
+import org.vinod.shared.text.SkillText;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -494,10 +495,9 @@ public class JobSyncService {
 
     private List<String> extractFromDescription(String text) {
         if (text == null || text.isBlank()) return List.of();
-        String lower = text.toLowerCase();
         Set<String> found = new LinkedHashSet<>();
-        for (String skill : SKILL_DICT) {
-            if (lower.contains(skill)) found.add(capitalize(skill));
+        for (String skill : SkillText.find(text, SKILL_DICT)) {
+            found.add(capitalize(skill));
         }
         return new ArrayList<>(found);
     }

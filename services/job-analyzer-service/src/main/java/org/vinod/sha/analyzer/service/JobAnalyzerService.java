@@ -21,6 +21,7 @@ import org.vinod.sha.analyzer.dto.SalaryEstimateResponse;
 import org.vinod.sha.analyzer.dto.SkillsExtractResponse;
 import org.vinod.sha.analyzer.entity.JobAnalysis;
 import org.vinod.sha.analyzer.repository.JobAnalysisRepository;
+import org.vinod.shared.text.SkillText;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -275,10 +276,8 @@ public class JobAnalyzerService {
         }
 
         var required = new LinkedHashSet<String>();
-        for (String skill : SKILL_DICTIONARY) {
-            if (text.toLowerCase().contains(skill)) {
-                required.add(normalizeSkill(skill));
-            }
+        for (String skill : SkillText.find(text, SKILL_DICTIONARY)) {
+            required.add(normalizeSkill(skill));
         }
 
         var aiSkills = callAiSkillsExtraction(text);

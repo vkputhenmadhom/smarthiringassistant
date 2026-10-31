@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS hiring.candidate_matches (
     job_id VARCHAR(255) NOT NULL,
     overall_score DOUBLE PRECISION NOT NULL,
     skill_match_percentage DOUBLE PRECISION NOT NULL,
-    experience_match_percentage DOUBLE PRECISION NOT NULL,
-    location_match_percentage DOUBLE PRECISION NOT NULL,
+    experience_match_percentage DOUBLE PRECISION,
+    location_match_percentage DOUBLE PRECISION,
     status VARCHAR(64),
     reviewer_comments VARCHAR(1000),
     matched_skills TEXT,
@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS hiring.candidate_matches (
 -- Existing databases: skill columns were added later.
 ALTER TABLE hiring.candidate_matches ADD COLUMN IF NOT EXISTS matched_skills TEXT;
 ALTER TABLE hiring.candidate_matches ADD COLUMN IF NOT EXISTS missing_skills TEXT;
+
+-- Experience and location are null when the job or candidate leaves them unknown.
+ALTER TABLE hiring.candidate_matches ALTER COLUMN experience_match_percentage DROP NOT NULL;
+ALTER TABLE hiring.candidate_matches ALTER COLUMN location_match_percentage DROP NOT NULL;
 
 -- Match statuses now follow the GraphQL MatchStatus (PENDING, MATCHED, SHORTLISTED, REJECTED, HIRED).
 UPDATE hiring.candidate_matches SET status = 'MATCHED' WHERE status IN ('NEW', 'REVIEWED') OR status IS NULL;
