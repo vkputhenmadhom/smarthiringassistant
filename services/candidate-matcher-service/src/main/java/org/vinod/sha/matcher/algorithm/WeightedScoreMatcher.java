@@ -44,7 +44,8 @@ public class WeightedScoreMatcher {
     /**
      * @param overall     0–100 over the known parts
      * @param skills      0–100; 0 means no relevant skill, which is never a match
-     * @param experience  0–100, or null when the job states no experience or the candidate's is unknown
+     * @param experience  0–100 from the years the job asks for, else from the level its title names (senior, lead,
+     *                    ...); null when neither is known or the candidate's years are unknown
      * @param location    0–100, or null when either side's location is unknown
      * @param matched     the candidate's skills the job lists or names
      * @param missing     skills the job lists that the candidate does not have
@@ -68,6 +69,9 @@ public class WeightedScoreMatcher {
 
         SkillFit fit = skillFit(candidateSkills, requiredSkills, jobTitle, jobDescription);
         Double experience = experienceScore(candidateExperience, requiredExperience);
+        if (experience == null) {
+            experience = seniorityScore(candidateExperience, jobTitle);
+        }
         Double location = locationScore(candidateLocation, preferredLocations, jobLocation);
 
         double weighted = fit.score() * SKILL_WEIGHT;
@@ -111,6 +115,11 @@ public class WeightedScoreMatcher {
 
         double evidence = have.size() + MENTION_WEIGHT * mentioned.size();
         double score = Math.min(1.0, evidence / Math.max(required.size(), rules.minRequiredSkills())) * 100.0;
+        // A skill in the title is the job's core ("Senior Software Engineer - .NET"): lacking it caps the score.
+        boolean lacksTitleSkill = missing.stream().anyMatch(skill -> SkillText.mentions(Objects.toString(jobTitle, ""), skill));
+        if (lacksTitleSkill && evidence > 0) {
+            score = Math.min(score, rules.missingTitleSkillCap());
+        }
         return new SkillFit(score, Stream.concat(have.stream(), mentioned.stream()).toList(), missing);
     }
 
@@ -138,6 +147,31 @@ public class WeightedScoreMatcher {
         return Math.max(0.0, candidateExperience / requiredExperience * 100);
     }
 
+    /**
+     * How the candidate's years fit the level the job title names (the first configured level with a keyword in
+     * it): 100 within its range, less per year above it (down to 20), in proportion below it. Null when the
+     * title names no level or the candidate's years are unknown.
+     */
+    Double seniorityScore(Double candidateExperience, String jobTitle) {
+        if (candidateExperience == null || candidateExperience <= 0 || jobTitle == null) {
+            return null;
+        }
+        MatchingRules.Seniority seniority = rules.seniority();
+        return seniority.levels().stream()
+                .filter(level -> level.keywords().stream().anyMatch(k -> SkillText.mentions(jobTitle, k)))
+                .findFirst()
+                .map(level -> {
+                    if (candidateExperience > level.maxYears()) {
+                        return Math.max(20.0, 100.0 - (candidateExperience - level.maxYears()) * seniority.overQualifiedPenaltyPerYear());
+                    }
+                    if (candidateExperience < level.minYears()) {
+                        return candidateExperience / level.minYears() * 100.0;
+                    }
+                    return 100.0;
+                })
+                .orElse(null);
+    }
+
     /** The best score over where the candidate lives and the places they are open to. */
     Double locationScore(String candidateLocation, List<String> preferredLocations, String jobLocation) {
         if (jobLocation == null || jobLocation.isBlank()) {
@@ -155,6 +189,11 @@ public class WeightedScoreMatcher {
         String candidate = place(candidateLocation);
         String job = place(jobLocation);
 
+        boolean remoteJob = job.contains("remote");
+        if (candidate.contains("remote")) {
+            // Open to remote work: a fit for remote jobs only, not for every onsite job
+            return remoteJob ? 100.0 : 0.0;
+        }
         // Same place, or same city ("Bengaluru" vs "Bengaluru, Karnataka")
         if (candidate.equals(job) || city(candidate).equals(city(job))) {
             return 100.0;
@@ -163,8 +202,8 @@ public class WeightedScoreMatcher {
         if (candidate.contains(job) || job.contains(candidate)) {
             return 50.0;
         }
-        // Remote friendly
-        if (candidate.contains("remote") || job.contains("remote")) {
+        // A remote job can be done from where the candidate lives
+        if (remoteJob) {
             return 75.0;
         }
         return 0.0;

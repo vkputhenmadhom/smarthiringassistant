@@ -21,7 +21,6 @@ import org.vinod.sha.analyzer.dto.SalaryEstimateResponse;
 import org.vinod.sha.analyzer.dto.SkillsExtractResponse;
 import org.vinod.sha.analyzer.entity.JobAnalysis;
 import org.vinod.sha.analyzer.repository.JobAnalysisRepository;
-import org.vinod.shared.text.SkillText;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -67,28 +66,26 @@ public class JobAnalyzerService {
                               RestTemplate restTemplate,
                               MeterRegistry meterRegistry,
                               JobMarket jobMarket,
-                              JobFeeds jobFeeds) {
+                              JobFeeds jobFeeds,
+                              JobSkills jobSkills) {
         this.repository = repository;
         this.rabbitTemplate = rabbitTemplate;
         this.restTemplate = restTemplate;
         this.meterRegistry = meterRegistry;
         this.jobMarket = jobMarket;
         this.jobFeeds = jobFeeds;
+        this.jobSkills = jobSkills;
     }
 
     private final JobMarket jobMarket;
     private final JobFeeds jobFeeds;
+    private final JobSkills jobSkills;
 
     private DistributionSummary salaryConfidenceSummary;
 
     @Value("${services.ai-integration.base-url:http://localhost:8008/api/ai}")
     private String aiBaseUrl;
 
-    private static final Set<String> SKILL_DICTIONARY = Set.of(
-            "java", "spring", "spring boot", "react", "angular", "node.js", "python", "sql", "postgresql",
-            "mongodb", "redis", "docker", "kubernetes", "aws", "azure", "gcp", "graphql", "grpc",
-            "microservices", "kafka", "rabbitmq", "jenkins", "terraform", "typescript", "go"
-    );
 
     @jakarta.annotation.PostConstruct
     void initMetrics() {
@@ -282,9 +279,7 @@ public class JobAnalyzerService {
         }
 
         var required = new LinkedHashSet<String>();
-        for (String skill : SkillText.find(text, SKILL_DICTIONARY)) {
-            required.add(normalizeSkill(skill));
-        }
+        required.addAll(jobSkills.find(text));
 
         var aiSkills = callAiSkillsExtraction(text);
         required.addAll(aiSkills.stream().map(this::normalizeSkill).collect(Collectors.toList()));

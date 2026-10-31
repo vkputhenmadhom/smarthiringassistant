@@ -51,7 +51,8 @@ class JobAnalyzerIntegrationTest {
         meterRegistry = new SimpleMeterRegistry();
         service = new JobAnalyzerService(repository, rabbitTemplate, restTemplate, meterRegistry,
                 new org.vinod.sha.analyzer.service.JobMarket(""),
-                org.vinod.sha.analyzer.service.ConfiguredFeeds.load());
+                org.vinod.sha.analyzer.service.ConfiguredFeeds.load(),
+                org.vinod.sha.analyzer.service.ConfiguredFeeds.skills());
 
         ReflectionTestUtils.setField(service, "aiBaseUrl", "http://localhost:8008/api/ai");
         ReflectionTestUtils.setField(service, "salaryConfidenceSummary", salaryConfidenceSummary);
@@ -87,7 +88,8 @@ class JobAnalyzerIntegrationTest {
     void candidatesSeeOnlyTheJobMarketWhileHrSeesEverything() {
         JobAnalyzerService india = new JobAnalyzerService(repository, rabbitTemplate, restTemplate, meterRegistry,
                 new org.vinod.sha.analyzer.service.JobMarket("IN"),
-                org.vinod.sha.analyzer.service.ConfiguredFeeds.load());
+                org.vinod.sha.analyzer.service.ConfiguredFeeds.load(),
+                org.vinod.sha.analyzer.service.ConfiguredFeeds.skills());
         when(repository.findAll()).thenReturn(List.of(
                 JobAnalysis.builder().id("in").source("JSEARCH_TECH_IN").status("OPEN").createdAt(java.time.LocalDateTime.now()).build(),
                 JobAnalysis.builder().id("us").source("JSEARCH").status("OPEN").createdAt(java.time.LocalDateTime.now()).build(),

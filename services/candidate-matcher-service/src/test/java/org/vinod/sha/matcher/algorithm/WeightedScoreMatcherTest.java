@@ -12,9 +12,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class WeightedScoreMatcherTest {
 
-    private final WeightedScoreMatcher matcher = new WeightedScoreMatcher(new MatchingRules(3,
+    private final WeightedScoreMatcher matcher = new WeightedScoreMatcher(new MatchingRules(3, 40,
             Map.of("reactjs", "react", "golang", "go"),
-            Map.of("bangalore", "bengaluru")));
+            Map.of("bangalore", "bengaluru"),
+            new MatchingRules.Seniority(8, List.of(
+                    new MatchingRules.Level("entry", List.of("new grad", "junior"), 0, 2),
+                    new MatchingRules.Level("lead", List.of("principal", "lead", "staff"), 10, 40),
+                    new MatchingRules.Level("senior", List.of("senior", "sr"), 5, 14),
+                    new MatchingRules.Level("mid", List.of("ii"), 2, 6)))));
 
     private WeightedScoreMatcher.Score score(List<String> candidate, List<String> required, String title, String description,
                                              Double years, Integer requiredYears, String location, List<String> preferred,
@@ -86,6 +91,31 @@ class WeightedScoreMatcherTest {
     }
 
     @Test
+    void lackingASkillTheTitleNamesCapsTheSkillScore() {
+        // The .NET job listed only side skills the candidate has; .NET itself is in the title.
+        var score = score(List.of("Java", "SQL", "Angular"), List.of("SQL", "Angular", ".NET"),
+                "Senior Software Engineer - .NET", null, null, 0, null, List.of(), null);
+
+        assertEquals(40.0, score.skills());
+        assertEquals(List.of(".NET"), score.missing());
+    }
+
+    @Test
+    void titleLevelStandsInForUnstatedYears() {
+        assertEquals(100.0, matcher.seniorityScore(18.7, "Principal Engineer"));
+        assertEquals(100.0, matcher.seniorityScore(18.7, "Associate Lead Software Engineer"), "lead comes before mid");
+        assertEquals(100.0 - 4.7 * 8, matcher.seniorityScore(18.7, "Sr Software Engineer"), 1e-9);
+        assertEquals(20.0, matcher.seniorityScore(18.7, "Software Engineer, New Grad"));
+        assertEquals(50.0, matcher.seniorityScore(1.0, "Software Engineer II"));
+        assertNull(matcher.seniorityScore(18.7, "Java Developer"), "no level named");
+        assertNull(matcher.seniorityScore(null, "Senior Engineer"));
+
+        var score = score(List.of("Java", "SQL", "Spring"), List.of("Java", "SQL", "Spring"), "Software Engineer, New Grad",
+                null, 18.7, 0, null, List.of(), null);
+        assertEquals(20.0, score.experience());
+    }
+
+    @Test
     void experienceGivesPartialCreditAndZeroYearsMeansUnknown() {
         assertEquals(50.0, WeightedScoreMatcher.experienceScore(2.0, 4));
         assertNull(WeightedScoreMatcher.experienceScore(2.0, 0));
@@ -98,7 +128,9 @@ class WeightedScoreMatcherTest {
                 "same city, through the alias");
         assertEquals(100.0, matcher.locationScore("Kochi", List.of("Remote"), "Remote"));
         assertEquals(50.0, matcher.locationScore("Kerala", List.of(), "Kochi, Kerala"), "same state");
-        assertEquals(75.0, matcher.locationScore("Pune", List.of(), "Remote"));
+        assertEquals(75.0, matcher.locationScore("Pune", List.of(), "Remote"), "a remote job can be done from Pune");
+        assertEquals(0.0, matcher.locationScore("Austin, TX", List.of("Remote"), "Gurugram, Haryana"),
+                "open to remote is no fit for an onsite job elsewhere");
         assertEquals(0.0, matcher.locationScore("Pune", List.of("Chennai"), "Delhi"));
         assertNull(matcher.locationScore(null, List.of(), "Pune"));
         assertNull(matcher.locationScore("Pune", List.of(), " "));
