@@ -147,6 +147,16 @@ public class CandidateGraphQLResolver {
         return requestMatches(MATCHER_BASE + "/job/" + jobId + "/matches", "the matches for job " + jobId, page, size);
     }
 
+    /** Every match for HR review, best first; {@code status} narrows it to one stage of the pipeline. */
+    @QueryMapping
+    @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
+    public Mono<Map<String, Object>> matchesForReview(@Argument String status,
+                                                      @Argument Integer page,
+                                                      @Argument Integer size) {
+        String uri = MATCHER_BASE + "/review" + (status == null ? "" : "?status=" + status);
+        return requestMatches(uri, "the matches to review", page, size);
+    }
+
     /** HR can read any candidate's matches; a candidate only their own. */
     @QueryMapping
     @PreAuthorize("isAuthenticated()")
@@ -176,11 +186,15 @@ public class CandidateGraphQLResolver {
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> updateMatchStatus(@Argument String matchId,
-                                                       @Argument String status) {
+                                                       @Argument String status,
+                                                       @Argument String comment) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", status);
+        body.put("comments", comment == null || comment.isBlank() ? null : comment.trim());
         return gatewayResilience.protectWrite(MATCHER_BACKEND,
                         webClientBuilder.build()
                                 .put().uri(MATCHER_BASE + "/" + matchId)
-                                .bodyValue(Map.of("status", status))
+                                .bodyValue(body)
                                 .retrieve().bodyToMono(Map.class))
                 .map(raw -> MatchViews.match(toStringObjectMap(raw)))
                 .onErrorMap(e -> BackendErrors.write("matching service", "update", "match " + matchId,

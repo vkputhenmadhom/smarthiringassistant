@@ -82,21 +82,25 @@ class MatchAndScreeningReadsTest {
     void updateMatchStatusPutsTheGraphqlStatusToTheMatcher() {
         CandidateGraphQLResolver resolver = new CandidateGraphQLResolver(respondingWith(HttpStatus.OK, """
                 {"matchId":"m-1","candidateId":7,"jobId":"job-1","overallScore":82.0,"status":"SHORTLISTED",
-                 "matchedSkills":["Java"],"missingSkills":[],"createdAt":"2026-10-29T12:00:00"}"""), resilience());
+                 "matchedSkills":["Java"],"missingSkills":[],"createdAt":"2026-10-29T12:00:00",
+                 "skillMatchPercentage":90.0,"reviewerComments":"Strong platform background"}"""), resilience());
 
-        Map<String, Object> match = resolver.updateMatchStatus("m-1", "SHORTLISTED").block();
+        Map<String, Object> match = resolver.updateMatchStatus("m-1", "SHORTLISTED", "Strong platform background").block();
 
         assertEquals("PUT", requests.get(0).method().name());
         assertEquals("http://candidate-matcher-service:8003/api/matches/m-1", requests.get(0).url().toString());
         assertEquals("SHORTLISTED", match.get("status"));
         assertEquals(0.82, match.get("score"));
+        assertEquals(0.9, match.get("skillScore"));
+        assertEquals(null, match.get("experienceScore"), "unknown part stays null");
+        assertEquals("Strong platform background", match.get("reviewerComments"));
     }
 
     @Test
     void updatingAMissingMatchIsNotFound() {
         CandidateGraphQLResolver resolver = new CandidateGraphQLResolver(respondingWith(HttpStatus.NOT_FOUND, "{}"), resilience());
 
-        ClientFacingException e = assertThrows(ClientFacingException.class, () -> resolver.updateMatchStatus("gone", "REJECTED").block());
+        ClientFacingException e = assertThrows(ClientFacingException.class, () -> resolver.updateMatchStatus("gone", "REJECTED", null).block());
 
         assertEquals(ErrorType.NOT_FOUND, e.getClassification());
     }

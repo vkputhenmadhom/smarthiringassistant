@@ -24,6 +24,7 @@ class NotificationServiceTest {
     @Mock private SmsService smsService;
     @Mock private NotificationLogRepository logRepository;
     @Mock private ProcessedEventRepository processedEventRepository;
+    @Mock private InAppNotificationService inAppNotifications;
 
     @InjectMocks private NotificationService service;
 

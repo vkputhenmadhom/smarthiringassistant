@@ -31,6 +31,8 @@ public class JobGraphQLResolver {
 
     private static final String JOB_SERVICE_BASE = "http://job-analyzer-service:8005/api/jobs";
     private static final String JOB_BACKEND = "job-analyzer-service";
+    private static final String MATCHER_BASE = "http://candidate-matcher-service:8003/api/matches";
+    private static final String MATCHER_BACKEND = "candidate-matcher-service";
 
     private final WebClient.Builder webClientBuilder;
     private final GatewayResilience gatewayResilience;
@@ -105,6 +107,31 @@ public class JobGraphQLResolver {
                         }
                     }
                     return result;
+                });
+    }
+
+    /**
+     * Fills {@code Job.matchCount} for a page of jobs with one matcher call: candidates matched and not rejected.
+     * If the matcher is down the counts are left empty rather than failing the job list.
+     */
+    @BatchMapping(typeName = "Job", field = "matchCount")
+    public Mono<Map<Map<String, Object>, Integer>> matchCount(List<Map<String, Object>> jobs) {
+        List<String> ids = jobs.stream().map(j -> String.valueOf(j.get("id"))).distinct().toList();
+        return gatewayResilience.protect(MATCHER_BACKEND,
+                        webClientBuilder.build().get()
+                                .uri(MATCHER_BASE + "/job-match-counts?ids=" + String.join(",", ids))
+                                .retrieve().bodyToMono(Map.class))
+                .map(counts -> {
+                    Map<Map<String, Object>, Integer> result = new LinkedHashMap<>();
+                    for (Map<String, Object> job : jobs) {
+                        Object count = counts.get(String.valueOf(job.get("id")));
+                        result.put(job, count instanceof Number n ? n.intValue() : 0);
+                    }
+                    return result;
+                })
+                .onErrorResume(e -> {
+                    log.warn("Match counts unavailable for {} jobs: {}", ids.size(), e.toString());
+                    return Mono.just(Map.of());
                 });
     }
 

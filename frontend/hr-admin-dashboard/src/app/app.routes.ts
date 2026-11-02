@@ -35,6 +35,12 @@ export const appRoutes: Routes = [
         data: { roles: ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN'] },
       },
       {
+        path: 'review',
+        loadComponent: () => import('./features/review/review.component').then(m => m.ReviewComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN'] },
+      },
+      {
         path: 'screening',
         loadChildren: () => import('./features/screening/screening.routes').then(m => m.screeningRoutes),
         canActivate: [roleGuard],

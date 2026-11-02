@@ -56,6 +56,7 @@ export const JOBS_QUERY = gql`
         id title department location type status skills
         salaryMin salaryMax salaryCurrency salaryConfidence
         applicantCount postedAt closingDate
+        companyName seniority minExperienceYears maxExperienceYears matchCount
       }
     }
   }
@@ -67,6 +68,7 @@ export const JOB_QUERY = gql`
       id title description department location type status skills
       salaryMin salaryMax salaryCurrency salaryConfidence
       applicantCount postedAt closingDate
+      companyName externalUrl seniority minExperienceYears maxExperienceYears
     }
   }
 `;
@@ -120,22 +122,45 @@ export const CANDIDATE_QUERY = gql`
   }
 `;
 
+const MATCH_FIELDS = `
+  id candidateId jobId score status skillMatches skillGaps matchedAt
+  skillScore experienceScore locationScore reviewerComments
+  candidate { id name email skills screeningStatus }
+  job { id title companyName location status seniority minExperienceYears maxExperienceYears }
+`;
+
 export const MATCHES_FOR_JOB_QUERY = gql`
   query MatchesForJob($jobId: ID!, $page: Int, $size: Int) {
     matchesForJob(jobId: $jobId, page: $page, size: $size) {
       totalElements
-      content {
-        id candidateId score status skillMatches skillGaps matchedAt
-        candidate { id name email skills screeningStatus }
-      }
+      content { ${MATCH_FIELDS} }
+    }
+  }
+`;
+
+/** Every candidate-job match for review, best first; status narrows it (MATCHED = new) */
+export const MATCHES_FOR_REVIEW_QUERY = gql`
+  query MatchesForReview($status: MatchStatus, $page: Int, $size: Int) {
+    matchesForReview(status: $status, page: $page, size: $size) {
+      totalElements
+      content { ${MATCH_FIELDS} }
+    }
+  }
+`;
+
+export const MATCHES_FOR_CANDIDATE_QUERY = gql`
+  query MatchesForCandidate($candidateId: ID!, $page: Int, $size: Int) {
+    matchesForCandidate(candidateId: $candidateId, page: $page, size: $size) {
+      totalElements
+      content { ${MATCH_FIELDS} }
     }
   }
 `;
 
 export const UPDATE_MATCH_STATUS_MUTATION = gql`
-  mutation UpdateMatchStatus($matchId: ID!, $status: MatchStatus!) {
-    updateMatchStatus(matchId: $matchId, status: $status) {
-      id status
+  mutation UpdateMatchStatus($matchId: ID!, $status: MatchStatus!, $comment: String) {
+    updateMatchStatus(matchId: $matchId, status: $status, comment: $comment) {
+      id status reviewerComments
     }
   }
 `;

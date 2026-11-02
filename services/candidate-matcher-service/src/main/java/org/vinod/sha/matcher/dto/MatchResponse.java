@@ -23,5 +23,6 @@ public class MatchResponse {
     private List<String> matchedSkills;
     private List<String> missingSkills;
     private String createdAt;
+    private String reviewerComments;
 }
 

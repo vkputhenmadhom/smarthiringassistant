@@ -51,7 +51,7 @@ public class GraphQLAuthorizationInterceptor implements WebGraphQlInterceptor {
 
     static final Set<String> HR_FIELDS = Set.of(
             "createJob", "updateJob", "deleteJob", "publishJob", "closeJob",
-            "candidates", "candidate", "matchesForJob", "triggerMatching", "updateMatchStatus",
+            "candidates", "candidate", "matchesForJob", "matchesForReview", "triggerMatching", "updateMatchStatus",
             "dashboardMetrics", "advanceScreening", "newMatchForJob");
 
     /** auth-service {@code UserRole} values allowed to use HR fields. */

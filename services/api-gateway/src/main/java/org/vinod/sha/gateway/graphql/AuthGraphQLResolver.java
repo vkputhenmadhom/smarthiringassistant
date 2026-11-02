@@ -153,27 +153,6 @@ public class AuthGraphQLResolver {
                 .onErrorMap(this::toAuthFlowException);
     }
 
-    @QueryMapping
-    public List<Map<String, Object>> myNotifications(@Argument Boolean unreadOnly) {
-        return List.of(
-                Map.of("id", "1", "userId", "1", "type", "MATCH",
-                        "title", "New match found!", "message", "You matched Senior Java Engineer (87%)",
-                        "read", false, "createdAt", "2026-03-27T10:00:00Z")
-        );
-    }
-
-    @MutationMapping
-    public Map<String, Object> markNotificationRead(@Argument String id) {
-        return Map.of("id", id, "userId", "1", "type", "MATCH",
-                "title", "New match found!", "message", "...", "read", true,
-                "createdAt", "2026-03-27T10:00:00Z");
-    }
-
-    @MutationMapping
-    public Boolean markAllNotificationsRead() {
-        return true;
-    }
-
     @SuppressWarnings("unchecked")
     private Map<String, Object> normalizeAuthPayload(Map<String, Object> raw) {
         Map<String, Object> normalized = new LinkedHashMap<>();

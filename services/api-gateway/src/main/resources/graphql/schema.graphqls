@@ -70,6 +70,8 @@ type Job {
     seniority: String
     minExperienceYears: Int
     maxExperienceYears: Int
+    # Candidates matched and not rejected (HR only)
+    matchCount: Int
 }
 
 enum JobType {
@@ -201,6 +203,12 @@ type CandidateMatch {
     candidate: Candidate
     job: Job
     matchedAt: DateTime
+    # Parts of the score, 0-1; null when the job or candidate leaves that part unknown
+    skillScore: Float
+    experienceScore: Float
+    locationScore: Float
+    # HR's note from the last status change
+    reviewerComments: String
 }
 
 enum MatchStatus {
@@ -314,6 +322,8 @@ type Query {
     # Matches
     matchesForJob(jobId: ID!, page: Int, size: Int): MatchPage!
     matchesForCandidate(candidateId: ID!, page: Int, size: Int): MatchPage!
+    # Every candidate-job match for HR review, best first; status narrows it (HR only)
+    matchesForReview(status: MatchStatus, page: Int, size: Int): MatchPage!
 
     # Screening
     screeningSession(id: ID!): ScreeningSession!
@@ -353,7 +363,8 @@ type Mutation {
 
     # Matching
     triggerMatching(candidateId: ID!, jobId: ID!): CandidateMatch!
-    updateMatchStatus(matchId: ID!, status: MatchStatus!): CandidateMatch!
+    # comment: HR's note, kept on the match
+    updateMatchStatus(matchId: ID!, status: MatchStatus!, comment: String): CandidateMatch!
 
     # Screening
     startScreening(candidateId: ID!, jobId: ID!): ScreeningSession!

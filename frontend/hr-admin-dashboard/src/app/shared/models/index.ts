@@ -34,6 +34,14 @@ export interface Job {
   postedAt?: string;
   closingDate?: string;
   applicantCount?: number;
+  companyName?: string;
+  /** Level the title names (Entry, Mid, Senior, Lead); null when none */
+  seniority?: string | null;
+  /** Years the job is meant for; max null = no upper bound */
+  minExperienceYears?: number | null;
+  maxExperienceYears?: number | null;
+  /** Candidates matched and not rejected */
+  matchCount?: number | null;
 }
 
 export type JobType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP' | 'REMOTE';
@@ -87,6 +95,12 @@ export interface CandidateMatch {
   candidate?: Candidate;
   job?: Job;
   matchedAt?: string;
+  /** Parts of the score, 0–1; null when unknown */
+  skillScore?: number | null;
+  experienceScore?: number | null;
+  locationScore?: number | null;
+  /** HR's note from the last status change */
+  reviewerComments?: string | null;
 }
 
 export interface ScreeningSession {

@@ -9,16 +9,20 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { catchError, map } from 'rxjs/operators';
 import { EMPTY } from 'rxjs';
-import { JOB_QUERY, MATCHES_FOR_JOB_QUERY, UPDATE_MATCH_STATUS_MUTATION } from '../../../graphql/queries';
-import { Job } from '../../../shared/models';
+import { JOB_QUERY, MATCHES_FOR_JOB_QUERY } from '../../../graphql/queries';
+import { CandidateMatch, Job, MatchStatus } from '../../../shared/models';
+import { MatchActionsComponent } from '../../../shared/components/match-actions.component';
+import { scoreParts, seniorityLabel, statusChip, STATUS_LABELS } from '../../../shared/match-format';
 import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
 
 @Component({
   selector: 'sha-job-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatCardModule, MatChipsModule, MatIconModule, MatButtonModule, MatTableModule, MatDividerModule],
+  imports: [CommonModule, RouterLink, MatCardModule, MatChipsModule, MatIconModule, MatButtonModule, MatTableModule, MatDividerModule,
+            MatButtonToggleModule, MatchActionsComponent],
   template: `
     <div class="error-banner" role="alert" *ngIf="error">
       <mat-icon>error_outline</mat-icon>
@@ -30,7 +34,8 @@ import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
       <div class="page-header flex justify-between items-center">
         <div>
           <h1>{{ job.title }}</h1>
-          <p>{{ job.department }} · {{ job.location }} · <span [class]="statusChip(job.status)">{{ job.status }}</span></p>
+          <p>{{ job.companyName || job.department }} · {{ job.location }} · <span [class]="statusChip(job.status)">{{ job.status }}</span>
+             · <span class="chip chip-purple">{{ seniority(job) }}</span></p>
         </div>
         <div class="flex gap-4">
           <a mat-stroked-button [routerLink]="['edit']">Edit</a>
@@ -63,16 +68,25 @@ import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
 
       <!-- Matched candidates -->
       <mat-card class="panel mt-4" *ngIf="matchData">
-        <mat-card-header><mat-card-title>Matched Candidates ({{ matchData.totalElements }})</mat-card-title></mat-card-header>
+        <mat-card-header>
+          <mat-card-title>Matched Candidates ({{ matchData.totalElements }})</mat-card-title>
+        </mat-card-header>
         <mat-card-content>
-          <table mat-table [dataSource]="matchData.content" class="sha-table">
+          <mat-button-toggle-group [value]="filter" (change)="filter = $event.value" aria-label="Show matches by status" class="filter">
+            <mat-button-toggle *ngFor="let f of filters" [value]="f.value">{{ f.label }} ({{ count(f.value) }})</mat-button-toggle>
+          </mat-button-toggle-group>
+          <p class="empty" *ngIf="shown().length === 0">No candidates here.</p>
+          <table mat-table [dataSource]="shown()" class="sha-table" *ngIf="shown().length > 0">
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef>Candidate</th>
-              <td mat-cell *matCellDef="let m">{{ m.candidate?.name || ('Candidate #' + m.candidateId) }}</td>
+              <td mat-cell *matCellDef="let m">
+                <a [routerLink]="['/app/candidates', m.candidateId]" class="link">{{ m.candidate?.name || ('Candidate #' + m.candidateId) }}</a>
+                <div class="sub" *ngIf="m.reviewerComments">Note: {{ m.reviewerComments }}</div>
+              </td>
             </ng-container>
             <ng-container matColumnDef="score">
-              <th mat-header-cell *matHeaderCellDef>Match Score</th>
-              <td mat-cell *matCellDef="let m"><strong>{{ (m.score*100).toFixed(0) }}%</strong></td>
+              <th mat-header-cell *matHeaderCellDef>Match</th>
+              <td mat-cell *matCellDef="let m"><strong>{{ (m.score*100).toFixed(0) }}%</strong><div class="sub">{{ parts(m) }}</div></td>
             </ng-container>
             <ng-container matColumnDef="skills">
               <th mat-header-cell *matHeaderCellDef>Matching Skills</th>
@@ -88,17 +102,12 @@ import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
             </ng-container>
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let m"><span [class]="matchChip(m.status)">{{ m.status }}</span></td>
+              <td mat-cell *matCellDef="let m"><span [class]="matchChip(m.status)">{{ label(m.status) }}</span></td>
             </ng-container>
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef></th>
               <td mat-cell *matCellDef="let m" class="match-actions">
-                <button mat-stroked-button color="primary" *ngIf="m.status==='MATCHED' || m.status==='PENDING'"
-                        [disabled]="updating===m.id" (click)="setMatchStatus(m, 'SHORTLISTED')">Shortlist</button>
-                <button mat-stroked-button color="primary" *ngIf="m.status==='SHORTLISTED'"
-                        [disabled]="updating===m.id" (click)="setMatchStatus(m, 'HIRED')">Hired</button>
-                <button mat-button color="warn" *ngIf="m.status!=='REJECTED' && m.status!=='HIRED'"
-                        [disabled]="updating===m.id" (click)="setMatchStatus(m, 'REJECTED')">Reject</button>
+                <sha-match-actions [match]="m" (changed)="updated($event)"></sha-match-actions>
               </td>
             </ng-container>
             <tr mat-header-row *matHeaderRowDef="matchCols"></tr>
@@ -113,8 +122,12 @@ import { loadJob, publishJob } from '../../../store/jobs/jobs.actions';
     .detail-row { padding:.35rem 0; border-bottom:1px solid #f5f5f5; font-size:.9rem; }
     .desc { font-size:.9rem; line-height:1.6; color:#333; white-space:pre-wrap; margin-top:.5rem; }
     .skills-wrap { display:flex; flex-wrap:wrap; gap:.4rem; }
-    .match-actions { white-space:nowrap; text-align:right; }
-    .match-actions button { margin-left:.25rem; }
+    .match-actions { min-width:220px; }
+    .filter { margin-bottom:.75rem; }
+    .empty { color:#666; padding:1rem 0; }
+    .link { font-weight:600; }
+    .sub { font-size:.8rem; color:#666; margin-top:.15rem; }
+    .chip-purple { background:#ede7f6; color:#4527a0; }
   `],
 })
 export class JobDetailComponent implements OnInit {
@@ -124,10 +137,13 @@ export class JobDetailComponent implements OnInit {
 
   jobId!: string;
   matchCols = ['name','score','skills','gaps','status','actions'];
-  matchData: { totalElements: number; content: any[] } | null = null;
-  /** Id of the match whose status change is in flight. */
-  updating: string | null = null;
+  matchData: { totalElements: number; content: CandidateMatch[] } | null = null;
   error: string | null = null;
+  readonly filters: { label: string; value: MatchStatus | 'ALL' }[] = [
+    { label: 'All', value: 'ALL' }, { label: 'New', value: 'MATCHED' }, { label: 'Shortlisted', value: 'SHORTLISTED' },
+    { label: 'Hired', value: 'HIRED' }, { label: 'Rejected', value: 'REJECTED' },
+  ];
+  filter: MatchStatus | 'ALL' = 'ALL';
 
   job$ = this.apollo.query<any>({ query: JOB_QUERY, variables: { id: '' } }).pipe(map(r => r.data.job as Job));
 
@@ -140,32 +156,39 @@ export class JobDetailComponent implements OnInit {
   }
 
   loadMatches() {
-    this.apollo.query<any>({ query: MATCHES_FOR_JOB_QUERY, variables: { jobId: this.jobId, page: 0, size: 20 }, fetchPolicy: 'network-only' })
+    this.apollo.query<any>({ query: MATCHES_FOR_JOB_QUERY, variables: { jobId: this.jobId, page: 0, size: 200 }, fetchPolicy: 'network-only' })
       .subscribe({
         next: r => this.matchData = r.data.matchesForJob,
         error: err => this.error = err.message,
       });
   }
 
-  setMatchStatus(match: any, status: string) {
-    this.updating = match.id;
-    this.apollo.mutate<any>({ mutation: UPDATE_MATCH_STATUS_MUTATION, variables: { matchId: match.id, status } })
-      .subscribe({
-        next: r => {
-          const updated = r.data?.updateMatchStatus;
-          if (this.matchData && updated) {
-            this.matchData = { ...this.matchData,
-              content: this.matchData.content.map(m => m.id === updated.id ? { ...m, status: updated.status } : m) };
-          }
-          this.updating = null;
-        },
-        error: err => { this.error = err.message; this.updating = null; },
-      });
+  shown(): CandidateMatch[] {
+    const all = this.matchData?.content ?? [];
+    return this.filter === 'ALL' ? all : all.filter(m => this.stage(m.status) === this.filter);
   }
+
+  count(value: MatchStatus | 'ALL'): number {
+    const all = this.matchData?.content ?? [];
+    return value === 'ALL' ? all.length : all.filter(m => this.stage(m.status) === value).length;
+  }
+
+  /** PENDING and MATCHED are both "New" */
+  private stage(s: MatchStatus): MatchStatus { return s === 'PENDING' ? 'MATCHED' : s; }
+
+  updated(m: CandidateMatch) {
+    if (this.matchData) {
+      this.matchData = { ...this.matchData, content: this.matchData.content.map(x => x.id === m.id ? m : x) };
+    }
+  }
+
+  seniority = seniorityLabel;
+  parts = scoreParts;
+  label(s: MatchStatus) { return STATUS_LABELS[s]; }
 
   publish(id: string) { this.store.dispatch(publishJob({ id })); }
   statusChip(s: string) { return s==='OPEN'?'chip chip-green':s==='DRAFT'?'chip chip-orange':'chip chip-grey'; }
-  matchChip(s: string)  { return s==='SHORTLISTED'||s==='HIRED'?'chip chip-green':s==='REJECTED'?'chip chip-red':'chip chip-blue'; }
+  matchChip = statusChip;
   salaryLabel(j: Job)   { return j.salaryMin ? `${j.salaryCurrency??'USD'} ${(j.salaryMin/1000).toFixed(0)}k – ${((j.salaryMax??0)/1000).toFixed(0)}k` : 'Not specified'; }
 }
 

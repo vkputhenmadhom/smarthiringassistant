@@ -57,7 +57,7 @@ class GatewaySubscriptionBrokerTest {
     }
 
     @Test
-    void listenerPublishesMatchAndNotificationFromCandidateMatchedEvent() {
+    void listenerPublishesMatchUpdatesButNoCandidateNoticePerMatch() {
         GatewaySubscriptionBroker broker = new GatewaySubscriptionBroker();
         GatewayRabbitSubscriptionListener listener = new GatewayRabbitSubscriptionListener(broker);
 
@@ -79,13 +79,12 @@ class GatewaySubscriptionBrokerTest {
                 })
                 .verifyComplete();
 
+        // No push to the candidate per match (an upload makes twenty); their bell reads stored notifications.
         StepVerifier.create(broker.notificationUpdates("42").take(1))
                 .then(() -> listener.onCandidateMatched(event))
-                .assertNext(payload -> {
-                    org.junit.jupiter.api.Assertions.assertEquals("42", payload.get("userId"));
-                    org.junit.jupiter.api.Assertions.assertEquals("MATCH", payload.get("type"));
-                })
-                .verifyComplete();
+                .expectNoEvent(java.time.Duration.ofMillis(200))
+                .thenCancel()
+                .verify(java.time.Duration.ofSeconds(5));
     }
 
     @Test
