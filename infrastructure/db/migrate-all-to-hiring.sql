@@ -61,6 +61,19 @@ CREATE TABLE IF NOT EXISTS hiring.notification_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_notification_logs_reference_id ON hiring.notification_logs(reference_id);
 
+-- Messages shown in a user's notification bell (notification-service).
+CREATE TABLE IF NOT EXISTS hiring.in_app_notifications (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    reference_id VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_in_app_notifications_user ON hiring.in_app_notifications(user_id, created_at DESC);
+
 -- Idempotency keys; notification-service prefixes its keys with 'NS:'.
 CREATE TABLE IF NOT EXISTS hiring.processed_events (
     id BIGSERIAL PRIMARY KEY,

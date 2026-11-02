@@ -172,6 +172,7 @@ export class ShellComponent implements OnInit, OnDestroy {
     { label: 'Dashboard',   icon: 'dashboard',   route: '/app/dashboard'  },
     { label: 'Jobs',        icon: 'work',         route: '/app/jobs'       },
     { label: 'Candidates',  icon: 'people',       route: '/app/candidates' },
+    { label: 'Review',      icon: 'rate_review',  route: '/app/review'     },
     { label: 'Screening',   icon: 'fact_check',   route: '/app/screening'  },
     { label: 'Analytics',   icon: 'bar_chart',    route: '/app/analytics'  },
     { label: 'Approvals',   icon: 'how_to_reg',   route: '/app/approvals', roles: ['HR_ADMIN', 'SUPER_ADMIN'] },

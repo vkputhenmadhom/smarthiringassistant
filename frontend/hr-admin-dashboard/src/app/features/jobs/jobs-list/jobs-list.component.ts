@@ -15,6 +15,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { loadJobs, deleteJob, publishJob, selectJob, dismissJobsError } from '../../../store/jobs/jobs.actions';
 import { selectAllJobs, selectJobsLoading, selectJobsTotalCount, selectJobsBanner } from '../../../store/jobs/jobs.selectors';
 import { Job } from '../../../shared/models';
+import { seniorityLabel } from '../../../shared/match-format';
 
 @Component({
   selector: 'sha-jobs-list',
@@ -64,7 +65,7 @@ import { Job } from '../../../shared/models';
         <th mat-header-cell *matHeaderCellDef>Title</th>
         <td mat-cell *matCellDef="let j">
           <a [routerLink]="j.id" class="job-link">{{ j.title }}</a>
-          <div class="job-sub">{{ j.department }} · {{ j.location }}</div>
+          <div class="job-sub">{{ j.companyName || j.department }} · {{ j.location }}</div>
         </td>
       </ng-container>
       <ng-container matColumnDef="type">
@@ -79,9 +80,16 @@ import { Job } from '../../../shared/models';
         <th mat-header-cell *matHeaderCellDef>Salary Range</th>
         <td mat-cell *matCellDef="let j">{{ salaryLabel(j) }}</td>
       </ng-container>
-      <ng-container matColumnDef="applicants">
-        <th mat-header-cell *matHeaderCellDef>Applicants</th>
-        <td mat-cell *matCellDef="let j">{{ j.applicantCount ?? 0 }}</td>
+      <ng-container matColumnDef="level">
+        <th mat-header-cell *matHeaderCellDef>Level</th>
+        <td mat-cell *matCellDef="let j"><span class="chip chip-purple">{{ seniority(j) }}</span></td>
+      </ng-container>
+      <ng-container matColumnDef="matches">
+        <th mat-header-cell *matHeaderCellDef>Matches</th>
+        <td mat-cell *matCellDef="let j">
+          <a *ngIf="j.matchCount; else none" [routerLink]="j.id" class="job-link" matTooltip="Candidates matched and not rejected">{{ j.matchCount }}</a>
+          <ng-template #none><span class="job-sub">0</span></ng-template>
+        </td>
       </ng-container>
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef></th>
@@ -100,6 +108,7 @@ import { Job } from '../../../shared/models';
                    (page)="onPage($event)" showFirstLastButtons></mat-paginator>
   `,
   styles: [`
+    .chip-purple { background:#ede7f6; color:#4527a0; }
     .filter-bar{ display:flex; gap:1rem; margin-bottom:1rem; }
     .job-link  { font-weight:500; color:#3f51b5; text-decoration:none; }
     .job-sub   { font-size:.78rem; color:#888; margin-top:.1rem; }
@@ -114,7 +123,8 @@ export class JobsListComponent implements OnInit {
   total$   = this.store.select(selectJobsTotalCount);
   error$   = this.store.select(selectJobsBanner);
 
-  cols     = ['title','type','status','salary','applicants','actions'];
+  cols     = ['title','level','status','salary','matches','actions'];
+  seniority = seniorityLabel;
   search   = '';
   statusFilter = '';
   pageSize = 20;

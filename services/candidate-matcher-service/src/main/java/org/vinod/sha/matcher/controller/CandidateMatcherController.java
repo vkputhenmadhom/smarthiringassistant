@@ -110,6 +110,28 @@ public class CandidateMatcherController {
         }
     }
 
+    /** Every match for HR review, best first; {@code status} (MATCHED, SHORTLISTED, ...) narrows it. */
+    @GetMapping("review")
+    public ResponseEntity<?> matchesForReview(@RequestParam(required = false) String status) {
+        MatchStatus wanted = null;
+        if (status != null && !status.isBlank()) {
+            try {
+                wanted = MatchStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException unknown) {
+                return ResponseEntity.badRequest().body("Unknown match status " + status
+                        + "; use one of " + Arrays.toString(MatchStatus.values()));
+            }
+        }
+        return ResponseEntity.ok(candidateMatcherService.matchesForReview(wanted).stream().map(this::convertToResponse).toList());
+    }
+
+    /** Matches still in play (not rejected) per job, e.g. {@code ?ids=a,b} → {@code {"a": 3}}; jobs without any are left out. */
+    @GetMapping("job-match-counts")
+    public ResponseEntity<Map<String, Long>> jobMatchCounts(@RequestParam String ids) {
+        List<String> jobIds = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).distinct().toList();
+        return ResponseEntity.ok(candidateMatcherService.openMatchCounts(jobIds));
+    }
+
     /** Best match score (0–100) per candidate, e.g. {@code ?ids=7,8} → {@code {"7": 82.0}}. */
     @GetMapping("candidates/best-scores")
     public ResponseEntity<Map<Long, Double>> bestScores(@RequestParam String ids) {
@@ -165,6 +187,7 @@ public class CandidateMatcherController {
                 .matchedSkills(match.getMatchedSkills())
                 .missingSkills(match.getMissingSkills())
                 .createdAt(match.getCreatedAt().toString())
+                .reviewerComments(match.getReviewerComments())
                 .build();
     }
 

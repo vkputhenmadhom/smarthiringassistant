@@ -13,7 +13,7 @@ import static org.vinod.shared.config.SharedRabbitAutoConfiguration.consumerQueu
  * from shared-commons (SharedRabbitAutoConfiguration).
  */
 @Configuration
-@EnableConfigurationProperties(NotificationProperties.class)
+@EnableConfigurationProperties({NotificationProperties.class, InAppMessages.class})
 public class NotificationRabbitConfig {
 
     public static final String INTERVIEW_SCHEDULED_NOTIFICATION_QUEUE = "interview.scheduled.notification.queue";

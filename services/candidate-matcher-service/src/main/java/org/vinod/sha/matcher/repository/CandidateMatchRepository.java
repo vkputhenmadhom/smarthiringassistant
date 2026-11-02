@@ -19,6 +19,12 @@ public interface CandidateMatchRepository extends JpaRepository<CandidateMatch, 
     List<CandidateMatch> findByJobIdAndStatus(String jobId, MatchStatus status);
     List<CandidateMatch> findByCandidateIdAndStatus(Long candidateId, MatchStatus status);
 
+    List<CandidateMatch> findByStatus(MatchStatus status);
+
+    /** Rows of [jobId, count] of matches not rejected, for the given jobs. */
+    @Query("select m.jobId, count(m) from CandidateMatch m where m.jobId in :jobIds and m.status <> org.vinod.sha.matcher.entity.MatchStatus.REJECTED group by m.jobId")
+    List<Object[]> countOpenByJob(@Param("jobIds") Collection<String> jobIds);
+
     /** Rows of [candidateId, best overallScore] for the given candidates. */
     @Query("select m.candidateId, max(m.overallScore) from CandidateMatch m where m.candidateId in :candidateIds group by m.candidateId")
     List<Object[]> findBestScores(@Param("candidateIds") Collection<Long> candidateIds);

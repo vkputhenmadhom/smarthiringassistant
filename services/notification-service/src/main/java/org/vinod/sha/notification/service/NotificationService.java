@@ -24,15 +24,18 @@ public class NotificationService {
     private final SmsService smsService;
     private final NotificationLogRepository logRepository;
     private final ProcessedEventRepository processedEventRepository;
+    private final InAppNotificationService inAppNotifications;
 
     public NotificationService(EmailService emailService,
                                SmsService smsService,
                                NotificationLogRepository logRepository,
-                               ProcessedEventRepository processedEventRepository) {
+                               ProcessedEventRepository processedEventRepository,
+                               InAppNotificationService inAppNotifications) {
         this.emailService = emailService;
         this.smsService = smsService;
         this.logRepository = logRepository;
         this.processedEventRepository = processedEventRepository;
+        this.inAppNotifications = inAppNotifications;
     }
 
     // ── Idempotency ───────────────────────────────────────────────────────
@@ -104,8 +107,15 @@ public class NotificationService {
      * as SKIPPED until the event is enriched or a candidate-service lookup is added.
      */
     public void handleCandidateMatched(CandidateMatchedEvent event) {
-        log.info("[NotificationService] CandidateMatched - candidateId={} jobId={} score={}",
-                event.getCandidateId(), event.getJobId(), event.getMatchScore());
+        log.info("[NotificationService] CandidateMatched - candidateId={} jobId={} score={} status={}",
+                event.getCandidateId(), event.getJobId(), event.getMatchScore(), event.getStatus());
+
+        // In the app: only the statuses with a configured message (shortlisted, hired)
+        inAppNotifications.onMatchStatus(event);
+        boolean newMatch = event.getStatus() == null || "MATCHED".equalsIgnoreCase(event.getStatus());
+        if (!newMatch) {
+            return;
+        }
 
         // TODO: enrich with candidate email by calling candidate-service
         logRepository.save(NotificationLog.builder()

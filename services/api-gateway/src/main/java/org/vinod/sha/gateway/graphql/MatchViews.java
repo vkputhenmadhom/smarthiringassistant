@@ -46,7 +46,16 @@ public final class MatchViews {
         match.put("skillMatches", stringList(raw.get("matchedSkills")));
         match.put("skillGaps", stringList(raw.get("missingSkills")));
         match.put("matchedAt", raw.get("createdAt"));
+        match.put("skillScore", part(raw.get("skillMatchPercentage")));
+        match.put("experienceScore", part(raw.get("experienceMatchPercentage")));
+        match.put("locationScore", part(raw.get("locationMatchPercentage")));
+        match.put("reviewerComments", raw.get("reviewerComments"));
         return match;
+    }
+
+    /** A score part (0-100 from the matcher) as 0-1; null stays null, since that part was unknown */
+    private static Double part(Object raw) {
+        return raw instanceof Number ? score(raw) : null;
     }
 
     /** The matcher returns every match for a job or candidate; the gateway pages them, best score first. */

@@ -343,17 +343,9 @@ class GatewayRabbitSubscriptionListener {
             return;
         }
 
-        Map<String, Object> matchPayload = toMatchPayload(event);
-        subscriptionBroker.publishMatchUpdate(event.getJobId(), matchPayload);
-
-        String userId = String.valueOf(event.getCandidateId());
-        // MVP assumption: candidateId is used as the subscription userId until a dedicated user mapping is added.
-        subscriptionBroker.publishNotification(userId, toNotificationPayload(
-                userId,
-                "MATCH",
-                "New match found",
-                "A new match was generated for your profile."
-        ));
+        // HR's live view of a job's matches. Candidates are not pushed a notice per match (a resume upload makes
+        // twenty); notification-service stores the ones worth telling them (shortlisted, hired) for myNotifications.
+        subscriptionBroker.publishMatchUpdate(event.getJobId(), toMatchPayload(event));
     }
 
     @RabbitListener(queues = "#{@gatewayScreeningCompletedQueue.name}")

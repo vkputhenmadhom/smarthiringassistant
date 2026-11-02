@@ -1,15 +1,15 @@
 import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { useQuery, useSubscription } from '@apollo/client';
-import { Layout as AntLayout, Menu, Avatar, Dropdown, Badge, Button, Drawer, Grid } from 'antd';
+import { useMutation, useQuery, useSubscription } from '@apollo/client';
+import { Layout as AntLayout, Menu, Avatar, Dropdown, Badge, Button, Drawer, Grid, Popover, List, Typography, Empty } from 'antd';
 import {
   DashboardOutlined, SearchOutlined, FileTextOutlined,
   UserOutlined, LogoutOutlined, ReadOutlined, BellOutlined, MenuOutlined
 } from '@ant-design/icons';
 import { logout } from '../../store/authSlice';
 import { RootState } from '../../store';
-import { MY_NOTIFICATIONS_QUERY, NEW_NOTIFICATION_SUBSCRIPTION, Notification } from '../../graphql';
+import { MY_NOTIFICATIONS_QUERY, NEW_NOTIFICATION_SUBSCRIPTION, MARK_ALL_NOTIFICATIONS_READ_MUTATION, Notification } from '../../graphql';
 
 const { Header, Sider, Content } = AntLayout;
 
@@ -36,11 +36,45 @@ const Layout: React.FC = () => {
     setLiveNotifications([]);
   }, [user?.id]);
 
-  const { data: notificationData } = useQuery<{ myNotifications: Notification[] }>(MY_NOTIFICATIONS_QUERY, {
-    variables: { unreadOnly: true },
+  // Shortlist and hire decisions are stored by notification-service; check for new ones every minute
+  const { data: notificationData, refetch: refetchNotifications } = useQuery<{ myNotifications: Notification[] }>(MY_NOTIFICATIONS_QUERY, {
+    variables: { unreadOnly: false },
     skip: !user?.id,
     fetchPolicy: 'cache-and-network',
+    pollInterval: 60_000,
   });
+  const [markAllRead] = useMutation(MARK_ALL_NOTIFICATIONS_READ_MUTATION);
+  const notifications = notificationData?.myNotifications ?? [];
+
+  const openNotifications = (open: boolean) => {
+    // Opening the bell counts as reading what is in it
+    if (!open && notifications.some(n => !n.read)) {
+      markAllRead().then(() => { setLiveNotifications([]); refetchNotifications(); }).catch(() => undefined);
+    }
+  };
+
+  const notificationPanel = (
+    <div style={{ width: 340, maxHeight: 420, overflowY: 'auto' }}>
+      {notifications.length === 0
+        ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No notifications yet" />
+        : <List
+            dataSource={notifications}
+            renderItem={(n: Notification) => (
+              <List.Item style={{ background: n.read ? undefined : '#f0f5ff', padding: '10px 8px' }}>
+                <List.Item.Meta
+                  title={<Typography.Text strong={!n.read}>{n.title}</Typography.Text>}
+                  description={<>
+                    <div>{n.message}</div>
+                    {n.createdAt && <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {new Date(n.createdAt).toLocaleString()}
+                    </Typography.Text>}
+                  </>}
+                />
+              </List.Item>
+            )}
+          />}
+    </div>
+  );
 
   useSubscription<{ newNotification: Notification }>(NEW_NOTIFICATION_SUBSCRIPTION, {
     variables: { userId: user?.id ?? '' },
@@ -129,9 +163,12 @@ const Layout: React.FC = () => {
               onClick={() => setDrawerOpen(true)}
             />
           )}
-          <Badge count={unreadNotificationCount} size="small">
-            <Button type="text" icon={<BellOutlined style={{ fontSize: 18 }} />} />
-          </Badge>
+          <Popover content={notificationPanel} title="Notifications" trigger="click" placement="bottomRight"
+                   onOpenChange={openNotifications}>
+            <Badge count={unreadNotificationCount} size="small">
+              <Button type="text" aria-label="Notifications" icon={<BellOutlined style={{ fontSize: 18 }} />} />
+            </Badge>
+          </Popover>
           <Dropdown menu={userMenu} placement="bottomRight">
             <Avatar style={{ cursor: 'pointer', background: '#3f51b5' }}>
               {user?.username?.[0]?.toUpperCase() ?? 'U'}

@@ -187,6 +187,24 @@ public class CandidateMatcherService {
         return best;
     }
 
+    /** Every match, or those with {@code status}, best first. */
+    public List<CandidateMatch> matchesForReview(MatchStatus status) {
+        List<CandidateMatch> matches = status == null ? candidateMatchRepository.findAll() : candidateMatchRepository.findByStatus(status);
+        return matches.stream()
+                .sorted(Comparator.comparingDouble(CandidateMatch::getOverallScore).reversed())
+                .toList();
+    }
+
+    /** Matches not rejected per job; jobs without any are left out. */
+    public Map<String, Long> openMatchCounts(Collection<String> jobIds) {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        if (!jobIds.isEmpty()) {
+            candidateMatchRepository.countOpenByJob(jobIds)
+                    .forEach(row -> counts.put((String) row[0], ((Number) row[1]).longValue()));
+        }
+        return counts;
+    }
+
     public Optional<CandidateMatch> findMatch(String matchId) {
         return candidateMatchRepository.findByMatchId(matchId);
     }
@@ -235,6 +253,7 @@ public class CandidateMatcherService {
     }
 
     private void publishMatchEvent(CandidateMatch match) {
+        Optional<JobRequirement> job = jobRequirementRepository.findByJobId(match.getJobId());
         CandidateMatchedEvent event = CandidateMatchedEvent.builder()
                 .matchId(match.getMatchId())
                 .candidateId(match.getCandidateId())
@@ -244,6 +263,8 @@ public class CandidateMatcherService {
                 .experienceMatchPercentage(match.getExperienceMatchPercentage())
                 .matchedAt(System.currentTimeMillis())
                 .status(match.getStatus().toString())
+                .jobTitle(job.map(JobRequirement::getJobTitle).orElse(null))
+                .companyName(job.map(JobRequirement::getCompanyName).orElse(null))
                 .build();
 
         try {

@@ -20,7 +20,8 @@ public class CandidateMatchedListener {
     @RabbitListener(queues = RabbitMQConfiguration.CANDIDATE_MATCHED_NOTIFICATION_QUEUE)
     public void onCandidateMatched(CandidateMatchedEvent event) {
         try {
-            String key = "CandidateMatchedEvent:" + event.getMatchId();
+            // One per status: a match is created (MATCHED), then shortlisted, then hired
+            String key = "CandidateMatchedEvent:" + event.getMatchId() + ":" + event.getStatus();
             if (notificationService.isAlreadyProcessed(key)) {
                 log.info("[CandidateMatchedListener] Duplicate event skipped matchId={}", event.getMatchId());
                 return;
