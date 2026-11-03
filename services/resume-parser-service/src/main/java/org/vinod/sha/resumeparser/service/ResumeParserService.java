@@ -160,9 +160,19 @@ public class ResumeParserService {
         return "";
     }
 
-    private String extractEmail(String text) {
-        Pattern pattern = Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}");
-        Matcher matcher = pattern.matcher(text);
+    /**
+     * An email address. Resume text is user input: a match may only start where an address can begin (the
+     * lookbehind), and every part is bounded, so a long run like "%%%%..." is scanned once, not once per position.
+     */
+    private static final Pattern EMAIL = Pattern.compile(
+            "(?<![a-zA-Z0-9._%+-])[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9-]{1,63}(?:\\.[a-zA-Z0-9-]{1,63}){0,8}\\.[a-zA-Z]{2,24}");
+
+    /** "12 years of experience"; starts only at the first digit of a number, which is at most two digits */
+    private static final Pattern EXPERIENCE_YEARS = Pattern.compile(
+            "(?<!\\d)(\\d{1,2})\\s{1,5}years?\\s{1,5}(?i)(of\\s{1,5})?experience");
+
+    static String extractEmail(String text) {
+        Matcher matcher = EMAIL.matcher(text);
         if (matcher.find()) {
             return matcher.group();
         }
@@ -223,9 +233,8 @@ public class ResumeParserService {
         return certifications;
     }
 
-    private Double extractTotalExperience(String text) {
-        Pattern pattern = Pattern.compile("(\\d+)\\s+years?\\s+(?i)(of\\s+)?experience");
-        Matcher matcher = pattern.matcher(text);
+    static Double extractTotalExperience(String text) {
+        Matcher matcher = EXPERIENCE_YEARS.matcher(text);
 
         List<Integer> years = new ArrayList<>();
         while (matcher.find()) {
