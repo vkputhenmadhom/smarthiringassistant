@@ -39,7 +39,9 @@ class ResumeParserServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        resumeParserService = new ResumeParserService(resumeRepository, documentProcessor, outboxPublisher);
+        // AI parsing off: these tests cover the rule-based path
+        resumeParserService = new ResumeParserService(resumeRepository, documentProcessor, outboxPublisher,
+                new AiResumeAnalyzer(false, "http://unused", 12000, 5, new com.fasterxml.jackson.databind.ObjectMapper()));
 
         AtomicLong ids = new AtomicLong(100L);
         when(resumeRepository.save(any(Resume.class))).thenAnswer(invocation -> {

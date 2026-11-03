@@ -39,6 +39,7 @@ export const screeningReducer = createReducer(
     ScreeningActions.advanceScreeningFailure,
     (state, { error }) => ({ ...state, loading: false, error })
   ),
+  on(ScreeningActions.dismissScreeningError, state => ({ ...state, error: null })),
   on(ScreeningActions.selectScreening, (state, { id }) => ({ ...state, selectedId: id }))
 );
 

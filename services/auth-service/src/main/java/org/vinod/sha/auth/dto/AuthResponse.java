@@ -16,6 +16,8 @@ public class AuthResponse {
     private String tokenType = "Bearer";
     private Long expiresIn;
     private UserResponse user;
+    /** PENDING or REJECTED responses carry no tokens. */
+    private String approvalStatus;
 
 }
 

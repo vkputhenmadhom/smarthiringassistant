@@ -72,6 +72,9 @@ events:
     enabled: true
 
 app:
+  security:
+    # Google-verified emails that become approved ADMINs on OAuth2 sign-in (bootstraps the first approver).
+    bootstrap-admin-emails: ${BOOTSTRAP_ADMIN_EMAILS:}
   oauth2:
     success-redirect-uri-candidate: ${OAUTH2_SUCCESS_REDIRECT_URI_CANDIDATE:http://localhost:5173/auth/callback}
     success-redirect-uri-hr-admin: ${OAUTH2_SUCCESS_REDIRECT_URI_HR_ADMIN:http://localhost:4200/auth/callback}

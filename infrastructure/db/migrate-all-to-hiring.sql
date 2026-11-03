@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS hiring.auth_users (
     last_login TIMESTAMP
 );
 
+-- HR accounts need an administrator's approval; existing accounts stay usable.
+ALTER TABLE hiring.auth_users ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) NOT NULL DEFAULT 'APPROVED';
+
 CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
     id BIGSERIAL PRIMARY KEY,
     event_id VARCHAR(255) NOT NULL UNIQUE,
@@ -41,6 +44,45 @@ CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
 );
 
 -- =========================
+-- Notification-service structures
+-- =========================
+-- Same definitions as infrastructure/db/init.sql, which Kubernetes does not run.
+CREATE TABLE IF NOT EXISTS hiring.notification_logs (
+    id BIGSERIAL PRIMARY KEY,
+    event_type VARCHAR(100) NOT NULL,
+    recipient_email VARCHAR(255),
+    recipient_phone VARCHAR(50),
+    channel VARCHAR(20) NOT NULL,
+    subject VARCHAR(500),
+    status VARCHAR(20) NOT NULL,
+    error_message TEXT,
+    reference_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_reference_id ON hiring.notification_logs(reference_id);
+
+-- Messages shown in a user's notification bell (notification-service).
+CREATE TABLE IF NOT EXISTS hiring.in_app_notifications (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    reference_id VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_in_app_notifications_user ON hiring.in_app_notifications(user_id, created_at DESC);
+
+-- Idempotency keys; notification-service prefixes its keys with 'NS:'.
+CREATE TABLE IF NOT EXISTS hiring.processed_events (
+    id BIGSERIAL PRIMARY KEY,
+    event_key VARCHAR(255) NOT NULL UNIQUE,
+    event_type VARCHAR(255) NOT NULL,
+    processed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================
 -- Resume-parser structures
 -- =========================
 CREATE TABLE IF NOT EXISTS hiring.resume_parser_parsed_data (
@@ -52,6 +94,7 @@ CREATE TABLE IF NOT EXISTS hiring.resume_parser_parsed_data (
     summary TEXT,
     total_experience_years DOUBLE PRECISION
 );
+ALTER TABLE hiring.resume_parser_parsed_data ADD COLUMN IF NOT EXISTS preferred_locations TEXT;
 
 CREATE TABLE IF NOT EXISTS hiring.resume_parser_experience (
     id BIGSERIAL PRIMARY KEY,
@@ -301,9 +344,9 @@ SELECT setval('hiring.resume_parser_event_outbox_id_seq', GREATEST(COALESCE((SEL
 -- =========================
 -- Permissions
 -- =========================
-GRANT USAGE ON SCHEMA hiring TO hiring_user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA hiring TO hiring_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA hiring TO hiring_user;
+GRANT USAGE ON SCHEMA hiring TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA hiring TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA hiring TO CURRENT_USER;
 
 COMMIT;
 

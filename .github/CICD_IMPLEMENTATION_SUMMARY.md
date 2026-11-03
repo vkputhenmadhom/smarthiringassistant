@@ -24,7 +24,7 @@
 
 - `GITHUB_ACTIONS_CI_CD.md` - Complete reference guide
 - `PHASE2_SEGREGATION_COMPLETE.md` - Architecture details
-- `HANDS_ON_EXERCISE_SUMMARY.md` - What you learned
+- `docs/archive/HANDS_ON_EXERCISE_SUMMARY.md` - What you learned
 - `serverless/phase2/README.md` - Deployment guide
 
 ---
@@ -325,7 +325,7 @@ SmartHiringAssistant/
 │
 ├── GITHUB_ACTIONS_CI_CD.md                    ← Full documentation
 ├── PHASE2_SEGREGATION_COMPLETE.md
-├── HANDS_ON_EXERCISE_SUMMARY.md
+├── docs/archive/HANDS_ON_EXERCISE_SUMMARY.md
 │
 ├── serverless/
 │   ├── phase1/

@@ -1,6 +1,14 @@
 spring:
   application:
     name: job-analyzer-service
+  # Job feeds: the packaged job-feeds.yml, replaced by /config/job-feeds.yml when mounted (docker-compose does).
+  config:
+    import:
+      - "classpath:job-feeds.yml"
+      - "optional:file:${JOB_FEEDS_FILE:/config/job-feeds.yml}"
+      # Skills looked for in job titles and descriptions, the same way
+      - "classpath:job-skills.yml"
+      - "optional:file:${JOB_SKILLS_FILE:/config/job-skills.yml}"
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -36,17 +44,27 @@ job:
 #   Adzuna               – broad job board aggregator
 #     → https://developer.adzuna.com  (free: 250 req/day)
 # ─────────────────────────────────────────────────────────────────────────────
+# Which jobs candidates see and are matched against: blank = every job, IN = India (India imports plus
+# jobs posted in the app). Jobs outside the market are kept and stay visible to HR.
+job-market:
+  region: ${JOB_MARKET:}
+
 job-sync:
   enabled: ${JOB_SYNC_ENABLED:false}
-  cron: "0 0 */6 * * *"          # every 6 hours
+  # The primary import below is the US/global one; the India and remote feeds are in job-feeds.yml.
+  global-enabled: ${JOB_SYNC_GLOBAL_ENABLED:true}
+  # Once a day at 06:00 IST (00:30 UTC), which keeps JSearch within its 200-a-month free plan.
+  cron: "${JOB_SYNC_CRON:0 30 0 * * *}"
   max-per-sync: 50
+  # Two-letter ISO code for the primary import. It used to say "india", which JSearch ignores (it returned
+  # US jobs) and which is not a valid Adzuna country; India is imported by the feeds in job-feeds.yml.
   country: us
   keywords:
-    - "software engineer"
-    - "platform engineer"
-    - "backend engineer"
+    - "technical lead"
+    - "staff software engineer"
+    - "senior backend engineer"
     - "full-stack developer"
-    - "devops engineer"
+    - "principal software engineer"
   jsearch:
     api-key:    ${JSEARCH_API_KEY:}
     base-url:   https://jsearch.p.rapidapi.com
@@ -57,26 +75,8 @@ job-sync:
     app-key:           ${ADZUNA_APP_KEY:}
     base-url:          https://api.adzuna.com/v1/api
     results-per-page:  20
-  # ── India government + PSU jobs ─────────────────────────────────────────────
-  # Sources: Adzuna /in/ (Naukri, LinkedIn IN, Indeed.co.in, TimesJobs)
-  #        + JSearch country=in (LinkedIn India, Indeed.co.in)
-  # NOTE: NCS (ncs.gov.in) has no public API. Adzuna/JSearch DO carry listings
-  #       from DRDO, ISRO, NTPC, BHEL, Indian Railways, IBPS, SBI etc.
-  # Set JOB_SYNC_INDIA_ENABLED=true to activate (reuses same API keys above).
-  # ─────────────────────────────────────────────────────────────────────────────
-  india:
-    enabled:      ${JOB_SYNC_INDIA_ENABLED:false}
-    max-per-sync: 30
-    keywords:
-      - "government engineer India"
-      - "PSU jobs India"
-      - "DRDO scientist"
-      - "ISRO engineer"
-      - "NTPC engineer"
-      - "BHEL engineer"
-      - "Indian Railways engineer"
-      - "IBPS bank jobs"
-      - "central government jobs"
+  # The feeds themselves (keywords, tabs, filters) are in job-feeds.yml.
+  feeds-enabled: ${JOB_SYNC_INDIA_ENABLED:false}
 
 logging:
   level:

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import org.vinod.sha.auth.dto.AuthResponse;
 import org.vinod.sha.auth.dto.LoginRequest;
 import org.vinod.sha.auth.dto.RegisterRequest;
+import org.vinod.sha.auth.exception.AccountNotApprovedException;
 import org.vinod.sha.auth.service.AuthService;
 
 import java.util.LinkedHashMap;
@@ -33,7 +34,9 @@ public class AuthController {
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         log.info("Register request for username: {}", request.getUsername());
         AuthResponse response = authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        // 202: the account exists but needs an administrator's approval before it can log in
+        HttpStatus status = response.getAccessToken() == null ? HttpStatus.ACCEPTED : HttpStatus.CREATED;
+        return ResponseEntity.status(status).body(response);
     }
 
     @PostMapping("login")
@@ -83,6 +86,11 @@ public class AuthController {
             log.info("Session cleared on request from {}", request.getRemoteAddr());
         }
         return ResponseEntity.noContent().build();
+    }
+
+    @ExceptionHandler(AccountNotApprovedException.class)
+    public ResponseEntity<String> handleAccountNotApproved(AccountNotApprovedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

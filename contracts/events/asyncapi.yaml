@@ -43,6 +43,9 @@ channels:
               items: { type: string }
             experience_years: { type: number }
             location: { type: string }
+            preferred_locations:
+              type: array
+              items: { type: string }
             status: { type: string }
             parsed_at: { type: integer }
             error_message: { type: string }

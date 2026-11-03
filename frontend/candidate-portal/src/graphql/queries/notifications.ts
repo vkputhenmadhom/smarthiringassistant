@@ -28,3 +28,9 @@ export const NEW_NOTIFICATION_SUBSCRIPTION = gql`
   }
 `;
 
+
+export const MARK_ALL_NOTIFICATIONS_READ_MUTATION = gql`
+  mutation MarkAllNotificationsRead {
+    markAllNotificationsRead
+  }
+`;

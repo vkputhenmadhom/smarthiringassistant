@@ -4,6 +4,7 @@ rootProject.name = 'SmartHiringAssistant'
 include 'shared:shared-commons'
 include 'shared:grpc-definitions'
 include 'shared:shared-events'
+include 'shared:analytics-events'
 
 // Microservices (conditionally included to support sparse Docker build contexts)
 def serviceModules = [
@@ -16,6 +17,11 @@ def serviceModules = [
 		'services:screening-bot-service',
 		'services:ai-integration-service',
 		'services:notification-service',
+		'services:analytics-bridge-service',
+		'services:analytics-query-service',
+		'streaming:flink-funnel-job',
+		'batch:spark-hiring-analytics',
+		'pipelines:beam-shared-transforms',
 		'serverless:phase1:functions:resume-parser-lambda',
 		'serverless:phase2:functions:ai-integration-lambda',
 		'serverless:phase2:functions:job-analyzer-lambda'

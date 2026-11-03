@@ -33,6 +33,8 @@ public class JobAnalysis {
 
     private Integer minExperienceYears;
     private Integer maxExperienceYears;
+    /** Level the title names (job-levels in job-skills.yml): Entry, Mid, Senior, Lead; null when none */
+    private String seniority;
 
     private Integer salaryMin;
     private Integer salaryMax;

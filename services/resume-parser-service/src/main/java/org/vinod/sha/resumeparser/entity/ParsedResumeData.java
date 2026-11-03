@@ -38,6 +38,11 @@ public class ParsedResumeData {
     @Convert(converter = EncryptedStringConverter.class)
     private String summary;
 
+    /** Places the candidate is open to working from ("Kochi; Bengaluru; Remote"), separated by "; " */
+    @Column(name = "preferred_locations", columnDefinition = "TEXT")
+    @Convert(converter = EncryptedStringConverter.class)
+    private String preferredLocations;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "resume_parser_skills", schema = "hiring", joinColumns = @JoinColumn(name = "parsed_data_id"))
     @Column(name = "skill")

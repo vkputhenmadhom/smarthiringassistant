@@ -1,14 +1,17 @@
 # Smart Hiring Assistant - Phase 2 Quick Start Guide
 
+> **Note:** this guide was written for Phase 2 (resume parser + candidate matcher) and runs services on the host
+> with `bootRun`. For the current setup (credentials from `.env`, Compose profiles, internal-only service
+> ports) see the [README](README.md) and the [Startup Guide](STARTUP_GUIDE.md).
+
 ## 🚀 Quick Start (5 minutes)
 
 ### Step 1: Start Infrastructure
 ```bash
 # Navigate to project directory
-cd /Users/vinodputhenmadhom/Downloads/JavaProjects/SmartHiringAssistant
 
 # Start all services with Docker Compose
-docker-compose up -d
+docker compose up -d   # core infrastructure; see the Startup Guide for profiles
 
 # Verify services are running
 docker-compose ps
@@ -144,8 +147,8 @@ Response:
 
 ### RabbitMQ Management
 - **URL**: http://localhost:15672
-- **Username**: hiring_user
-- **Password**: hiring_password
+- **Username**: `POSTGRES_USER` / `RABBITMQ_USERNAME` from `.env`
+- **Password**: the matching password from `.env`
 - **Check**: User Registration & Authentication Events, Resume Parsing Events, Candidate Matching Events
 
 ### Prometheus Metrics
@@ -155,7 +158,7 @@ Response:
 ### Grafana Dashboards
 - **URL**: http://localhost:3000
 - **Username**: admin
-- **Password**: hiring_password
+- **Password**: the matching password from `.env`
 - **Dashboards**: Service metrics, request latency, error rates
 
 ### Kibana Logs
@@ -199,8 +202,7 @@ SmartHiringAssistant/
 ### Environment Variables (Optional)
 ```bash
 export OPENAI_API_KEY="sk-your-api-key"
-export POSTGRES_USER="hiring_user"
-export POSTGRES_PASSWORD="hiring_password"
+set -a; source .env; set +a   # POSTGRES_USER, POSTGRES_PASSWORD, ...
 export JWT_SECRET="your-secret-key-change-in-production"
 ```
 
@@ -210,8 +212,8 @@ Database1: PostgreSQL
 Host: localhost
 Port: 5432
 Database2: smart_hiring_db
-Username: hiring_user
-Password: hiring_password
+Username: (from .env)
+Password: (from .env)
 ```
 
 ### Redis Cache
@@ -225,8 +227,8 @@ DB: 0
 ```yaml
 Host: localhost
 Port: 5672
-Username: hiring_user
-Password: hiring_password
+Username: (from .env)
+Password: (from .env)
 Virtual Host: /
 ```
 
@@ -254,7 +256,7 @@ kill -9 <PID>
 docker-compose ps postgres
 
 # Test connection
-psql -h localhost -U hiring_user -d smart_hiring_db
+psql -h localhost -U "$POSTGRES_USER" -d smart_hiring_db
 ```
 
 ### RabbitMQ issues
@@ -263,7 +265,7 @@ psql -h localhost -U hiring_user -d smart_hiring_db
 docker-compose ps rabbitmq
 
 # View management UI
-curl http://localhost:15672/api/overview -u hiring_user:hiring_password
+curl http://localhost:15672/api/overview -u "$RABBITMQ_USERNAME:$RABBITMQ_PASSWORD"
 ```
 
 ### Redis connection issues
@@ -377,7 +379,7 @@ For issues or questions:
 ## ✅ Verification Checklist
 
 - [ ] Docker containers are running (`docker-compose ps`)
-- [ ] PostgreSQL accessible (`psql -h localhost -U hiring_user -d smart_hiring_db`)
+- [ ] PostgreSQL accessible (`psql -h localhost -U "$POSTGRES_USER" -d smart_hiring_db`)
 - [ ] RabbitMQ admin UI accessible (http://localhost:15672)
 - [ ] Redis accessible (`redis-cli ping`)
 - [ ] Auth Service running (http://localhost:8001/actuator/health)

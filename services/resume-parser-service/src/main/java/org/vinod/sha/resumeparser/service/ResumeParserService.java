@@ -7,11 +7,13 @@ import org.vinod.sha.resumeparser.outbox.OutboxPublisher;
 import org.vinod.sha.resumeparser.entity.*;
 import org.vinod.sha.resumeparser.repository.ResumeRepository;
 import org.vinod.shared.events.ResumeParseEvent;
+import org.vinod.shared.text.SkillText;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -21,13 +23,16 @@ public class ResumeParserService {
     private final ResumeRepository resumeRepository;
     private final DocumentProcessor documentProcessor;
     private final OutboxPublisher outboxPublisher;
+    private final AiResumeAnalyzer aiResumeAnalyzer;
 
     public ResumeParserService(ResumeRepository resumeRepository,
                                DocumentProcessor documentProcessor,
-                               OutboxPublisher outboxPublisher) {
+                               OutboxPublisher outboxPublisher,
+                               AiResumeAnalyzer aiResumeAnalyzer) {
         this.resumeRepository = resumeRepository;
         this.documentProcessor = documentProcessor;
         this.outboxPublisher = outboxPublisher;
+        this.aiResumeAnalyzer = aiResumeAnalyzer;
     }
 
     private static final String RESUME_EXCHANGE = "resume.exchange";
@@ -60,6 +65,13 @@ public class ResumeParserService {
 
             // Parse resume content
             ParsedResumeData parsedData = parseResumeContent(extractedText);
+            aiResumeAnalyzer.analyze(userId, extractedText).ifPresentOrElse(
+                    ai -> {
+                        applyAi(parsedData, ai);
+                        log.info("Parsed resume {} with AI: {} skills, {} years, {} preferred locations", resumeId,
+                                parsedData.getSkills().size(), parsedData.getTotalExperienceYears(), ai.preferredLocations() == null ? 0 : ai.preferredLocations().size());
+                    },
+                    () -> log.info("Parsed resume {} with the rule-based parser only", resumeId));
 
             // Save parsed data
             resume.setParsedData(parsedData);
@@ -92,6 +104,21 @@ public class ResumeParserService {
                 .orElseThrow(() -> new RuntimeException("Resume not found: " + resumeId));
     }
 
+    /**
+     * Sends the user's latest parsed resume to matching again, so new or changed jobs are matched without a new
+     * upload (or another AI call). False when the user has no parsed resume.
+     */
+    public boolean rematch(Long userId) {
+        return resumeRepository.findFirstByUserIdOrderByCreatedAtDesc(userId)
+                .filter(resume -> resume.getStatus() == ParseStatus.SUCCESS)
+                .map(resume -> {
+                    publishResumeParseEvent(resume, 0, "SUCCESS");
+                    log.info("Re-sent resume {} of user {} to matching", resume.getResumeId(), userId);
+                    return true;
+                })
+                .orElse(false);
+    }
+
     public List<Resume> getUserResumes(Long userId) {
         return resumeRepository.findByUserId(userId);
     }
@@ -113,21 +140,39 @@ public class ResumeParserService {
         return parsedData;
     }
 
-    private String extractFullName(String text) {
-        // Try to extract name from first few lines
+    /** 2–4 words of letters (initials, hyphens and apostrophes allowed): "Jane A. Doe", "RAVI KUMAR" */
+    private static final Pattern NAME_LINE = Pattern.compile("\\p{L}[\\p{L}.'-]*(\\s+\\p{L}[\\p{L}.'-]*){1,3}");
+    private static final Pattern NOT_A_NAME = Pattern.compile(
+            "(?i)\\b(resume|curriculum|vitae|cv|profile|summary|objective|contact|engineer|developer|manager|architect)\\b");
+
+    /**
+     * The first of the opening lines that looks like a person's name. PDF text extraction does not always put
+     * the name first, so a tagline such as "Relocated from US | Open to Remote" is skipped. Blank if none fits.
+     */
+    static String extractFullName(String text) {
         String[] lines = text.split("\n");
-        for (int i = 0; i < Math.min(5, lines.length); i++) {
-            String line = lines[i].trim();
-            if (!line.isEmpty() && !isEmail(line) && !isPhone(line)) {
+        for (int i = 0; i < Math.min(10, lines.length); i++) {
+            String line = lines[i].trim().replaceAll("\\s+", " ");
+            if (NAME_LINE.matcher(line).matches() && !NOT_A_NAME.matcher(line).find()) {
                 return line;
             }
         }
-        return "Unknown";
+        return "";
     }
 
-    private String extractEmail(String text) {
-        Pattern pattern = Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}");
-        Matcher matcher = pattern.matcher(text);
+    /**
+     * An email address. Resume text is user input: a match may only start where an address can begin (the
+     * lookbehind), and every part is bounded, so a long run like "%%%%..." is scanned once, not once per position.
+     */
+    private static final Pattern EMAIL = Pattern.compile(
+            "(?<![a-zA-Z0-9._%+-])[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9-]{1,63}(?:\\.[a-zA-Z0-9-]{1,63}){0,8}\\.[a-zA-Z]{2,24}");
+
+    /** "12 years of experience"; starts only at the first digit of a number, which is at most two digits */
+    private static final Pattern EXPERIENCE_YEARS = Pattern.compile(
+            "(?<!\\d)(\\d{1,2})\\s{1,5}years?\\s{1,5}(?i)(of\\s{1,5})?experience");
+
+    static String extractEmail(String text) {
+        Matcher matcher = EMAIL.matcher(text);
         if (matcher.find()) {
             return matcher.group();
         }
@@ -171,13 +216,7 @@ public class ResumeParserService {
                 "HTML", "CSS", "Node.js", "C++", "Go", "Rust"
         );
 
-        List<String> foundSkills = new ArrayList<>();
-        for (String skill : commonSkills) {
-            if (text.toLowerCase().contains(skill.toLowerCase())) {
-                foundSkills.add(skill);
-            }
-        }
-        return foundSkills;
+        return new ArrayList<>(SkillText.find(text, commonSkills));
     }
 
     private List<String> extractCertifications(String text) {
@@ -194,9 +233,8 @@ public class ResumeParserService {
         return certifications;
     }
 
-    private Double extractTotalExperience(String text) {
-        Pattern pattern = Pattern.compile("(\\d+)\\s+years?\\s+(?i)(of\\s+)?experience");
-        Matcher matcher = pattern.matcher(text);
+    static Double extractTotalExperience(String text) {
+        Matcher matcher = EXPERIENCE_YEARS.matcher(text);
 
         List<Integer> years = new ArrayList<>();
         while (matcher.find()) {
@@ -220,17 +258,59 @@ public class ResumeParserService {
         return educations;
     }
 
-    private boolean isEmail(String text) {
-        return text.contains("@");
-    }
-
-    private boolean isPhone(String text) {
-        return text.matches(".*\\d{3}.*\\d{3}.*\\d{4}.*");
-    }
-
     private String getFileFormat(String fileName) {
         int lastDot = fileName.lastIndexOf('.');
         return lastDot > 0 ? fileName.substring(lastDot + 1) : "";
+    }
+
+    /**
+     * The AI's reading wins where it found a value; email and phone fall back to the patterns, and skills are
+     * the AI's plus any the dictionary found that it did not. Location comes from the AI only: the pattern
+     * finds US states anywhere in the text ("Relocated from US").
+     */
+    static void applyAi(ParsedResumeData data, AiResumeAnalyzer.AiResume ai) {
+        if (notBlank(ai.fullName())) data.setFullName(ai.fullName().trim());
+        if (notBlank(ai.email())) data.setEmail(ai.email().trim());
+        if (notBlank(ai.phone())) data.setPhone(ai.phone().trim());
+        data.setLocation(notBlank(ai.currentLocation()) ? ai.currentLocation().trim() : "");
+        if (ai.preferredLocations() != null && !ai.preferredLocations().isEmpty()) {
+            data.setPreferredLocations(String.join("; ", ai.preferredLocations().stream()
+                    .filter(ResumeParserService::notBlank).map(String::trim).distinct().toList()));
+        }
+        if (ai.totalExperienceYears() != null && ai.totalExperienceYears() > 0) {
+            data.setTotalExperienceYears(ai.totalExperienceYears());
+        }
+        if (notBlank(ai.summary())) data.setSummary(ai.summary().trim());
+
+        LinkedHashMap<String, String> skills = new LinkedHashMap<>();
+        Stream.concat(
+                        ai.skills() == null ? Stream.empty() : ai.skills().stream(),
+                        data.getSkills() == null ? Stream.empty() : data.getSkills().stream())
+                .filter(ResumeParserService::notBlank)
+                .forEach(skill -> skills.putIfAbsent(skill.trim().toLowerCase(Locale.ROOT), skill.trim()));
+        data.setSkills(new ArrayList<>(skills.values()));
+
+        if (ai.experience() != null && !ai.experience().isEmpty()) {
+            data.setExperiences(new ArrayList<>(ai.experience().stream()
+                    .map(job -> Experience.builder()
+                            .company(job.company()).jobTitle(job.title())
+                            .startDate(job.startDate()).endDate(job.endDate())
+                            .description(job.description())
+                            .build())
+                    .toList()));
+        }
+        if (ai.education() != null && !ai.education().isEmpty()) {
+            data.setEducations(new ArrayList<>(ai.education().stream()
+                    .map(school -> Education.builder()
+                            .institution(school.institution()).degree(school.degree()).fieldOfStudy(school.field())
+                            .graduationDate(school.graduationYear() == null ? null : String.valueOf(school.graduationYear()))
+                            .build())
+                    .toList()));
+        }
+    }
+
+    private static boolean notBlank(String value) {
+        return value != null && !value.isBlank();
     }
 
     private void publishResumeParseEvent(Resume resume, long processingTime, String status) {
@@ -245,6 +325,8 @@ public class ResumeParserService {
                 .skills(skills)
                 .experienceYears(data != null ? data.getTotalExperienceYears() : 0.0)
                 .location(data != null ? data.getLocation() : "")
+                .preferredLocations(data == null || data.getPreferredLocations() == null || data.getPreferredLocations().isBlank()
+                        ? List.of() : List.of(data.getPreferredLocations().split(";\\s*")))
                 .parsedAt(System.currentTimeMillis())
                 .status(status)
                 .errorMessage(resume.getErrorMessage())

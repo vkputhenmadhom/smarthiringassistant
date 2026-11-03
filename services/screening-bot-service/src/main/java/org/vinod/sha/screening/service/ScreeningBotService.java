@@ -5,7 +5,9 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.vinod.shared.config.RabbitMQConfiguration;
 import org.vinod.shared.events.ScreeningCompensationRequestedEvent;
 import org.vinod.shared.events.ScreeningCompletedEvent;
@@ -139,7 +141,7 @@ public class ScreeningBotService {
 
     public ScreeningSession getSession(String sessionId) {
         return repository.findById(sessionId)
-                .orElseThrow(() -> new RuntimeException("Screening session not found: " + sessionId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Screening session not found: " + sessionId));
     }
 
     public DecisionResponse getDecision(String sessionId) {

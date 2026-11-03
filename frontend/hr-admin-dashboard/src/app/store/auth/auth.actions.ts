@@ -8,6 +8,8 @@ export const loginFailure = createAction('[Auth] Login Failure', props<{ error: 
 export const register        = createAction('[Auth] Register',         props<{ username: string; email: string; password: string; role: string }>());
 export const registerSuccess = createAction('[Auth] Register Success', props<{ payload: AuthPayload }>());
 export const registerFailure = createAction('[Auth] Register Failure', props<{ error: string }>());
+/** HR accounts are created pending an administrator's approval; no session is started. */
+export const registerPending = createAction('[Auth] Register Pending', props<{ message: string }>());
 
 export const logout         = createAction('[Auth] Logout');
 export const refreshToken   = createAction('[Auth] Refresh Token',   props<{ refreshToken: string }>());

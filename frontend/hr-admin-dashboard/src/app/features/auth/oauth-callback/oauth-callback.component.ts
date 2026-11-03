@@ -33,6 +33,11 @@ import { loginSuccess } from '../../../store/auth/auth.actions';
   `],
 })
 export class OauthCallbackComponent {
+  private static readonly ERROR_MESSAGES: Record<string, string> = {
+    account_pending: 'Your HR account has been created and is awaiting administrator approval. Try again once it has been approved.',
+    account_rejected: 'Your HR account request was rejected by an administrator.',
+  };
+
   private route = inject(ActivatedRoute);
   private store = inject(Store);
   private router = inject(Router);
@@ -43,7 +48,7 @@ export class OauthCallbackComponent {
     const params = this.route.snapshot.queryParamMap;
     const callbackError = params.get('error');
     if (callbackError) {
-      this.error = 'OAuth sign-in failed. Please try again.';
+      this.error = OauthCallbackComponent.ERROR_MESSAGES[callbackError] ?? 'OAuth sign-in failed. Please try again.';
       return;
     }
 

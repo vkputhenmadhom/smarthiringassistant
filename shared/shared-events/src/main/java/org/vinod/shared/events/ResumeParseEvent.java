@@ -35,6 +35,10 @@ public class ResumeParseEvent implements Serializable {
     @JsonProperty("location")
     private String location;
 
+    /** Places the candidate is open to working from (cities or "Remote"); may be empty */
+    @JsonProperty("preferred_locations")
+    private List<String> preferredLocations;
+
     @JsonProperty("parsed_at")
     private long parsedAt;
 

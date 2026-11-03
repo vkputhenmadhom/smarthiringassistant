@@ -1,6 +1,7 @@
 package org.vinod.sha.auth.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -9,15 +10,20 @@ import org.vinod.sha.auth.dto.AuthResponse;
 import org.vinod.sha.auth.dto.LoginRequest;
 import org.vinod.sha.auth.dto.RegisterRequest;
 import org.vinod.sha.auth.dto.UserResponse;
+import org.vinod.sha.auth.entity.ApprovalStatus;
 import org.vinod.sha.auth.entity.User;
 import org.vinod.sha.auth.entity.UserRole;
+import org.vinod.sha.auth.exception.AccountNotApprovedException;
 import org.vinod.sha.auth.repository.UserRepository;
 import org.vinod.sha.auth.security.JwtTokenProvider;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -28,15 +34,21 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final UserEventPublisher eventPublisher;
+    private final Set<String> bootstrapAdminEmails;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenProvider tokenProvider,
-                       UserEventPublisher eventPublisher) {
+                       UserEventPublisher eventPublisher,
+                       @Value("${app.security.bootstrap-admin-emails:}") String bootstrapAdminEmails) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
         this.eventPublisher = eventPublisher;
+        this.bootstrapAdminEmails = Arrays.stream(bootstrapAdminEmails.split(","))
+                .map(email -> email.trim().toLowerCase(Locale.ROOT))
+                .filter(email -> !email.isEmpty())
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -54,14 +66,18 @@ public class AuthService {
             throw new IllegalArgumentException("Email already exists");
         }
 
-        // Create new user
+        // Create new user; HR roles wait for an administrator before they can log in
+        UserRole role = request.getRole() == null || request.getRole().isBlank()
+                ? UserRole.JOB_SEEKER
+                : UserRole.valueOf(request.getRole());
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                .role(UserRole.valueOf(request.getRole() != null ? request.getRole() : "JOB_SEEKER"))
+                .role(role)
+                .approvalStatus(role.requiresApproval() ? ApprovalStatus.PENDING : ApprovalStatus.APPROVED)
                 .enabled(true)
                 .accountNonExpired(true)
                 .accountNonLocked(true)
@@ -73,6 +89,11 @@ public class AuthService {
 
         // Publish user registered event
         eventPublisher.publishUserRegisteredEvent(savedUser);
+
+        if (!savedUser.isApproved()) {
+            log.info("Account {} ({}) is awaiting administrator approval", savedUser.getUsername(), role);
+            return buildUnapprovedResponse(savedUser);
+        }
 
         // Generate tokens
         String accessToken = tokenProvider.generateToken(savedUser);
@@ -92,6 +113,7 @@ public class AuthService {
         if (!Boolean.TRUE.equals(user.getEnabled())) {
             throw new IllegalArgumentException("User account is disabled");
         }
+        requireApproved(user);
 
         // Update last login
         user.setLastLogin(LocalDateTime.now());
@@ -117,14 +139,19 @@ public class AuthService {
 
         boolean isNewUser = !userRepository.existsByEmail(email);
         User user = userRepository.findByEmail(email)
-                .map(existing -> updateUserFromOAuth2(existing, oauth2User, portalOrigin))
+                .map(existing -> updateUserFromOAuth2(existing, oauth2User))
                 .orElseGet(() -> createUserFromOAuth2(oauth2User, registrationId, email, portalOrigin));
+        applyBootstrapAdmin(user, oauth2User);
 
         user.setLastLogin(LocalDateTime.now());
         User savedUser = userRepository.save(user);
 
         if (isNewUser) {
             eventPublisher.publishUserRegisteredEvent(savedUser);
+        }
+        if (!savedUser.isApproved()) {
+            log.info("OAuth2 account {} is {}; no tokens issued", savedUser.getUsername(), savedUser.getApprovalStatus());
+            return buildUnapprovedResponse(savedUser);
         }
         eventPublisher.publishUserAuthenticatedEvent(savedUser);
 
@@ -141,6 +168,7 @@ public class AuthService {
         String username = tokenProvider.getUsernameFromToken(refreshToken);
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
+        requireApproved(user);
 
         String newAccessToken = tokenProvider.generateToken(user);
 
@@ -169,15 +197,35 @@ public class AuthService {
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .expiresIn(3600L)
-                .user(UserResponse.builder()
-                        .id(user.getId())
-                        .username(user.getUsername())
-                        .email(user.getEmail())
-                        .firstName(user.getFirstName())
-                        .lastName(user.getLastName())
-                        .role(user.getRole().name())
-                        .build())
+                .user(UserResponse.from(user))
+                .approvalStatus(user.getApprovalStatus().name())
                 .build();
+    }
+
+    private AuthResponse buildUnapprovedResponse(User user) {
+        return AuthResponse.builder()
+                .tokenType(null)
+                .user(UserResponse.from(user))
+                .approvalStatus(user.getApprovalStatus().name())
+                .build();
+    }
+
+    private void requireApproved(User user) {
+        if (!user.isApproved()) {
+            throw new AccountNotApprovedException(user.getApprovalStatus());
+        }
+    }
+
+    /**
+     * Makes the configured bootstrap administrators ADMIN and approved. Only trusted for
+     * emails the OAuth2 provider has verified, so nobody can claim one by registering it.
+     */
+    private void applyBootstrapAdmin(User user, OAuth2User oauth2User) {
+        boolean emailVerified = Boolean.TRUE.equals(oauth2User.getAttributes().get("email_verified"));
+        if (emailVerified && bootstrapAdminEmails.contains(user.getEmail().toLowerCase(Locale.ROOT))) {
+            user.setRole(UserRole.ADMIN);
+            user.setApprovalStatus(ApprovalStatus.APPROVED);
+        }
     }
 
     private User createUserFromOAuth2(OAuth2User oauth2User, String registrationId, String email, String portalOrigin) {
@@ -185,7 +233,8 @@ public class AuthService {
         String lastName = extractLastName(oauth2User);
         String username = generateUniqueUsername(email, registrationId);
 
-        UserRole assignedRole = isHrPortal(portalOrigin) ? UserRole.ADMIN : UserRole.JOB_SEEKER;
+        // HR portal sign-ups start as a pending recruiter; an administrator picks the final role.
+        UserRole assignedRole = isHrPortal(portalOrigin) ? UserRole.RECRUITER : UserRole.JOB_SEEKER;
 
         return User.builder()
                 .username(username)
@@ -194,6 +243,7 @@ public class AuthService {
                 .firstName(firstName)
                 .lastName(lastName)
                 .role(assignedRole)
+                .approvalStatus(assignedRole.requiresApproval() ? ApprovalStatus.PENDING : ApprovalStatus.APPROVED)
                 .enabled(true)
                 .accountNonExpired(true)
                 .accountNonLocked(true)
@@ -201,7 +251,7 @@ public class AuthService {
                 .build();
     }
 
-    private User updateUserFromOAuth2(User existing, OAuth2User oauth2User, String portalOrigin) {
+    private User updateUserFromOAuth2(User existing, OAuth2User oauth2User) {
         String firstName = extractFirstName(oauth2User);
         String lastName = extractLastName(oauth2User);
 
@@ -210,12 +260,6 @@ public class AuthService {
         }
         if (lastName != null && !lastName.isBlank()) {
             existing.setLastName(lastName);
-        }
-
-        // Upgrade a previously-created JOB_SEEKER to ADMIN when they log in from
-        // the HR admin portal (handles accounts created before portal-aware registration).
-        if (isHrPortal(portalOrigin) && existing.getRole() == UserRole.JOB_SEEKER) {
-            existing.setRole(UserRole.ADMIN);
         }
 
         return existing;

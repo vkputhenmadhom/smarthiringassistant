@@ -12,6 +12,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: hiring
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -53,6 +54,16 @@ notification:
     account-sid: ${TWILIO_ACCOUNT_SID:}
     auth-token: ${TWILIO_AUTH_TOKEN:}
     from-number: ${TWILIO_FROM_NUMBER:}
+  # In-app messages (the notification bell) when HR changes a candidate's match status. Only the statuses
+  # listed are sent; {job} becomes "Principal Engineer at Acme". Rejections are deliberately not sent.
+  in-app:
+    match-status:
+      SHORTLISTED:
+        title: "You've been shortlisted for {job}"
+        message: "The hiring team liked your profile for {job} and has shortlisted you. They may contact you about next steps."
+      HIRED:
+        title: "Congratulations! You've been selected for {job}"
+        message: "The hiring team has selected you for {job}. Watch for an email from them about the offer."
 
 logging:
   level:

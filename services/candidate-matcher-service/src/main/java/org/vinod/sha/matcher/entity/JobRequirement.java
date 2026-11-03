@@ -35,6 +35,10 @@ public class JobRequirement {
     @Column(nullable = false)
     private Integer requiredYearsExperience;
 
+    /** Most years the job is meant for; null when it has no upper bound or is unknown */
+    @Column
+    private Integer maxYearsExperience;
+
     @Column
     private String location;
 
@@ -54,7 +58,9 @@ public class JobRequirement {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        status = JobStatus.ACTIVE;
+        if (status == null) {
+            status = JobStatus.ACTIVE;
+        }
     }
 
     @PreUpdate

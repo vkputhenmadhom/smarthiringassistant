@@ -3,6 +3,7 @@ package org.vinod.sha.auth.outbox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.vinod.shared.messaging.JsonMessages;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +30,7 @@ public class OutboxRelay {
         List<OutboxEvent> pending = repository.findTop100ByStatusInOrderByCreatedAtAsc(List.of(OutboxStatus.PENDING, OutboxStatus.FAILED));
         for (OutboxEvent event : pending) {
             try {
-                rabbitTemplate.convertAndSend(event.getExchangeName(), event.getRoutingKey(), event.getPayloadJson());
+                rabbitTemplate.send(event.getExchangeName(), event.getRoutingKey(), JsonMessages.of(event.getPayloadJson()));
                 event.setStatus(OutboxStatus.SENT);
                 event.setSentAt(LocalDateTime.now());
                 event.setUpdatedAt(LocalDateTime.now());

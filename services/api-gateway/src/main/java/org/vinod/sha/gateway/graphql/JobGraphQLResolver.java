@@ -2,6 +2,7 @@ package org.vinod.sha.gateway.graphql;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.graphql.data.method.annotation.Argument;
+import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.security.access.annotation.Secured;
@@ -9,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.vinod.sha.gateway.resilience.GatewayResilience;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.LinkedHashMap;
@@ -29,6 +31,8 @@ public class JobGraphQLResolver {
 
     private static final String JOB_SERVICE_BASE = "http://job-analyzer-service:8005/api/jobs";
     private static final String JOB_BACKEND = "job-analyzer-service";
+    private static final String MATCHER_BASE = "http://candidate-matcher-service:8003/api/matches";
+    private static final String MATCHER_BACKEND = "candidate-matcher-service";
 
     private final WebClient.Builder webClientBuilder;
     private final GatewayResilience gatewayResilience;
@@ -41,6 +45,7 @@ public class JobGraphQLResolver {
 
     // ── Queries ──────────────────────────────────────────────────────────────
 
+    /** HR sees every job; candidates and visitors only jobs in job-analyzer's configured job market. */
     @QueryMapping
     public Mono<Map<String, Object>> jobs(
             @Argument Integer page,
@@ -52,14 +57,23 @@ public class JobGraphQLResolver {
         int p = page == null ? 0 : page;
         int s = size == null ? 20 : size;
 
-        String uri = buildJobsUri(p, s, status, search, source);
-        return requestMap(uri)
+        return Caller.current()
+                .flatMap(caller -> requestMap(buildJobsUri(p, s, status, search, source, !caller.hr())))
                 .map(this::normalizeJobPage)
                 .defaultIfEmpty(emptyPage())
-                .onErrorResume(e -> {
-                    log.warn("job-analyzer-service unreachable: {}", e.getMessage());
-                    return Mono.just(emptyPage());
-                });
+                // An empty page would tell the user there are no jobs; say the job service is unavailable instead.
+                .onErrorMap(e -> BackendErrors.read("job service", "the jobs", e));
+    }
+
+    @QueryMapping
+    public Mono<List<Map<String, Object>>> jobFeeds() {
+        return gatewayResilience.protect(JOB_BACKEND,
+                        webClientBuilder.build()
+                                .get().uri(JOB_SERVICE_BASE + "/jobs/feeds")
+                                .retrieve().bodyToFlux(Map.class)
+                                .map(this::toStringObjectMap)
+                                .collectList())
+                .onErrorMap(e -> BackendErrors.read("job service", "the job categories", e));
     }
 
     @QueryMapping
@@ -67,9 +81,57 @@ public class JobGraphQLResolver {
         log.debug("GraphQL job query: id={}", id);
         return requestMap(JOB_SERVICE_BASE + "/jobs/" + id)
                 .map(this::normalizeJob)
+                .onErrorMap(e -> BackendErrors.read("job service", "job " + id, e));
+    }
+
+    /**
+     * Fills {@code CandidateMatch.job}, one job-service read per distinct job. A job that cannot be read (closed
+     * and removed since the match) is left null: the match is still shown without it.
+     */
+    @BatchMapping(typeName = "CandidateMatch", field = "job")
+    public Mono<Map<Map<String, Object>, Map<String, Object>>> matchJob(List<Map<String, Object>> matches) {
+        return Flux.fromIterable(matches.stream().map(m -> String.valueOf(m.get("jobId"))).distinct().toList())
+                .flatMap(id -> requestMap(JOB_SERVICE_BASE + "/jobs/" + id)
+                        .map(raw -> Map.entry(id, normalizeJob(raw)))
+                        .onErrorResume(e -> {
+                            log.debug("Job {} for a match could not be read: {}", id, e.toString());
+                            return Mono.empty();
+                        }))
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                .map(jobs -> {
+                    Map<Map<String, Object>, Map<String, Object>> result = new LinkedHashMap<>();
+                    for (Map<String, Object> match : matches) {
+                        Map<String, Object> job = jobs.get(String.valueOf(match.get("jobId")));
+                        if (job != null) {
+                            result.put(match, job);
+                        }
+                    }
+                    return result;
+                });
+    }
+
+    /**
+     * Fills {@code Job.matchCount} for a page of jobs with one matcher call: candidates matched and not rejected.
+     * If the matcher is down the counts are left empty rather than failing the job list.
+     */
+    @BatchMapping(typeName = "Job", field = "matchCount")
+    public Mono<Map<Map<String, Object>, Integer>> matchCount(List<Map<String, Object>> jobs) {
+        List<String> ids = jobs.stream().map(j -> String.valueOf(j.get("id"))).distinct().toList();
+        return gatewayResilience.protect(MATCHER_BACKEND,
+                        webClientBuilder.build().get()
+                                .uri(MATCHER_BASE + "/job-match-counts?ids=" + String.join(",", ids))
+                                .retrieve().bodyToMono(Map.class))
+                .map(counts -> {
+                    Map<Map<String, Object>, Integer> result = new LinkedHashMap<>();
+                    for (Map<String, Object> job : jobs) {
+                        Object count = counts.get(String.valueOf(job.get("id")));
+                        result.put(job, count instanceof Number n ? n.intValue() : 0);
+                    }
+                    return result;
+                })
                 .onErrorResume(e -> {
-                    log.warn("job-analyzer-service unreachable: {}", e.getMessage());
-                    return Mono.just(emptyJob(id));
+                    log.warn("Match counts unavailable for {} jobs: {}", ids.size(), e.toString());
+                    return Mono.just(Map.of());
                 });
     }
 
@@ -79,72 +141,71 @@ public class JobGraphQLResolver {
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> createJob(@Argument Map<String, Object> input) {
         log.info("GraphQL createJob mutation");
-        return gatewayResilience.protect(JOB_BACKEND,
+        return gatewayResilience.protectWrite(JOB_BACKEND,
                         webClientBuilder.build()
                                 .post().uri(JOB_SERVICE_BASE + "/jobs")
                                 .bodyValue(input)
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
-                .onErrorResume(e -> {
-                    log.warn("job-analyzer-service unreachable: {}", e.getMessage());
-                    return Mono.just(emptyJob("new"));
-                });
+                .onErrorMap(e -> jobWriteError("create", null, e));
     }
 
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> updateJob(@Argument String id, @Argument Map<String, Object> input) {
         log.info("GraphQL updateJob mutation: id={}", id);
-        return gatewayResilience.protect(JOB_BACKEND,
+        return gatewayResilience.protectWrite(JOB_BACKEND,
                         webClientBuilder.build()
                                 .put().uri(JOB_SERVICE_BASE + "/jobs/" + id)
                                 .bodyValue(input)
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
-                .onErrorResume(e -> Mono.just(emptyJob(id)));
+                .onErrorMap(e -> jobWriteError("update", id, e));
     }
 
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Boolean> deleteJob(@Argument String id) {
-        return gatewayResilience.protect(JOB_BACKEND,
+        return gatewayResilience.protectWrite(JOB_BACKEND,
                         webClientBuilder.build()
                                 .delete().uri(JOB_SERVICE_BASE + "/jobs/" + id)
                                 .retrieve().toBodilessEntity())
                 .map(ignored -> true)
-                .onErrorResume(e -> {
-                    log.warn("deleteJob failed: {}", e.getMessage());
-                    return Mono.just(false);
-                });
+                .onErrorMap(e -> jobWriteError("delete", id, e));
     }
 
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> publishJob(@Argument String id) {
-        return gatewayResilience.protect(JOB_BACKEND,
+        return gatewayResilience.protectWrite(JOB_BACKEND,
                         webClientBuilder.build()
                                 .post().uri(JOB_SERVICE_BASE + "/jobs/" + id + "/publish")
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
-                .onErrorResume(e -> Mono.just(emptyJob(id)));
+                .onErrorMap(e -> jobWriteError("publish", id, e));
     }
 
     @MutationMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN','RECRUITER')")
     public Mono<Map<String, Object>> closeJob(@Argument String id) {
-        return gatewayResilience.protect(JOB_BACKEND,
+        return gatewayResilience.protectWrite(JOB_BACKEND,
                         webClientBuilder.build()
                                 .post().uri(JOB_SERVICE_BASE + "/jobs/" + id + "/close")
                                 .retrieve().bodyToMono(Map.class))
                 .map(this::toStringObjectMap)
                 .map(this::normalizeJob)
-                .onErrorResume(e -> Mono.just(emptyJob(id)));
+                .onErrorMap(e -> jobWriteError("close", id, e));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    static ClientFacingException jobWriteError(String action, String id, Throwable error) {
+        return BackendErrors.write("job service", action, id == null ? "the job" : "job " + id,
+                "Refresh the job list", error);
+    }
 
     private Mono<Map<String, Object>> requestMap(String uri) {
         return gatewayResilience.protect(JOB_BACKEND,
@@ -154,12 +215,13 @@ public class JobGraphQLResolver {
                 .map(this::toStringObjectMap);
     }
 
-    private String buildJobsUri(int page, int size, String status, String search, String source) {
+    private String buildJobsUri(int page, int size, String status, String search, String source, boolean marketOnly) {
         StringBuilder sb = new StringBuilder(JOB_SERVICE_BASE + "/jobs?page=")
                 .append(page).append("&size=").append(size);
         if (status != null) sb.append("&status=").append(status);
         if (search != null && !search.isBlank()) sb.append("&search=").append(search);
         if (source != null && !source.isBlank()) sb.append("&source=").append(source);
+        if (marketOnly) sb.append("&marketOnly=true");
         return sb.toString();
     }
 
@@ -231,6 +293,9 @@ public class JobGraphQLResolver {
         j.put("source", rawJob.get("source"));
         j.put("companyName", firstNonNull(rawJob.get("companyName"), rawJob.get("company"), null));
         j.put("externalUrl", rawJob.get("externalUrl"));
+        j.put("seniority", rawJob.get("seniority"));
+        j.put("minExperienceYears", rawJob.get("minExperienceYears"));
+        j.put("maxExperienceYears", rawJob.get("maxExperienceYears"));
         return j;
     }
 

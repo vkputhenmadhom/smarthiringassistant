@@ -11,7 +11,10 @@ import org.vinod.sha.matcher.entity.CandidateMatch;
 import org.vinod.sha.matcher.entity.MatchStatus;
 import org.vinod.sha.matcher.service.CandidateMatcherService;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -107,6 +110,36 @@ public class CandidateMatcherController {
         }
     }
 
+    /** Every match for HR review, best first; {@code status} (MATCHED, SHORTLISTED, ...) narrows it. */
+    @GetMapping("review")
+    public ResponseEntity<?> matchesForReview(@RequestParam(required = false) String status) {
+        MatchStatus wanted = null;
+        if (status != null && !status.isBlank()) {
+            try {
+                wanted = MatchStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException unknown) {
+                return ResponseEntity.badRequest().body("Unknown match status " + status
+                        + "; use one of " + Arrays.toString(MatchStatus.values()));
+            }
+        }
+        return ResponseEntity.ok(candidateMatcherService.matchesForReview(wanted).stream().map(this::convertToResponse).toList());
+    }
+
+    /** Matches still in play (not rejected) per job, e.g. {@code ?ids=a,b} → {@code {"a": 3}}; jobs without any are left out. */
+    @GetMapping("job-match-counts")
+    public ResponseEntity<Map<String, Long>> jobMatchCounts(@RequestParam String ids) {
+        List<String> jobIds = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).distinct().toList();
+        return ResponseEntity.ok(candidateMatcherService.openMatchCounts(jobIds));
+    }
+
+    /** Best match score (0–100) per candidate, e.g. {@code ?ids=7,8} → {@code {"7": 82.0}}. */
+    @GetMapping("candidates/best-scores")
+    public ResponseEntity<Map<Long, Double>> bestScores(@RequestParam String ids) {
+        List<Long> candidateIds = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> s.matches("\\d+"))
+                .map(Long::valueOf).distinct().toList();
+        return ResponseEntity.ok(candidateMatcherService.bestScores(candidateIds));
+    }
+
     @GetMapping("{matchId}")
     public ResponseEntity<MatchResponse> getMatch(@PathVariable String matchId) {
         log.info("Fetching match: {}", matchId);
@@ -122,24 +155,23 @@ public class CandidateMatcherController {
     }
 
     @PutMapping("{matchId}")
-    public ResponseEntity<MatchResponse> updateMatchStatus(
+    public ResponseEntity<?> updateMatchStatus(
             @PathVariable String matchId,
             @RequestBody MatchUpdateRequest request) {
         log.info("Updating match: {} status to: {}", matchId, request.getStatus());
 
+        MatchStatus status;
         try {
-            CandidateMatch match = candidateMatcherService.updateMatchStatus(
-                    matchId,
-                    MatchStatus.valueOf(request.getStatus()),
-                    request.getComments()
-            );
-
-            return ResponseEntity.ok(convertToResponse(match));
-
-        } catch (Exception e) {
-            log.error("Error updating match status", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            status = MatchStatus.valueOf(String.valueOf(request.getStatus()).trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException unknown) {
+            return ResponseEntity.badRequest().body("Unknown match status " + request.getStatus()
+                    + "; use one of " + Arrays.toString(MatchStatus.values()));
         }
+        if (candidateMatcherService.findMatch(matchId).isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        CandidateMatch match = candidateMatcherService.updateMatchStatus(matchId, status, request.getComments());
+        return ResponseEntity.ok(convertToResponse(match));
     }
 
     private MatchResponse convertToResponse(CandidateMatch match) {
@@ -152,7 +184,10 @@ public class CandidateMatcherController {
                 .experienceMatchPercentage(match.getExperienceMatchPercentage())
                 .locationMatchPercentage(match.getLocationMatchPercentage())
                 .status(match.getStatus().toString())
+                .matchedSkills(match.getMatchedSkills())
+                .missingSkills(match.getMissingSkills())
                 .createdAt(match.getCreatedAt().toString())
+                .reviewerComments(match.getReviewerComments())
                 .build();
     }
 

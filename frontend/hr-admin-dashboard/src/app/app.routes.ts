@@ -35,6 +35,12 @@ export const appRoutes: Routes = [
         data: { roles: ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN'] },
       },
       {
+        path: 'review',
+        loadComponent: () => import('./features/review/review.component').then(m => m.ReviewComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN'] },
+      },
+      {
         path: 'screening',
         loadChildren: () => import('./features/screening/screening.routes').then(m => m.screeningRoutes),
         canActivate: [roleGuard],
@@ -45,6 +51,13 @@ export const appRoutes: Routes = [
         loadChildren: () => import('./features/notifications/notifications.routes').then(m => m.notificationsRoutes),
         canActivate: [roleGuard],
         data: { roles: ['HR_ADMIN', 'RECRUITER', 'SUPER_ADMIN'] },
+      },
+      {
+        // Approving HR accounts is ADMIN-only (also enforced by the gateway and auth-service)
+        path: 'approvals',
+        loadComponent: () => import('./features/approvals/approvals.component').then(m => m.ApprovalsComponent),
+        canActivate: [roleGuard],
+        data: { roles: ['HR_ADMIN', 'SUPER_ADMIN'] },
       },
       {
         path: 'analytics',

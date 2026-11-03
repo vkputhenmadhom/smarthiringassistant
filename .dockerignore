@@ -1,0 +1,37 @@
+# Backend images build from the repository root but only need the Gradle wrapper, the root build
+# files, shared/ and their own service directory. Keep everything else out of the build context.
+
+# Secrets: never send local environment files to the Docker daemon
+.env
+.env.*
+!.env.example
+
+# VCS, IDE and local tooling
+.git
+.github
+.idea
+.vscode
+.gradle
+**/.gradle
+.aws-sam
+*.iml
+
+# Build output and dependencies (rebuilt inside the image)
+build
+**/build
+**/node_modules
+**/dist
+**/.angular
+
+# Not part of any backend image (frontends build from their own directory and .dockerignore)
+frontend
+docs
+helm
+infrastructure
+contracts
+scripts
+serverless
+streaming
+batch
+pipelines
+*.md

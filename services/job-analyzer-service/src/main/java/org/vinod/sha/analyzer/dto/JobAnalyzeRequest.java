@@ -1,20 +1,27 @@
 package org.vinod.sha.analyzer.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class JobAnalyzeRequest {
-    private String jobId;
-    private String jobTitle;
-    private String companyName;
-    private String location;
-    private String employmentType;
-    private String jobDescription;
+/**
+ * Java 21 Record: Request to analyze a job posting.
+ * Immutable data transfer object with automatic equals, hashCode, and toString.
+ * 
+ * Uses compact constructor for validation to ensure data integrity.
+ */
+public record JobAnalyzeRequest(
+        String jobId,
+        String jobTitle,
+        String companyName,
+        String location,
+        String employmentType,
+        String jobDescription
+) {
+    // Compact constructor for validation
+    public JobAnalyzeRequest {
+        if (jobTitle != null && jobTitle.isBlank()) {
+            throw new IllegalArgumentException("Job title cannot be blank");
+        }
+        if (jobDescription != null && jobDescription.isBlank()) {
+            throw new IllegalArgumentException("Job description cannot be blank");
+        }
+    }
 }
 

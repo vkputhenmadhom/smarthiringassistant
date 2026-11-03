@@ -37,6 +37,27 @@ export interface Job {
   source?: string;
   companyName?: string;
   externalUrl?: string;
+  postedAt?: string;
+  /** Level the title names (Entry, Mid, Senior, Lead); null when none */
+  seniority?: string | null;
+  /** Years the job is meant for: stated, else the level's range; max null = no upper bound */
+  minExperienceYears?: number | null;
+  maxExperienceYears?: number | null;
+}
+
+/** A match between the signed-in candidate's resume and a job; score is 0–1 */
+export interface JobMatch {
+  id: string;
+  score: number;
+  skillMatches: string[];
+  skillGaps: string[];
+  job?: Job | null;
+}
+
+export interface JobFeed {
+  key: string;
+  label: string;
+  emptyMessage: string;
 }
 
 export interface StagePassRate {

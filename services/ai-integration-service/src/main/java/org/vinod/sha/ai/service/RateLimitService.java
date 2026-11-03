@@ -1,0 +1,58 @@
+package org.vinod.sha.ai.service;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Sliding one-minute window per user and operation, kept in memory (per instance).
+ */
+@Slf4j
+@Service
+public class RateLimitService {
+
+    @Value("${ai.rate-limit.requests-per-minute:60}")
+    private int requestsPerMinute;
+
+    private final ConcurrentHashMap<String, Deque<Long>> requestWindows = new ConcurrentHashMap<>();
+
+    public boolean isAllowed(String userId, String operation) {
+        String key = "rate_limit:" + userId + ":" + operation;
+        long now = Instant.now().getEpochSecond();
+        long windowStart = now - 60;
+
+        Deque<Long> timestamps = requestWindows.computeIfAbsent(key, k -> new ArrayDeque<>());
+        synchronized (timestamps) {
+            while (!timestamps.isEmpty() && timestamps.peekFirst() < windowStart) {
+                timestamps.pollFirst();
+            }
+            boolean allowed = timestamps.size() < requestsPerMinute;
+            if (allowed) {
+                timestamps.addLast(now);
+            }
+            if (!allowed) {
+                log.warn("Rate limit exceeded for user: {}, operation: {}", userId, operation);
+            }
+            return allowed;
+        }
+    }
+
+    public long getRemainingTokens(String userId, String operation) {
+        String key = "rate_limit:" + userId + ":" + operation;
+        long now = Instant.now().getEpochSecond();
+        long windowStart = now - 60;
+        Deque<Long> timestamps = requestWindows.computeIfAbsent(key, k -> new ArrayDeque<>());
+        synchronized (timestamps) {
+            while (!timestamps.isEmpty() && timestamps.peekFirst() < windowStart) {
+                timestamps.pollFirst();
+            }
+            return Math.max(0, requestsPerMinute - timestamps.size());
+        }
+    }
+}
+

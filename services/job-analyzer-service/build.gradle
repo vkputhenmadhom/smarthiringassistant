@@ -18,7 +18,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
     
     // AI Integration
-    implementation 'com.theokanning.openai-gpt3-java:service:0.15.0'
     
     // NLP & Text Processing
     implementation 'edu.stanford.nlp:stanford-corenlp:4.5.4'

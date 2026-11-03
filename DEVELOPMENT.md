@@ -1,368 +1,115 @@
-# Smart Hiring Assistant - Developer Quick Start Guide
+# Development Guide
 
-## Prerequisites Installation
+Working on the code: building, testing, running services outside Docker, and the frontends.
+To run the whole stack in Docker, see [STARTUP_GUIDE.md](STARTUP_GUIDE.md).
 
-### 1. Install Required Tools
+## Tools
 
-```bash
-# macOS (using Homebrew)
-brew install java@21
-brew install gradle
-brew install docker
+| Tool | Version | Used for |
+|---|---|---|
+| JDK | 21 | Backend services (Gradle toolchain) |
+| Gradle | wrapper (`./gradlew`, 9.4) | Builds; no separate install needed |
+| Docker Desktop | recent | Infrastructure and the full stack |
+| Node.js | 20 | Frontends and `scripts/` |
 
-# Verify installations
-java -version
-gradle --version
-docker --version
+## Repository layout
+
+```
+services/<name>/        one Spring Boot 4 service each: src/, build.gradle, Dockerfile
+shared/shared-commons   RabbitMQ topology + JSON messaging (auto-configured in every service)
+shared/shared-events    event classes shared by producers and consumers
+contracts/graphql/      canonical GraphQL schema (must match the gateway's schema)
+infrastructure/db/      init.sql (fresh volumes) and migrate-all-to-hiring.sql (idempotent, run by db-migrate)
+frontend/               hr-admin-dashboard (Angular 17), candidate-portal (React 18 + Vite)
 ```
 
-### 2. Set up Docker Desktop
-- Download and install [Docker Desktop](https://www.docker.com/products/docker-desktop)
-- Start Docker Desktop
-- Verify: `docker --version`
-
-### 3. OpenAI API Key
-1. Sign up at [OpenAI](https://platform.openai.com)
-2. Generate API key from account settings
-3. Store in environment variable:
-   ```bash
-   export OPENAI_API_KEY=sk-your-key-here
-   ```
-
-## Development Setup
-
-### Initial Setup (First Time Only)
+## Build and test
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd SmartHiringAssistant
-
-# Start all infrastructure services
-docker-compose up -d
-
-# Verify all containers are running
-docker-compose ps
-
-# Build all modules
-./gradlew clean build -x test
+./gradlew build                                   # everything, with tests
+./gradlew build -x test                           # faster
+./gradlew :services:auth-service:test             # one module
+./gradlew :services:api-gateway:test --tests '*GraphQLAuthorizationInterceptorTest'
+./gradlew test jacocoTestReport                   # coverage: services/<name>/build/reports/jacoco
 ```
 
-### Starting Development Environment
+Tests run without Docker unless stated otherwise (Mockito, Spring test slices, MockMvc). The notification
+service's `smokeTest` task uses Testcontainers.
 
-**Option 1: Run all services locally (recommended for development)**
+When you change the gateway GraphQL schema, update `contracts/graphql/gateway/schema.graphqls` too:
+`GraphqlSchemaContractTest` fails if they differ, and CI rejects breaking changes.
+
+## Running a service on the host
+
+Start the infrastructure and the other services in Docker, stop the one you're working on, then run it
+with Gradle:
 
 ```bash
-# Terminal 1: API Gateway
-./gradlew :services:api-gateway:bootRun
-
-# Terminal 2: Auth Service
-./gradlew :services:auth-service:bootRun
-
-# Terminal 3: Resume Parser Service
-./gradlew :services:resume-parser-service:bootRun
-
-# Terminal 4: Candidate Matcher Service
-./gradlew :services:candidate-matcher-service:bootRun
-
-# Terminal 5: Interview Prep Service
-./gradlew :services:interview-prep-service:bootRun
-
-# Terminal 6: Job Analyzer Service
+docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.apps.yml stop job-analyzer-service
+set -a; source .env; set +a                       # JWT_SECRET, POSTGRES_*, RABBITMQ_*, REDIS_PASSWORD, ...
 ./gradlew :services:job-analyzer-service:bootRun
-
-# Terminal 7: Screening Bot Service
-./gradlew :services:screening-bot-service:bootRun
-
-# Terminal 8: AI Integration Service
-./gradlew :services:ai-integration-service:bootRun
-
-# Terminal 9: Notification Service
-./gradlew :services:notification-service:bootRun
 ```
 
-**Option 2: Run all services using Docker Compose (easier for testing)**
+The service connects to `localhost`. Services read these variables:
+
+| Settings | Variables |
+|---|---|
+| PostgreSQL (auth, resume-parser, candidate-matcher, notification) | `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` |
+| MongoDB (interview-prep, job-analyzer, screening-bot) | `MONGODB_USER`, `MONGODB_PASSWORD` (set them to your `MONGO_USERNAME` / `MONGO_PASSWORD`), or `MONGODB_URI` |
+| MongoDB (ai-integration) | `SPRING_MONGODB_URI` |
+| RabbitMQ | `RABBITMQ_HOST`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` |
+| Redis | `REDIS_HOST`, `REDIS_PASSWORD` |
+| JWT | `JWT_SECRET` (gateway, auth, resume-parser, screening-bot) |
+
+Note: other containers still reach the containerised copy of a service by its Docker name; a host-run
+service is reachable from your machine but not from inside the Docker network.
+
+## Frontends
 
 ```bash
-# Update Dockerfile paths in docker-compose.yml and run
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-### Checking Service Health
-
-```bash
-# Check all services are running
-curl http://localhost:8000/actuator/health
-
-# Check individual services
-curl http://localhost:8001/actuator/health  # Auth
-curl http://localhost:8002/actuator/health  # Resume Parser
-# ... etc
-```
-
-## Common Development Tasks
-
-### Building
-
-```bash
-# Build all modules
-./gradlew clean build
-
-# Build specific module
-./gradlew :services:resume-parser-service:build
-
-# Build without running tests (faster)
-./gradlew build -x test
-```
-
-### Testing
-
-```bash
-# Run all tests
-./gradlew test
-
-# Run specific service tests
-./gradlew :services:resume-parser-service:test
-
-# Run specific test class
-./gradlew :services:resume-parser-service:test --tests ResumeParsing*
-
-# Run with coverage report
-./gradlew test jacocoTestReport
-```
-
-### Database Management
-
-```bash
-# Access PostgreSQL
-docker exec -it smart-hiring-postgres psql -U hiring_user -d smart_hiring_db
-
-# Access MongoDB
-docker exec -it smart-hiring-mongodb mongosh --username hiring_user --password hiring_password --authenticationDatabase admin
-
-# View logs
-docker logs smart-hiring-postgres
-docker logs smart-hiring-mongodb
-```
-
-### Messaging/Queue Management
-
-```bash
-# RabbitMQ Management Console
-# Navigate to: http://localhost:15672
-# Username: hiring_user
-# Password: hiring_password
-
-# View RabbitMQ logs
-docker logs smart-hiring-rabbitmq
-```
-
-### Debugging
-
-```bash
-# Enable debug logging for a service
-export DEBUG=true
-./gradlew :services:resume-parser-service:bootRun
-
-# View service logs
-docker logs -f smart-hiring-<service-name>
-
-# Access service logs via Kibana
-# Navigate to: http://localhost:5601
-```
-
-### Code Quality & Linting
-
-```bash
-# Format code using Gradle Spotless (once configured)
-./gradlew spotlessApply
-
-# Run static analysis (once configured)
-./gradlew sonarqube
-```
-
-## Frontend Development
-
-### Angular Admin Dashboard
-
-```bash
-cd frontend/admin-dashboard
-
-# Install dependencies
-npm install
-
-# Start development server
-npm start
-
-# Build for production
-npm run build
-
-# Run tests
+cd frontend/hr-admin-dashboard
+npm ci
+npm start              # http://localhost:4200, proxies /graphql, /graphql-ws and /api to localhost:8000
 npm test
-```
 
-### React Candidate Portal
-
-```bash
 cd frontend/candidate-portal
-
-# Install dependencies
-npm install
-
-# Start development server
-npm start
-
-# Build for production
-npm run build
-
-# Run tests
+npm ci
+npm run dev            # http://localhost:5173, same proxying (vite.config.ts)
 npm test
 ```
 
-## Useful URLs During Development
+Both need the gateway running on port 8000 (the Docker stack is enough).
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| API Gateway | http://localhost:8000 | Main API entry point |
-| Swagger UI | http://localhost:8000/swagger-ui.html | API documentation |
-| GraphQL Playground | http://localhost:8000/graphql | GraphQL testing |
-| PostgreSQL | localhost:5432 | Database |
-| MongoDB | localhost:27017 | Document database |
-| RabbitMQ | http://localhost:15672 | Message broker |
-| Redis | localhost:6379 | Cache |
-| Kibana | http://localhost:5601 | Log visualization |
-| Grafana | http://localhost:3000 | Metrics dashboard |
-| Prometheus | http://localhost:9090 | Metrics storage |
-| Jaeger | http://localhost:16686 | Distributed tracing |
+## Messaging
 
-## Troubleshooting
+- Producers write events to an outbox table; a relay publishes them as JSON (`JsonMessages.of`).
+  screening-bot and job-analyzer publish objects with `convertAndSend`, which uses the shared JSON converter.
+- Consumers declare their own queue with `SharedRabbitAutoConfiguration.consumerQueue(...)` and read
+  typed events with `@RabbitListener`. Never share a queue between two services, or RabbitMQ will split
+  the events between them.
+- Rejected messages go to `events.dlq`. Inspect it in the RabbitMQ UI (http://localhost:15672).
+- `EventMessagingContractTest` (candidate-matcher) checks the wire format for the pipeline events.
 
-### Port Already in Use
+## AI integration
 
-```bash
-# Find process using port 8000
-lsof -i :8000
+Other services call `ai-integration-service` (`POST /api/ai/completion`, `/analyze-resume`) over the
+internal network; it uses Spring AI with the provider from `AI_PROVIDER`. Limits are configured in
+`services/ai-integration-service/src/main/resources/application.yaml` (`ai.*`). When the service or the
+provider is unavailable, callers fall back to heuristics, so features keep working without a key.
 
-# Kill process (macOS)
-kill -9 <PID>
-
-# Or use different port by setting environment variable
-export SERVER_PORT=8001
-./gradlew :services:api-gateway:bootRun
-```
-
-### Docker Issues
+## Debugging
 
 ```bash
-# Stop all containers
-docker-compose down
-
-# Remove all containers and volumes
-docker-compose down -v
-
-# View container logs
-docker-compose logs -f <service-name>
-
-# Restart specific service
-docker-compose restart smart-hiring-postgres
+docker compose -f docker-compose.yml -f docker-compose.apps.yml logs --tail=200 <service>
+docker exec -it smart-hiring-postgres psql -U "$POSTGRES_USER" -d smart_hiring_db
+docker exec -it smart-hiring-mongodb mongosh -u "$MONGO_USERNAME" -p "$MONGO_PASSWORD" --authenticationDatabase admin smart_hiring_db
 ```
 
-### Gradle Issues
+Raise a service's log level with `LOGGING_LEVEL_ORG_VINOD=DEBUG` in its Compose `environment`.
 
-```bash
-# Clean Gradle cache
-rm -rf ~/.gradle/caches
+## Git workflow
 
-# Rebuild dependencies
-./gradlew clean --refresh-dependencies build
-```
-
-### Memory Issues
-
-```bash
-# Increase Java heap size
-export GRADLE_OPTS="-Xmx4g -Xms2g"
-
-# Or update gradle.properties
-echo "org.gradle.jvmargs=-Xmx4g" >> gradle.properties
-```
-
-## Project Structure for New Developers
-
-When adding new features:
-
-1. **DTOs** - Add to `shared:shared-commons/src/main/java/org/vinod/smarthiringassistant/commons/dto/`
-2. **Events** - Add to `shared:shared-events/src/main/java/org/vinod/smarthiringassistant/events/`
-3. **Service Logic** - Add to respective service under `services:/`
-4. **Tests** - Mirror structure under `src/test/`
-5. **Config** - Update `application.yaml` in service's resources
-
-## Best Practices
-
-✅ **DO:**
-- Use feature branches for development
-- Write unit tests for all business logic
-- Document complex algorithms with comments
-- Use dependency injection (Spring @Autowired)
-- Follow REST conventions for APIs
-- Use proper exception handling
-- Keep DTOs separate from entities
-
-❌ **DON'T:**
-- Commit directly to main branch
-- Skip writing tests
-- Use System.out.println (use Logging)
-- Hard-code configuration values
-- Mix business logic with REST controllers
-- Ignore deprecation warnings
-
-## Git Workflow
-
-```bash
-# Create feature branch
-git checkout -b feature/new-feature-name
-
-# Make changes and commit
-git add .
-git commit -m "feat: add new feature"
-
-# Push to remote
-git push origin feature/new-feature-name
-
-# Create Pull Request on GitHub
-
-# Once merged, delete branch
-git branch -d feature/new-feature-name
-```
-
-## Performance Tips
-
-1. **Use gRPC for internal service communication** - Faster than REST
-2. **Cache frequently accessed data** - Use Redis
-3. **Use async processing** - Leverage RabbitMQ for non-blocking operations
-4. **Paginate large queries** - Avoid loading entire datasets
-5. **Use database indexes** - On frequently queried fields
-6. **Monitor with Prometheus** - Track metrics over time
-
-## Getting Help
-
-1. Check the main README.md
-2. Review service-specific documentation
-3. Check logs in Kibana
-4. Use Jaeger for distributed tracing
-5. Ask in team Slack/Discord channel
-6. Create GitHub issue for bugs
-
-## Next Steps
-
-1. ✅ Complete this setup
-2. ✅ Run services successfully
-3. 📖 Read through architecture documentation
-4. 🧪 Run existing tests
-5. 👨‍💻 Start implementing your first feature
-6. 📝 Document your changes
-
----
-
-Happy coding! 🚀
-
+1. Branch from `dev-working`: `git switch dev-working && git pull && git switch -c feat/<topic>`.
+2. Commit, push, and open a pull request into `dev-working`. CI must pass.
+3. After merging, delete the branch. `dev-working` is merged into `main` once tested.

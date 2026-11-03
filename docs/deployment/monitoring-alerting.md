@@ -23,21 +23,21 @@ Production-threshold mode (default monitoring config):
 
 ```bash
 cd /Users/vinodputhenmadhom/Downloads/JavaProjects/SmartHiringAssistant
-docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.apps.yml --profile observability up -d --build
 ```
 
 Staging-threshold mode (staging monitoring override):
 
 ```bash
 cd /Users/vinodputhenmadhom/Downloads/JavaProjects/SmartHiringAssistant
-docker compose -f docker-compose.yml -f docker-compose.apps.yml -f docker-compose.monitoring-staging.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.apps.yml -f docker-compose.monitoring-staging.yml --profile observability up -d --build
 ```
 
 ## Access UIs
 
 - Prometheus: `http://localhost:9090`
 - Alertmanager: `http://localhost:9093`
-- Grafana: `http://localhost:3000` (default: `admin` / `hiring_password`)
+- Grafana: `http://localhost:3000` (user `admin`, password `GRAFANA_ADMIN_PASSWORD` from `.env`)
 
 ## Verify metrics and alerts
 

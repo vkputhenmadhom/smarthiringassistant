@@ -32,9 +32,9 @@ CREATE TABLE IF NOT EXISTS hiring.auth_event_outbox (
     sent_at TIMESTAMP
 );
 
-GRANT USAGE ON SCHEMA hiring TO hiring_user;
-GRANT ALL PRIVILEGES ON TABLE hiring.auth_users TO hiring_user;
-GRANT ALL PRIVILEGES ON TABLE hiring.auth_event_outbox TO hiring_user;
-GRANT ALL PRIVILEGES ON SEQUENCE hiring.auth_users_id_seq TO hiring_user;
-GRANT ALL PRIVILEGES ON SEQUENCE hiring.auth_event_outbox_id_seq TO hiring_user;
+GRANT USAGE ON SCHEMA hiring TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON TABLE hiring.auth_users TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON TABLE hiring.auth_event_outbox TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON SEQUENCE hiring.auth_users_id_seq TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON SEQUENCE hiring.auth_event_outbox_id_seq TO CURRENT_USER;
 

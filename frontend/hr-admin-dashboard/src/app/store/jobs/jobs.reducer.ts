@@ -6,6 +6,8 @@ import * as JobsActions from './jobs.actions';
 export interface JobsState extends EntityState<Job> {
   loading: boolean;
   error: string | null;
+  /** Last failed create/update/delete/publish. Kept apart from `error` so reloading the list doesn't hide it. */
+  writeError: string | null;
   selectedId: string | null;
   totalElements: number;
   totalPages: number;
@@ -15,7 +17,7 @@ export interface JobsState extends EntityState<Job> {
 const adapter: EntityAdapter<Job> = createEntityAdapter<Job>();
 
 const initialState: JobsState = adapter.getInitialState({
-  loading: false, error: null, selectedId: null,
+  loading: false, error: null, writeError: null, selectedId: null,
   totalElements: 0, totalPages: 0, currentPage: 0,
 });
 
@@ -31,6 +33,10 @@ export const jobsReducer = createReducer(
   on(JobsActions.updateJobSuccess, (s, { job }) => adapter.upsertOne(job, s)),
   on(JobsActions.publishJobSuccess,(s, { job }) => adapter.upsertOne(job, s)),
   on(JobsActions.deleteJobSuccess, (s, { id  }) => adapter.removeOne(id, s)),
+  on(JobsActions.createJob, JobsActions.updateJob, JobsActions.deleteJob, JobsActions.publishJob,
+     s => ({ ...s, writeError: null })),
+  on(JobsActions.createJobFailure, JobsActions.jobWriteFailure, (s, { error }) => ({ ...s, writeError: error })),
+  on(JobsActions.dismissJobsError, s => ({ ...s, error: null, writeError: null })),
   on(JobsActions.selectJob,        (s, { id  }) => ({ ...s, selectedId: id })),
 );
 

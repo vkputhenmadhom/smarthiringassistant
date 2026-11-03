@@ -1,13 +1,5 @@
-db.createUser({
-    user: "hiring_user",
-    pwd: "hiring_password",
-    roles: [
-        {
-            role: "readWrite",
-            db: "smart_hiring_db"
-        }
-    ]
-});
+// Services authenticate as the root user from MONGO_USERNAME / MONGO_PASSWORD (authSource=admin),
+// so no extra application user is created here.
 
 // Create collections
 db.createCollection("resumes");

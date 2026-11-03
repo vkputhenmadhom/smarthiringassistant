@@ -7,6 +7,8 @@ export const selectAllJobs        = createSelector(s, selectAll);
 export const selectJobEntities    = createSelector(s, selectEntities);
 export const selectJobsLoading    = createSelector(s, j => j.loading);
 export const selectJobsError      = createSelector(s, j => j.error);
+/** What the jobs list shows: a failed write first, since the user just tried to make that change. */
+export const selectJobsBanner     = createSelector(s, j => j.writeError ?? j.error);
 export const selectSelectedJobId  = createSelector(s, j => j.selectedId);
 export const selectJobsTotalPages = createSelector(s, j => j.totalPages);
 export const selectJobsTotalCount = createSelector(s, j => j.totalElements);

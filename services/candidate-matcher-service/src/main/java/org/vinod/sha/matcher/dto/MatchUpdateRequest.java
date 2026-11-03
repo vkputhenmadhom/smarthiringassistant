@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class MatchUpdateRequest {
-    private String status; // NEW, REVIEWED, ACCEPTED, REJECTED
+    private String status; // a MatchStatus: PENDING, MATCHED, SHORTLISTED, REJECTED, HIRED
     private String comments;
 }
 

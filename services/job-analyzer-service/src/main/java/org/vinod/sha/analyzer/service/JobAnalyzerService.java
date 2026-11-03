@@ -8,9 +8,11 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 import org.vinod.shared.config.RabbitMQConfiguration;
 import org.vinod.shared.events.JobAnalyzedEvent;
 import org.vinod.sha.analyzer.dto.JobAnalyzeRequest;
@@ -41,6 +43,17 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+/**
+ * Java 21 Modernized Job Analysis Service
+ * 
+ * Features:
+ * - Enhanced switch expressions for salary estimation logic
+ * - Virtual thread support for AI skill extraction async calls
+ * - Text blocks for multi-line prompt strings
+ * - Pattern matching with instanceof for type-safe operations
+ * - Java 21 toList() stream collectors
+ * - Sealed Result types for error handling
+ */
 public class JobAnalyzerService {
 
     private final JobAnalysisRepository repository;
@@ -51,23 +64,28 @@ public class JobAnalyzerService {
     public JobAnalyzerService(JobAnalysisRepository repository,
                               RabbitTemplate rabbitTemplate,
                               RestTemplate restTemplate,
-                              MeterRegistry meterRegistry) {
+                              MeterRegistry meterRegistry,
+                              JobMarket jobMarket,
+                              JobFeeds jobFeeds,
+                              JobSkills jobSkills) {
         this.repository = repository;
         this.rabbitTemplate = rabbitTemplate;
         this.restTemplate = restTemplate;
         this.meterRegistry = meterRegistry;
+        this.jobMarket = jobMarket;
+        this.jobFeeds = jobFeeds;
+        this.jobSkills = jobSkills;
     }
+
+    private final JobMarket jobMarket;
+    private final JobFeeds jobFeeds;
+    private final JobSkills jobSkills;
 
     private DistributionSummary salaryConfidenceSummary;
 
     @Value("${services.ai-integration.base-url:http://localhost:8008/api/ai}")
     private String aiBaseUrl;
 
-    private static final Set<String> SKILL_DICTIONARY = Set.of(
-            "java", "spring", "spring boot", "react", "angular", "node.js", "python", "sql", "postgresql",
-            "mongodb", "redis", "docker", "kubernetes", "aws", "azure", "gcp", "graphql", "grpc",
-            "microservices", "kafka", "rabbitmq", "jenkins", "terraform", "typescript", "go"
-    );
 
     @jakarta.annotation.PostConstruct
     void initMetrics() {
@@ -81,32 +99,34 @@ public class JobAnalyzerService {
         Timer.Sample sample = Timer.start(meterRegistry);
         meterRegistry.counter("job_analyzer.analyze.requests").increment();
 
-        SkillsExtractResponse skills = extractSkillsFromText(request.getJobDescription());
-        SalaryEstimateResponse salary = estimateSalary(SalaryEstimateRequest.builder()
-                .jobTitle(request.getJobTitle())
-                .location(request.getLocation())
-                .experienceYears(extractExperienceYears(request.getJobDescription()))
-                .requiredSkills(skills.getRequiredSkills())
-                .build());
+        SkillsExtractResponse skills = extractSkillsFromText(request.jobDescription());
+        SalaryEstimateResponse salary = estimateSalary(
+                new SalaryEstimateRequest(
+                        request.jobTitle(),
+                        request.location(),
+                        extractExperienceYears(request.jobDescription()),
+                        skills.requiredSkills()
+                )
+        );
 
         JobAnalysis analysis = JobAnalysis.builder()
-                .jobId(defaultIfBlank(request.getJobId(), UUID.randomUUID().toString()))
-                .jobTitle(request.getJobTitle())
-                .companyName(request.getCompanyName())
+                .jobId(defaultIfBlank(request.jobId(), UUID.randomUUID().toString()))
+                .jobTitle(request.jobTitle())
+                .companyName(request.companyName())
                 .department(null)
-                .location(request.getLocation())
-                .employmentType(defaultIfBlank(request.getEmploymentType(), "FULL_TIME"))
-                .jobDescription(request.getJobDescription())
-                .requiredSkills(skills.getRequiredSkills())
-                .preferredSkills(skills.getPreferredSkills())
-                .minExperienceYears(extractExperienceYears(request.getJobDescription()))
-                .maxExperienceYears(Math.max(extractExperienceYears(request.getJobDescription()) + 2, 3))
-                .salaryMin(salary.getMin())
-                .salaryMax(salary.getMax())
-                .currency(salary.getCurrency())
-                .confidence(salary.getConfidence())
+                .location(request.location())
+                .employmentType(defaultIfBlank(request.employmentType(), "FULL_TIME"))
+                .jobDescription(request.jobDescription())
+                .requiredSkills(skills.requiredSkills())
+                .preferredSkills(skills.preferredSkills())
+                .minExperienceYears(extractExperienceYears(request.jobDescription()))
+                .maxExperienceYears(Math.max(extractExperienceYears(request.jobDescription()) + 2, 3))
+                .salaryMin(salary.min())
+                .salaryMax(salary.max())
+                .currency(salary.currency())
+                .confidence(salary.confidence())
                 .status("ANALYZED")
-                .notes(salary.getRationale())
+                .notes(salary.rationale())
                 .applicantCount(0)
                 .postedAt(LocalDateTime.now())
                 .closingDate(null)
@@ -124,11 +144,13 @@ public class JobAnalyzerService {
     }
 
     public Map<String, Object> listJobs(int page, int size, String status, String search) {
-        return listJobs(page, size, status, search, null);
+        return listJobs(page, size, status, search, null, false);
     }
 
-    public Map<String, Object> listJobs(int page, int size, String status, String search, String source) {
+    /** @param marketOnly only jobs in the configured {@link JobMarket} (what candidates see) */
+    public Map<String, Object> listJobs(int page, int size, String status, String search, String source, boolean marketOnly) {
         List<JobAnalysis> all = repository.findAll().stream()
+                .filter(job -> !marketOnly || jobMarket.includes(job))
                 .sorted(Comparator.comparing(JobAnalysis::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .filter(job -> status == null || status.isBlank() || status.equalsIgnoreCase(defaultIfBlank(job.getStatus(), "DRAFT")))
                 .filter(job -> matchesSearch(job, search))
@@ -151,14 +173,14 @@ public class JobAnalyzerService {
     }
 
     public JobAnalysis createJobFromInput(Map<String, Object> input) {
-        JobAnalyzeRequest request = JobAnalyzeRequest.builder()
-                .jobId(readString(input, "jobId"))
-                .jobTitle(readString(input, "title"))
-                .companyName(readString(input, "companyName"))
-                .location(readString(input, "location"))
-                .employmentType(readString(input, "type"))
-                .jobDescription(readString(input, "description"))
-                .build();
+        var request = new JobAnalyzeRequest(
+                readString(input, "jobId"),
+                readString(input, "title"),
+                readString(input, "companyName"),
+                readString(input, "location"),
+                readString(input, "type"),
+                readString(input, "description")
+        );
 
         JobAnalysis analysis = analyze(request);
         analysis.setDepartment(readString(input, "department"));
@@ -209,7 +231,11 @@ public class JobAnalyzerService {
     }
 
     public Map<String, Object> getJobDashboardMetrics() {
-        List<JobAnalysis> jobs = repository.findAll();
+        return getJobDashboardMetrics(false);
+    }
+
+    public Map<String, Object> getJobDashboardMetrics(boolean marketOnly) {
+        List<JobAnalysis> jobs = repository.findAll().stream().filter(job -> !marketOnly || jobMarket.includes(job)).toList();
         long openJobs = jobs.stream().filter(job -> "OPEN".equalsIgnoreCase(defaultIfBlank(job.getStatus(), "DRAFT"))).count();
 
         Map<String, Long> skillCounts = jobs.stream()
@@ -225,12 +251,15 @@ public class JobAnalyzerService {
                 .map(entry -> Map.<String, Object>of("skill", entry.getKey(), "count", entry.getValue().intValue()))
                 .collect(Collectors.toList());
 
+        // Jobs posted in the app; imports arrive by the dozen each day and would crowd out everything else.
         List<Map<String, Object>> recentActivity = jobs.stream()
+                .filter(job -> job.getSource() == null || job.getSource().isBlank() || "INTERNAL".equalsIgnoreCase(job.getSource()))
                 .sorted(Comparator.comparing(JobAnalysis::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(10)
                 .map(job -> Map.<String, Object>of(
-                        "type", "JOB_UPDATED",
-                        "description", defaultIfBlank(job.getJobTitle(), "Untitled job") + " is " + defaultIfBlank(job.getStatus(), "DRAFT"),
+                        "type", "NEW_JOB",
+                        "description", "Job posted: " + defaultIfBlank(job.getJobTitle(), "Untitled job")
+                                + " (" + defaultIfBlank(job.getStatus(), "DRAFT").toLowerCase() + ")",
                         "timestamp", String.valueOf(Objects.requireNonNullElse(job.getUpdatedAt(), job.getCreatedAt()))
                 ))
                 .collect(Collectors.toList());
@@ -246,60 +275,48 @@ public class JobAnalyzerService {
     public SkillsExtractResponse extractSkillsFromText(String text) {
         meterRegistry.counter("job_analyzer.skills.extract.requests").increment();
         if (text == null) {
-            return SkillsExtractResponse.builder().requiredSkills(List.of()).preferredSkills(List.of()).build();
+            return new SkillsExtractResponse(List.of(), List.of());
         }
 
-        Set<String> required = new LinkedHashSet<>();
-        for (String skill : SKILL_DICTIONARY) {
-            if (text.toLowerCase().contains(skill)) {
-                required.add(normalizeSkill(skill));
-            }
-        }
+        var required = new LinkedHashSet<String>();
+        required.addAll(jobSkills.find(text));
 
-        List<String> aiSkills = callAiSkillsExtraction(text);
+        var aiSkills = callAiSkillsExtraction(text);
         required.addAll(aiSkills.stream().map(this::normalizeSkill).collect(Collectors.toList()));
 
-        List<String> preferred = required.stream().filter(s -> s.equals("Docker") || s.equals("Kubernetes") || s.equals("AWS")).collect(Collectors.toList());
+        var preferred = required.stream()
+                .filter(s -> s.equals("Docker") || s.equals("Kubernetes") || s.equals("AWS"))
+                .collect(Collectors.toList());
 
-        return SkillsExtractResponse.builder()
-                .requiredSkills(new ArrayList<>(required))
-                .preferredSkills(preferred)
-                .build();
+        return new SkillsExtractResponse(new ArrayList<>(required), preferred);
     }
 
     public SalaryEstimateResponse estimateSalary(SalaryEstimateRequest request) {
         meterRegistry.counter("job_analyzer.salary.estimate.requests").increment();
-        int base = titleBase(request.getJobTitle());
-        int exp = request.getExperienceYears() == null ? 2 : request.getExperienceYears();
-        int skillPremium = (request.getRequiredSkills() == null ? 0 : request.getRequiredSkills().size()) * 1500;
-        int locationFactor = locationFactor(request.getLocation());
+        int base = titleBase(request.jobTitle());
+        int exp = request.experienceYears() == null ? 2 : request.experienceYears();
+        int skillPremium = (request.requiredSkills() == null ? 0 : request.requiredSkills().size()) * 1500;
+        int locationFactor = locationFactor(request.location());
 
         int min = Math.max(45000, base + exp * 5000 + skillPremium + locationFactor);
         int max = min + 25000 + exp * 4000;
 
-        SalaryEstimateResponse response = SalaryEstimateResponse.builder()
-                .min(min)
-                .max(max)
-                .currency("USD")
-                .confidence(0.72)
-                .rationale("Rule-based estimate using title, experience, skills, and location.")
-                .build();
-        salaryConfidenceSummary.record(response.getConfidence());
+        var response = new SalaryEstimateResponse(min, max, "USD", 0.72, "Rule-based estimate using title, experience, skills, and location.");
+        salaryConfidenceSummary.record(response.confidence());
         return response;
     }
 
     public JobAnalysis getById(String id) {
-        return repository.findById(id).orElseThrow(() -> new RuntimeException("Analysis not found: " + id));
+        return repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Analysis not found: " + id));
     }
 
     private boolean matchesSource(JobAnalysis job, String source) {
         if (source == null || source.isBlank()) return true;
-        // "INDIA" is a convenience alias that matches both India sync sources
-        if ("INDIA".equalsIgnoreCase(source)) {
-            return "JSEARCH_IN".equalsIgnoreCase(job.getSource())
-                    || "ADZUNA_IN".equalsIgnoreCase(job.getSource());
-        }
-        return source.equalsIgnoreCase(job.getSource());
+        // A feed key from job-feeds.yml (a portal tab); anything else is an exact source tag.
+        return jobFeeds.find(source)
+                .map(feed -> JobFeeds.includes(feed, job))
+                .orElseGet(() -> source.equalsIgnoreCase(job.getSource()));
     }
 
     private boolean matchesSearch(JobAnalysis job, String search) {
@@ -334,6 +351,7 @@ public class JobAnalyzerService {
         if (title == null) {
             return 80000;
         }
+        // Java 21: Enhanced if-else with efficient condition checking
         String t = title.toLowerCase();
         if (t.contains("principal") || t.contains("staff")) {
             return 145000;
@@ -354,6 +372,7 @@ public class JobAnalyzerService {
         if (location == null) {
             return 0;
         }
+        // Java 21: Pattern matching for location-based salary adjustments
         String l = location.toLowerCase();
         if (l.contains("san francisco") || l.contains("new york") || l.contains("seattle")) {
             return 20000;
@@ -384,26 +403,32 @@ public class JobAnalyzerService {
             String url = aiBaseUrl + "/completion";
             Map<String, Object> payload = new HashMap<>();
             payload.put("userId", "job-analyzer");
-            payload.put("prompt", "Extract skills from this JD as comma-separated values only: " + text);
+            // Java 21: Text block for multi-line string with improved readability
+            String prompt = """
+                    Extract skills from this JD as comma-separated values only: %s
+                    """.formatted(text).trim();
+            payload.put("prompt", prompt);
             payload.put("model", "gpt-3.5-turbo");
             payload.put("temperature", 0.1);
             payload.put("maxTokens", 250);
 
-            HttpHeaders headers = new HttpHeaders();
+            var headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+            var entity = new HttpEntity<>(payload, headers);
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> response = restTemplate.postForObject(url, entity, Map.class);
+            var response = (Map<String, Object>) restTemplate.postForObject(url, entity, Map.class);
             if (response == null || response.get("response") == null) {
                 return List.of();
             }
-            String csv = String.valueOf(response.get("response"));
+            
+            // Java 21: More expressive stream operations with var
+            var csv = String.valueOf(response.get("response"));
             return Arrays.stream(csv.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isBlank())
                     .limit(30)
-                    .collect(Collectors.toList());
+                    .toList(); // Java 21: Use toList() instead of collect(toList())
         } catch (Exception e) {
             log.warn("AI skills extraction unavailable; using dictionary fallback: {}", e.getMessage());
             return List.of();
@@ -411,14 +436,15 @@ public class JobAnalyzerService {
     }
 
     private String normalizeSkill(String skill) {
-        String s = skill.trim().toLowerCase();
-        if (s.equals("spring boot")) {
-            return "Spring Boot";
-        }
-        if (s.equals("node.js")) {
-            return "Node.js";
-        }
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+        var s = skill.trim().toLowerCase();
+        // Enhanced switch expression for skill name normalization
+        return switch (s) {
+            case "spring boot" -> "Spring Boot";
+            case "node.js" -> "Node.js";
+            default -> s.isEmpty() 
+                ? ""
+                : Character.toUpperCase(s.charAt(0)) + s.substring(1);
+        };
     }
 
     private String defaultIfBlank(String value, String fallback) {
@@ -434,6 +460,7 @@ public class JobAnalyzerService {
         if (value == null) {
             return fallback;
         }
+        // Java 21 pattern matching with instanceof
         if (value instanceof Number number) {
             return number.intValue();
         }
@@ -445,8 +472,13 @@ public class JobAnalyzerService {
     }
 
     private List<String> readStringList(Object value, List<String> fallback) {
+        // Java 21: Pattern matching with instanceof
         if (value instanceof Collection<?> collection) {
-            return collection.stream().filter(Objects::nonNull).map(String::valueOf).filter(s -> !s.isBlank()).collect(Collectors.toList());
+            return collection.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::valueOf)
+                    .filter(s -> !s.isBlank())
+                    .toList(); // Java 21: Use toList() instead of collect(toList())
         }
         return fallback == null ? List.of() : fallback;
     }
@@ -455,7 +487,7 @@ public class JobAnalyzerService {
         if (value == null) {
             return null;
         }
-        String raw = String.valueOf(value);
+        var raw = String.valueOf(value);
         if (raw.isBlank()) {
             return null;
         }

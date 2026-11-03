@@ -35,6 +35,11 @@ spec:
                 secretKeyRef:
                   name: smart-hiring-secrets
                   key: postgres-password
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: jwt-secret
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness

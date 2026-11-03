@@ -9,6 +9,7 @@ export const selectRefreshToken = createSelector(selectAuthState, s => s.refresh
 export const selectExpiresAt    = createSelector(selectAuthState, s => s.expiresAt);
 export const selectAuthLoading  = createSelector(selectAuthState, s => s.loading);
 export const selectAuthError    = createSelector(selectAuthState, s => s.error);
+export const selectAuthNotice   = createSelector(selectAuthState, s => s.notice);
 export const selectIsLoggedIn   = createSelector(selectAuthState, s => !!s.token);
 export const selectIsTokenExpired = createSelector(selectExpiresAt, expiresAt =>
   !!expiresAt && Date.now() >= expiresAt);

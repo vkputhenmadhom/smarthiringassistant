@@ -22,6 +22,10 @@ export const deleteJobSuccess = createAction('[Jobs] Delete Success', props<{ id
 export const publishJob        = createAction('[Jobs] Publish',         props<{ id: string }>());
 export const publishJobSuccess = createAction('[Jobs] Publish Success', props<{ job: Job }>());
 
+/** An update, delete or publish the server rejected or could not complete; the message comes from the gateway. */
+export const jobWriteFailure  = createAction('[Jobs] Write Failure', props<{ error: string }>());
+export const dismissJobsError = createAction('[Jobs] Dismiss Error');
+
 export const selectJob   = createAction('[Jobs] Select', props<{ id: string | null }>());
 export const clearFilter = createAction('[Jobs] Clear Filter');
 

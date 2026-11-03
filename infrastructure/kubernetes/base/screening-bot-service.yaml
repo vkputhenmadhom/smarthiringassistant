@@ -27,6 +27,11 @@ spec:
                 secretKeyRef:
                   name: smart-hiring-secrets
                   key: mongodb-uri
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smart-hiring-secrets
+                  key: jwt-secret
             - name: SPRING_DATA_REDIS_HOST
               value: redis
             - name: SPRING_DATA_REDIS_PORT

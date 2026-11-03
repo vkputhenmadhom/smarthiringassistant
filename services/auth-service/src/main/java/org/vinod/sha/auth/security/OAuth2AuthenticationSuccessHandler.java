@@ -63,6 +63,16 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
          // Role is preserved as-is in the token; frontend handles role-to-feature mapping.
          String targetRedirectUri = resolveTargetRedirectUri(portalOrigin, role);
 
+        if (authResponse.getAccessToken() == null) {
+            // PENDING or REJECTED account: no tokens, tell the portal why.
+            String error = "REJECTED".equals(authResponse.getApprovalStatus()) ? "account_rejected" : "account_pending";
+            log.info("OAuth2 login for '{}' blocked: {}", authResponse.getUser().getUsername(), error);
+            response.sendRedirect(UriComponentsBuilder.fromUriString(targetRedirectUri)
+                    .queryParam("error", error)
+                    .build().encode().toUriString());
+            return;
+        }
+
          UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(targetRedirectUri)
                  .queryParam("accessToken", authResponse.getAccessToken())
                  .queryParam("refreshToken", authResponse.getRefreshToken())
